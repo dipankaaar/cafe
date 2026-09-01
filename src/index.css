@@ -1,0 +1,138 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-heading: 'Arapey', serif;
+    --font-body: 'Plus Jakarta Sans', sans-serif;
+    --color-primary: #DD5903;
+    --color-dark: #111111;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    font-family: var(--font-body);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    color: var(--color-dark);
+  }
+}
+
+/* Custom diamond divider */
+.diamond-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 18px auto;
+}
+
+.diamond-divider::before,
+.diamond-divider::after {
+  content: '';
+  display: block;
+  width: 45px;
+  height: 1px;
+  background-color: #e5e5e5;
+}
+
+.diamond-shape {
+  width: 9px;
+  height: 9px;
+  background-color: #DD5903;
+  transform: rotate(45deg);
+}
+
+/* Custom button styles matching Dinenos */
+.dinenos-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #DD5903;
+  color: #ffffff;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 14px 34px;
+  border-radius: 4px;
+  transition: all 0.35s ease;
+  position: relative;
+  overflow: hidden;
+  text-transform: capitalize;
+  letter-spacing: 0.5px;
+}
+
+.dinenos-btn:hover {
+  background-color: #111111;
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+}
+
+.dinenos-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  color: #ffffff;
+  border: 1px solid rgba(255,255,255,0.4);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 13px 32px;
+  border-radius: 4px;
+  transition: all 0.35s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.dinenos-btn-outline:hover {
+  background-color: #DD5903;
+  border-color: #DD5903;
+  color: #ffffff;
+  transform: translateY(-2px);
+}
+
+/* Floating animation */
+@keyframes float {
+  0% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(4deg); }
+  100% { transform: translateY(0px) rotate(0deg); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-float-slow {
+  animation: float 9s ease-in-out infinite;
+}
+
+/* Pulsing soft glow */
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.75; }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 3s ease-in-out infinite;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #111111;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #DD5903;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #b54700;
+}
