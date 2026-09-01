@@ -5,10 +5,11 @@ import { ApiError } from '../utils/ApiError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
 export const getOrders = asyncHandler(async (req, res) => {
-  const { status, type, search, limit, offset } = req.query;
+  const { status, type, source, search, limit, offset } = req.query;
   const orders = OrderModel.findAll({
     status,
     type,
+    source,
     search,
     limit: limit ? Number(limit) : 100,
     offset: offset ? Number(offset) : 0
@@ -28,12 +29,19 @@ export const trackOrder = asyncHandler(async (req, res) => {
   const order = OrderModel.findByOrderNumber(orderNumber);
   if (!order) throw new ApiError(404, `Order "${orderNumber}" not found`);
   return ApiResponse.success(res, {
+    id: order.id,
     orderNumber: order.orderNumber,
     orderType: order.orderType,
+    orderSource: order.orderSource,
+    tableId: order.tableId,
+    tableNumber: order.tableNumber,
     status: order.status,
     orderTime: order.orderTime,
     customerName: order.customerName,
     items: order.items,
+    subtotal: order.subtotal,
+    discountAmount: order.discountAmount,
+    taxAmount: order.taxAmount,
     grandTotal: order.grandTotal,
     kitchenAcceptedAt: order.kitchenAcceptedAt,
     kitchenReadyAt: order.kitchenReadyAt,

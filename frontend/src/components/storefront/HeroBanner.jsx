@@ -1,7 +1,7 @@
 import React from 'react';
-import { Coffee, ArrowRight, Utensils } from 'lucide-react';
+import { Coffee, ArrowRight, Utensils, QrCode } from 'lucide-react';
 
-export default function HeroBanner({ onOpenReservation }) {
+export default function HeroBanner({ onOpenReservation, onOpenMenu, onOpenQrScanner }) {
   return (
     <section className="relative min-h-[92vh] lg:min-h-screen flex items-center justify-center bg-[#111111] overflow-hidden">
       
@@ -54,22 +54,31 @@ export default function HeroBanner({ onOpenReservation }) {
         </p>
 
         {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6">
-          <a
-            href="#about"
-            className="dinenos-btn !py-4 !px-8 text-sm uppercase tracking-wider font-bold w-full sm:w-auto shadow-2xl flex items-center justify-center gap-2 group"
-          >
-            <span>View More</span>
-            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-          </a>
-
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-5">
           <a
             href="#menu"
-            className="dinenos-btn-outline !py-4 !px-8 text-sm uppercase tracking-wider font-bold w-full sm:w-auto flex items-center justify-center gap-2 group hover:shadow-xl"
+            className="dinenos-btn !py-3.5 !px-7 text-xs uppercase tracking-wider font-bold w-full sm:w-auto shadow-2xl flex items-center justify-center gap-2 group"
           >
-            <Utensils className="w-4 h-4 text-[#DD5903] group-hover:text-white" />
-            <span>Food Menu</span>
+            <Utensils className="w-4 h-4" />
+            <span>Explore Menu</span>
           </a>
+
+          {onOpenQrScanner && (
+            <button
+              onClick={onOpenQrScanner}
+              className="dinenos-btn-outline !py-3.5 !px-7 text-xs uppercase tracking-wider font-bold w-full sm:w-auto flex items-center justify-center gap-2 group hover:shadow-xl cursor-pointer"
+            >
+              <QrCode className="w-4 h-4 text-[#DD5903] group-hover:text-white" />
+              <span>Scan Table QR</span>
+            </button>
+          )}
+
+          <button
+            onClick={onOpenReservation}
+            className="px-6 py-3.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs uppercase tracking-wider font-bold transition-all w-full sm:w-auto cursor-pointer border border-white/20"
+          >
+            Find a Table
+          </button>
         </div>
 
       </div>

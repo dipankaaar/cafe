@@ -4,6 +4,7 @@ import Card from '../../common/Card';
 import Badge from '../../common/Badge';
 import Button from '../../common/Button';
 import Modal from '../../common/Modal';
+import QrTableManagementTab from './QrTableManagementTab';
 import {
   Grid,
   Plus,
@@ -14,13 +15,16 @@ import {
   Sparkles,
   Layers,
   ArrowRight,
-  RefreshCw
+  RefreshCw,
+  QrCode,
+  LayoutGrid
 } from 'lucide-react';
 
 export default function TableManagementView({ onNavigate }) {
-  const { tables, orders, updateTableStatus, addTable } = useCafe();
+  const { tables, orders, updateTableStatus, addTable, cafeSettings, refreshData } = useCafe();
   
-  const [selectedZone, setSelectedZone] = useState('all'); // all, 'Indoor Cafe', 'Garden Terrace'
+  const [activeTab, setActiveTab] = useState('floor-plan'); // 'floor-plan' | 'qr-ordering'
+  const [selectedZone, setSelectedZone] = useState('all');
   const [selectedTableForAction, setSelectedTableForAction] = useState(null);
   const [isAddTableModalOpen, setIsAddTableModalOpen] = useState(false);
 
@@ -70,10 +74,10 @@ export default function TableManagementView({ onNavigate }) {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white font-['Plus_Jakarta_Sans',sans-serif]">
-            Table Floor Plan
+            Table & QR Operations
           </h2>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            Visual cafe floor arrangement, live guest seating, and table turnaround states.
+            Visual floor plan seating, table turnaround states, and automated QR table ordering.
           </p>
         </div>
 
@@ -84,141 +88,180 @@ export default function TableManagementView({ onNavigate }) {
         </div>
       </div>
 
-      {/* Zone Switcher and Legend */}
-      <Card className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-        
-        {/* Zone Tabs */}
-        <div className="flex items-center gap-2 text-xs font-semibold">
-          <button
-            onClick={() => setSelectedZone('all')}
-            className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
-              selectedZone === 'all'
-                ? 'bg-[#DD5903] text-white'
-                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'
-            }`}
-          >
-            All Zones ({tables.length})
-          </button>
-          {zones.map((z) => (
-            <button
-              key={z}
-              onClick={() => setSelectedZone(z)}
-              className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
-                selectedZone === z
-                  ? 'bg-[#DD5903] text-white'
-                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'
-              }`}
-            >
-              {z} ({tables.filter((t) => t.zone === z).length})
-            </button>
-          ))}
-        </div>
+      {/* Main Section Navigation Tabs */}
+      <div className="flex items-center gap-2 border-b border-gray-200 dark:border-gray-800 pb-1">
+        <button
+          onClick={() => setActiveTab('floor-plan')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+            activeTab === 'floor-plan'
+              ? 'bg-[#DD5903] text-white shadow-sm'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+          }`}
+        >
+          <LayoutGrid className="w-4 h-4" />
+          <span>Floor Plan View</span>
+        </button>
 
-        {/* Legend */}
-        <div className="flex items-center gap-3 text-[11px] font-semibold">
-          <div className="flex items-center gap-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-            <span className="text-gray-600 dark:text-gray-400">Available</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#DD5903]" />
-            <span className="text-gray-600 dark:text-gray-400">Occupied</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-            <span className="text-gray-600 dark:text-gray-400">Reserved</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-            <span className="text-gray-600 dark:text-gray-400">Cleaning</span>
-          </div>
-        </div>
+        <button
+          onClick={() => setActiveTab('qr-ordering')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+            activeTab === 'qr-ordering'
+              ? 'bg-[#DD5903] text-white shadow-sm'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+          }`}
+        >
+          <QrCode className="w-4 h-4" />
+          <span>QR Table Ordering</span>
+        </button>
+      </div>
 
-      </Card>
+      {/* RENDER QR ORDERING SUB-SECTION */}
+      {activeTab === 'qr-ordering' ? (
+        <QrTableManagementTab
+          tables={tables}
+          onTableUpdated={() => refreshData && refreshData()}
+          cafeSettings={cafeSettings}
+        />
+      ) : (
+        /* RENDER FLOOR PLAN SUB-SECTION */
+        <>
+          {/* Zone Switcher and Legend */}
+          <Card className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            
+            {/* Zone Tabs */}
+            <div className="flex items-center gap-2 text-xs font-semibold">
+              <button
+                onClick={() => setSelectedZone('all')}
+                className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                  selectedZone === 'all'
+                    ? 'bg-[#DD5903] text-white'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'
+                }`}
+              >
+                All Zones ({tables.length})
+              </button>
+              {zones.map((z) => (
+                <button
+                  key={z}
+                  onClick={() => setSelectedZone(z)}
+                  className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                    selectedZone === z
+                      ? 'bg-[#DD5903] text-white'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'
+                  }`}
+                >
+                  {z} ({tables.filter((t) => t.zone === z).length})
+                </button>
+              ))}
+            </div>
 
-      {/* Visual Floor Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
-        {filteredTables.map((table) => {
-          const associatedOrder = orders.find((o) => o.id === table.currentOrderId);
-
-          return (
-            <div
-              key={table.id}
-              onClick={() => setSelectedTableForAction(table)}
-              className={`p-5 rounded-2xl border-2 transition-all shadow-xs hover:shadow-md cursor-pointer flex flex-col justify-between h-44 bg-white dark:bg-[#181818] ${getStatusColor(
-                table.status
-              )}`}
-            >
-              {/* Top Row: Table ID & Capacity */}
-              <div className="flex items-center justify-between">
-                <span className="text-xl font-bold font-mono text-gray-900 dark:text-white">
-                  {table.tableNumber}
-                </span>
-                <span className="flex items-center gap-1 text-xs text-gray-500 font-semibold bg-white/80 dark:bg-black/40 px-2 py-0.5 rounded-full">
-                  <Users className="w-3.5 h-3.5" />
-                  {table.capacity}
-                </span>
+            {/* Legend */}
+            <div className="flex items-center gap-3 text-[11px] font-semibold">
+              <div className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                <span className="text-gray-600 dark:text-gray-400">Available</span>
               </div>
+              <div className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#DD5903]" />
+                <span className="text-gray-600 dark:text-gray-400">Occupied</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                <span className="text-gray-600 dark:text-gray-400">Reserved</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                <span className="text-gray-600 dark:text-gray-400">Cleaning</span>
+              </div>
+            </div>
 
-              {/* Center: Guest Name or Status details */}
-              <div className="my-2">
-                <span className="text-[10px] uppercase font-bold tracking-wider block">
-                  {table.zone}
-                </span>
-                {table.status === 'Occupied' && (
-                  <div className="mt-1">
-                    <p className="text-xs font-bold text-gray-900 dark:text-white truncate">
-                      {table.customerName || 'Dining Guests'}
-                    </p>
-                    {associatedOrder && (
-                      <p className="text-[10px] text-[#DD5903] font-mono font-semibold">
-                        Order {associatedOrder.orderNumber} • ₹{associatedOrder.grandTotal}
+          </Card>
+
+          {/* Visual Floor Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
+            {filteredTables.map((table) => {
+              const associatedOrder = orders.find((o) => o.id === table.currentOrderId);
+
+              return (
+                <div
+                  key={table.id}
+                  onClick={() => setSelectedTableForAction(table)}
+                  className={`p-5 rounded-2xl border-2 transition-all shadow-xs hover:shadow-md cursor-pointer flex flex-col justify-between h-44 bg-white dark:bg-[#181818] ${getStatusColor(
+                    table.status
+                  )}`}
+                >
+                  {/* Top Row: Table ID & Capacity */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xl font-bold font-mono text-gray-900 dark:text-white">
+                      {table.tableNumber}
+                    </span>
+                    <span className="flex items-center gap-1 text-xs text-gray-500 font-semibold bg-white/80 dark:bg-black/40 px-2 py-0.5 rounded-full">
+                      <Users className="w-3.5 h-3.5" />
+                      {table.capacity}
+                    </span>
+                  </div>
+
+                  {/* Center: Guest Name or Status details */}
+                  <div className="my-2">
+                    <span className="text-[10px] uppercase font-bold tracking-wider block">
+                      {table.zone}
+                    </span>
+                    {table.status === 'Occupied' && (
+                      <div className="mt-1">
+                        <p className="text-xs font-bold text-gray-900 dark:text-white truncate">
+                          {table.customerName || 'Dining Guests'}
+                        </p>
+                        {associatedOrder && (
+                          <p className="text-[10px] text-[#DD5903] font-mono font-semibold">
+                            Order {associatedOrder.orderNumber} • ₹{associatedOrder.grandTotal}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {table.status === 'Reserved' && (
+                      <p className="text-xs font-bold text-blue-600 truncate mt-1">
+                        Booked: {table.customerName || 'Guest'}
+                      </p>
+                    )}
+                    {table.status === 'Available' && (
+                      <p className="text-xs text-emerald-600 font-medium mt-1">
+                        Ready for seating
+                      </p>
+                    )}
+                    {table.status === 'Cleaning' && (
+                      <p className="text-xs text-amber-600 font-medium mt-1">
+                        Sanitization in progress
                       </p>
                     )}
                   </div>
-                )}
-                {table.status === 'Reserved' && (
-                  <p className="text-xs font-bold text-blue-600 truncate mt-1">
-                    Booked: {table.customerName || 'Guest'}
-                  </p>
-                )}
-                {table.status === 'Available' && (
-                  <p className="text-xs text-emerald-600 font-medium mt-1">
-                    Ready for seating
-                  </p>
-                )}
-                {table.status === 'Cleaning' && (
-                  <p className="text-xs text-amber-600 font-medium mt-1">
-                    Sanitization in progress
-                  </p>
-                )}
-              </div>
 
-              {/* Bottom Status Badge */}
-              <div className="flex items-center justify-between pt-2 border-t border-current/10 text-xs">
-                <Badge
-                  size="sm"
-                  variant={
-                    table.status === 'Available'
-                      ? 'success'
-                      : table.status === 'Occupied'
-                      ? 'primary'
-                      : table.status === 'Reserved'
-                      ? 'info'
-                      : 'warning'
-                  }
-                  dot
-                >
-                  {table.status}
-                </Badge>
-                <span className="text-[11px] font-semibold hover:underline">
-                  Manage →
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+                  {/* Bottom Status Badge */}
+                  <div className="flex items-center justify-between pt-2 border-t border-current/10 text-xs">
+                    <Badge
+                      size="sm"
+                      variant={
+                        table.status === 'Available'
+                          ? 'success'
+                          : table.status === 'Occupied'
+                          ? 'primary'
+                          : table.status === 'Reserved'
+                          ? 'info'
+                          : 'warning'
+                      }
+                      dot
+                    >
+                      {table.status}
+                    </Badge>
+                    <span className="text-[11px] font-semibold hover:underline">
+                      Manage →
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {/* ================= TABLE ACTION MODAL ================= */}
       {selectedTableForAction && (

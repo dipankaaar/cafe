@@ -5,46 +5,73 @@
     --font-heading: 'Arapey', serif;
     --font-body: 'Plus Jakarta Sans', sans-serif;
     --color-primary: #DD5903;
+    --color-primary-hover: #c44e02;
     --color-dark: #111111;
+    --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  *, *::before, *::after {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
   }
 
   html {
     scroll-behavior: smooth;
+    scroll-padding-top: 84px;
     font-family: var(--font-body);
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    touch-action: manipulation;
+  }
+
+  body {
+    overflow-x: hidden;
+    overflow-y: auto;
+    background-color: #0b0c0e;
+    color: #e5e5e5;
   }
 
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
-    color: var(--color-dark);
+    letter-spacing: -0.01em;
+  }
+
+  img {
+    content-visibility: auto;
+    user-select: none;
+    -webkit-user-drag: none;
   }
 }
 
-/* Custom diamond divider */
+/* Luxury Diamond divider */
 .diamond-divider {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
-  margin: 18px auto;
+  margin: 16px auto;
 }
 
 .diamond-divider::before,
 .diamond-divider::after {
   content: '';
   display: block;
-  width: 45px;
+  width: 48px;
   height: 1px;
-  background-color: #e5e5e5;
+  background: linear-gradient(90deg, transparent, rgba(221, 89, 3, 0.6), transparent);
 }
 
 .diamond-shape {
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   background-color: #DD5903;
   transform: rotate(45deg);
+  box-shadow: 0 0 8px rgba(221, 89, 3, 0.4);
 }
 
-/* Custom button styles matching Dinenos */
+/* Smooth Dinenos Primary Button */
 .dinenos-btn {
   display: inline-flex;
   align-items: center;
@@ -52,87 +79,133 @@
   background-color: #DD5903;
   color: #ffffff;
   font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 15px;
-  font-weight: 600;
-  padding: 14px 34px;
-  border-radius: 4px;
-  transition: all 0.35s ease;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 13px 30px;
+  border-radius: 9999px;
+  transition: all 0.3s var(--ease-smooth);
   position: relative;
   overflow: hidden;
-  text-transform: capitalize;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(221, 89, 3, 0.25);
+  will-change: transform, box-shadow;
+  transform: translate3d(0, 0, 0);
 }
 
 .dinenos-btn:hover {
-  background-color: #111111;
+  background-color: #c44e02;
   color: #ffffff;
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+  transform: translate3d(0, -2px, 0);
+  box-shadow: 0 8px 24px rgba(221, 89, 3, 0.38);
 }
 
+.dinenos-btn:active {
+  transform: translate3d(0, 0px, 0) scale(0.98);
+  box-shadow: 0 2px 8px rgba(221, 89, 3, 0.2);
+}
+
+/* Smooth Dinenos Outline Button */
 .dinenos-btn-outline {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background-color: transparent;
+  background-color: rgba(255, 255, 255, 0.05);
   color: #ffffff;
-  border: 1px solid rgba(255,255,255,0.4);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  backdrop-blur: 4px;
   font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 15px;
-  font-weight: 600;
-  padding: 13px 32px;
-  border-radius: 4px;
-  transition: all 0.35s ease;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 12px 28px;
+  border-radius: 9999px;
+  transition: all 0.3s var(--ease-smooth);
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  will-change: transform, background-color, border-color;
+  transform: translate3d(0, 0, 0);
 }
 
 .dinenos-btn-outline:hover {
   background-color: #DD5903;
   border-color: #DD5903;
   color: #ffffff;
-  transform: translateY(-2px);
+  transform: translate3d(0, -2px, 0);
+  box-shadow: 0 8px 20px rgba(221, 89, 3, 0.25);
 }
 
-/* Floating animation */
-@keyframes float {
-  0% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-12px) rotate(4deg); }
-  100% { transform: translateY(0px) rotate(0deg); }
+.dinenos-btn-outline:active {
+  transform: translate3d(0, 0px, 0) scale(0.98);
+}
+
+/* GPU Hardware-Accelerated Floating animations */
+@keyframes float-gpu {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  50% { transform: translate3d(0, -10px, 0) rotate(3deg); }
+  100% { transform: translate3d(0, 0, 0) rotate(0deg); }
 }
 
 .animate-float {
-  animation: float 6s ease-in-out infinite;
+  animation: float-gpu 6s ease-in-out infinite;
+  will-change: transform;
 }
 
 .animate-float-slow {
-  animation: float 9s ease-in-out infinite;
+  animation: float-gpu 9s ease-in-out infinite;
+  will-change: transform;
 }
 
-/* Pulsing soft glow */
-@keyframes pulse-subtle {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.75; }
+/* Soft pulse */
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.02); }
 }
 
 .animate-pulse-subtle {
-  animation: pulse-subtle 3s ease-in-out infinite;
+  animation: pulse-soft 3.5s ease-in-out infinite;
 }
 
-/* Custom scrollbar */
+/* Hide scrollbar utility for smooth touch scroll */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Modern clean scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #111111;
+  background: #0f1012;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #DD5903;
-  border-radius: 4px;
+  background: #2a2c33;
+  border-radius: 9999px;
+  transition: background 0.2s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #b54700;
+  background: #DD5903;
+}
+
+/* Fade in smoothly on load */
+@keyframes fadeInSmooth {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeInSmooth 0.35s var(--ease-smooth) forwards;
 }

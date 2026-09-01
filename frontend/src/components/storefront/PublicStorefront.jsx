@@ -15,11 +15,12 @@ import TrackOrderModal from './TrackOrderModal';
 import OffcanvasDrawer from './OffcanvasDrawer';
 import ScrollToTop from './ScrollToTop';
 import Toast from './Toast';
+import WebsiteQrScannerModal from './WebsiteQrScannerModal';
 import { useCafe } from '../../context/CafeContext';
 import { api } from '../../services/api';
 import confetti from 'canvas-confetti';
 
-export default function PublicStorefront({ onNavigateToAdmin }) {
+export default function PublicStorefront({ onNavigateToAdmin, onNavigateToQrOrder }) {
   const { products, categories, createOrder, addReservation } = useCafe();
 
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -27,6 +28,7 @@ export default function PublicStorefront({ onNavigateToAdmin }) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isTrackOrderOpen, setIsTrackOrderOpen] = useState(false);
   const [isOffcanvasOpen, setIsOffcanvasOpen] = useState(false);
+  const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
 
   // Customer Cart state
   const [cartItems, setCartItems] = useState([]);
@@ -93,6 +95,7 @@ export default function PublicStorefront({ onNavigateToAdmin }) {
 
     const orderPayload = {
       orderType: checkoutData.orderType || 'takeaway',
+      orderSource: 'ONLINE',
       customerName: checkoutData.customerName || 'Online Guest',
       customerPhone: checkoutData.customerPhone || '',
       items: cartItems,
@@ -131,6 +134,7 @@ export default function PublicStorefront({ onNavigateToAdmin }) {
         onOpenSearch={() => setIsSearchOpen(true)}
         onOpenOffcanvas={() => setIsOffcanvasOpen(true)}
         onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
+        onOpenQrScanner={() => setIsQrScannerOpen(true)}
         onNavigateToAdmin={onNavigateToAdmin}
       />
 
@@ -142,6 +146,7 @@ export default function PublicStorefront({ onNavigateToAdmin }) {
             const el = document.getElementById('menu');
             if (el) el.scrollIntoView({ behavior: 'smooth' });
           }}
+          onOpenQrScanner={() => setIsQrScannerOpen(true)}
         />
         <InfoBar />
         <AboutSection onOpenReservation={() => setIsReservationOpen(true)} />
@@ -189,6 +194,16 @@ export default function PublicStorefront({ onNavigateToAdmin }) {
       <TrackOrderModal
         isOpen={isTrackOrderOpen}
         onClose={() => setIsTrackOrderOpen(false)}
+      />
+
+      <WebsiteQrScannerModal
+        isOpen={isQrScannerOpen}
+        onClose={() => setIsQrScannerOpen(false)}
+        onScanSuccess={(token) => {
+          if (onNavigateToQrOrder) {
+            onNavigateToQrOrder(token);
+          }
+        }}
       />
 
       <OffcanvasDrawer

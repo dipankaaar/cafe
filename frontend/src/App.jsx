@@ -5,6 +5,7 @@ import { CafeProvider } from './context/CafeContext';
 
 // Public Customer Storefront
 import PublicStorefront from './components/storefront/PublicStorefront';
+import QrTableOrderingView from './components/storefront/QrTableOrderingView';
 
 // Admin Suite Layout
 import Sidebar from './components/layout/Sidebar';
@@ -37,14 +38,26 @@ import Button from './components/common/Button';
 function MainApp() {
   const { hasPermission, role } = useAuth();
   
-  // App Mode: 'public' (Customer Storefront) vs 'admin' (Enterprise Admin Panel)
+  // App Mode: 'public' | 'admin' | 'qr_order'
   const [appMode, setAppMode] = useState(() => {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash;
-      const search = window.location.search;
-      if (hash.includes('admin') || search.includes('mode=admin')) return 'admin';
+      const pathname = window.location.pathname;
+      if (hash.startsWith('#order/') || hash.startsWith('#/order/') || pathname.startsWith('/order/')) return 'qr_order';
+      if (hash.includes('admin') || window.location.search.includes('mode=admin')) return 'admin';
     }
-    return 'public'; // Start with Public Website
+    return 'public';
+  });
+
+  const [qrToken, setQrToken] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash;
+      if (hash.startsWith('#order/')) return hash.replace('#order/', '');
+      if (hash.startsWith('#/order/')) return hash.replace('#/order/', '');
+      const pathname = window.location.pathname;
+      if (pathname.startsWith('/order/')) return pathname.replace('/order/', '');
+    }
+    return '';
   });
 
   const [currentModule, setCurrentModule] = useState('dashboard');
@@ -54,8 +67,17 @@ function MainApp() {
   // Sync hash with appMode
   useEffect(() => {
     const handleHash = () => {
-      if (window.location.hash.includes('admin')) {
+      const hash = window.location.hash;
+      if (hash.startsWith('#order/')) {
+        setQrToken(hash.replace('#order/', ''));
+        setAppMode('qr_order');
+      } else if (hash.startsWith('#/order/')) {
+        setQrToken(hash.replace('#/order/', ''));
+        setAppMode('qr_order');
+      } else if (hash.includes('admin')) {
         setAppMode('admin');
+      } else {
+        setAppMode('public');
       }
     };
     window.addEventListener('hashchange', handleHash);
@@ -73,10 +95,27 @@ function MainApp() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // If in QR Table Ordering Mode
+  if (appMode === 'qr_order' && qrToken) {
+    return (
+      <QrTableOrderingView
+        qrToken={qrToken}
+        onBackToStorefront={handleSwitchToPublic}
+      />
+    );
+  }
+
   // If in Public Storefront Mode, render the public customer website
   if (appMode === 'public') {
     return (
-      <PublicStorefront onNavigateToAdmin={handleSwitchToAdmin} />
+      <PublicStorefront
+        onNavigateToAdmin={handleSwitchToAdmin}
+        onNavigateToQrOrder={(token) => {
+          setQrToken(token);
+          setAppMode('qr_order');
+          window.location.hash = `order/${token}`;
+        }}
+      />
     );
   }
 

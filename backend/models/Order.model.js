@@ -2,7 +2,7 @@ import { db } from '../db/connection.js';
 import { parseJSON, sanitize, getCurrentTimestamp } from '../utils/helpers.js';
 
 export class OrderModel {
-  static findAll({ status, type, search, limit = 100, offset = 0 } = {}) {
+  static findAll({ status, type, source, search, limit = 100, offset = 0 } = {}) {
     let sql = 'SELECT * FROM orders WHERE 1=1';
     const params = [];
 
@@ -13,6 +13,10 @@ export class OrderModel {
     if (type && type !== 'all') {
       sql += ' AND LOWER(order_type) = LOWER(?)';
       params.push(type);
+    }
+    if (source && source !== 'all') {
+      sql += ' AND LOWER(order_source) = LOWER(?)';
+      params.push(source);
     }
     if (search && search.trim()) {
       sql += ' AND (LOWER(order_number) LIKE LOWER(?) OR LOWER(customer_name) LIKE LOWER(?) OR customer_phone LIKE ?)';
@@ -44,18 +48,20 @@ export class OrderModel {
 
     const stmt = db.prepare(`
       INSERT INTO orders (
-        id, order_number, order_type, table_id, table_number,
+        id, order_number, order_type, order_source, qr_token, table_id, table_number,
         customer_id, customer_name, customer_phone, status, order_time,
         items_json, subtotal, discount_amount, coupon_code, coupon_id,
         tax_amount, service_charge, grand_total, payment_method, payment_status,
         notes, server_staff
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
       id,
       orderNumber,
       data.orderType || 'dine-in',
+      data.orderSource || (data.qrToken ? 'QR_TABLE' : (data.orderType === 'dine-in' ? 'POS' : 'ONLINE')),
+      sanitize(data.qrToken, null),
       sanitize(data.tableId, null),
       sanitize(data.tableNumber, null),
       sanitize(data.customerId, null),
@@ -74,7 +80,7 @@ export class OrderModel {
       data.paymentMethod || 'Cash',
       data.paymentStatus || 'Pending',
       sanitize(data.notes, ''),
-      data.serverStaff || 'Cashier'
+      data.serverStaff || (data.orderSource === 'QR_TABLE' ? 'QR Self-Order' : 'Cashier')
     );
 
     return this.findById(id);
@@ -108,6 +114,8 @@ export class OrderModel {
       id: row.id,
       orderNumber: row.order_number,
       orderType: row.order_type,
+      orderSource: row.order_source || 'POS',
+      qrToken: row.qr_token,
       tableId: row.table_id,
       tableNumber: row.table_number,
       customerId: row.customer_id,

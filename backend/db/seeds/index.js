@@ -69,9 +69,25 @@ export function runDatabaseSeeds(force = false) {
     });
 
     // 5. Tables
-    const tblStmt = db.prepare('INSERT OR REPLACE INTO tables_floor (id, table_number, zone, capacity, status, current_order_id, customer_name) VALUES (?, ?, ?, ?, ?, ?, ?)');
-    initialTables.forEach((t) => {
-      tblStmt.run(t.id, t.tableNumber, t.zone, sanitize(t.capacity, 4), sanitize(t.status, 'Available'), sanitize(t.currentOrderId, null), sanitize(t.customerName, null));
+    const tblStmt = db.prepare(`
+      INSERT OR REPLACE INTO tables_floor (
+        id, table_number, zone, capacity, status, current_order_id, customer_name, qr_token, qr_status, qr_created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    initialTables.forEach((t, idx) => {
+      const qrToken = `qrt_${t.tableNumber.toLowerCase().replace(/[^a-z0-9]/g, '')}_${(idx + 1) * 1000 + 420}`;
+      tblStmt.run(
+        t.id,
+        t.tableNumber,
+        t.zone,
+        sanitize(t.capacity, 4),
+        sanitize(t.status, 'Available'),
+        sanitize(t.currentOrderId, null),
+        sanitize(t.customerName, null),
+        qrToken,
+        'active',
+        new Date().toISOString()
+      );
     });
 
     // 6. Customers

@@ -144,6 +144,36 @@ class ApiService {
     });
   }
 
+  // --- QR Table Ordering API ---
+  validateQrToken(token) {
+    return this.request(`/tables/qr/validate/${encodeURIComponent(token)}`);
+  }
+
+  getTableQr(id) {
+    return this.request(`/tables/${id}/qr`);
+  }
+
+  regenerateTableQr(id) {
+    return this.request(`/tables/${id}/qr/regenerate`, {
+      method: 'POST'
+    });
+  }
+
+  setTableQrStatus(id, status) {
+    return this.request(`/tables/${id}/qr/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status })
+    });
+  }
+
+  getTableActiveOrders(id) {
+    return this.request(`/tables/${id}/active-orders`);
+  }
+
+  getTableOrderHistory(id) {
+    return this.request(`/tables/${id}/order-history`);
+  }
+
   getReservations(params = {}) {
     const query = new URLSearchParams(params).toString();
     return this.request(`/reservations${query ? `?${query}` : ''}`);

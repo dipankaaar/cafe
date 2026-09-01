@@ -4,6 +4,7 @@ import { db } from './connection.js';
  * Execute Schema DDL definitions
  */
 export function initDatabaseSchema() {
+  // 1. Create Base Tables if they don't exist
   db.exec(`
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
@@ -53,7 +54,11 @@ export function initDatabaseSchema() {
       capacity INTEGER NOT NULL,
       status TEXT DEFAULT 'Available',
       current_order_id TEXT,
-      customer_name TEXT
+      customer_name TEXT,
+      qr_token TEXT,
+      qr_status TEXT DEFAULT 'active',
+      qr_created_at TEXT,
+      qr_regenerated_at TEXT
     );
 
     CREATE TABLE IF NOT EXISTS reservations (
@@ -171,6 +176,8 @@ export function initDatabaseSchema() {
       id TEXT PRIMARY KEY,
       order_number TEXT NOT NULL UNIQUE,
       order_type TEXT NOT NULL,
+      order_source TEXT DEFAULT 'POS',
+      qr_token TEXT,
       table_id TEXT,
       table_number TEXT,
       customer_id TEXT,
@@ -214,13 +221,36 @@ export function initDatabaseSchema() {
       details TEXT,
       ip_address TEXT
     );
-
-    -- Database Performance Indexes
-    CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
-    CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
-    CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
-    CREATE INDEX IF NOT EXISTS idx_orders_time ON orders(order_time);
-    CREATE INDEX IF NOT EXISTS idx_reservations_date ON reservations(date);
-    CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_logs(timestamp);
   `);
+
+  // 2. Safe Column Additions for Existing Tables
+  try { db.exec(`ALTER TABLE tables_floor ADD COLUMN qr_token TEXT;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE tables_floor ADD COLUMN qr_status TEXT DEFAULT 'active';`); } catch (e) {}
+  try { db.exec(`ALTER TABLE tables_floor ADD COLUMN qr_created_at TEXT;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE tables_floor ADD COLUMN qr_regenerated_at TEXT;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE orders ADD COLUMN order_source TEXT DEFAULT 'POS';`); } catch (e) {}
+  try { db.exec(`ALTER TABLE orders ADD COLUMN qr_token TEXT;`); } catch (e) {}
+
+  // 3. Ensure All Existing Tables Have a Permanent QR Token
+  try {
+    const existingTables = db.prepare('SELECT id, table_number, qr_token FROM tables_floor').all();
+    const updateStmt = db.prepare('UPDATE tables_floor SET qr_token = ?, qr_status = COALESCE(qr_status, "active"), qr_created_at = COALESCE(qr_created_at, datetime("now")) WHERE id = ?');
+    existingTables.forEach((t, idx) => {
+      if (!t.qr_token) {
+        const fallbackToken = `qrt_${t.table_number.toLowerCase().replace(/[^a-z0-9]/g, '')}_${(idx + 1) * 1000 + 420}`;
+        updateStmt.run(fallbackToken, t.id);
+      }
+    });
+  } catch (e) {}
+
+  // 4. Database Performance Indexes
+  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);`); } catch (e) {}
+  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);`); } catch (e) {}
+  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);`); } catch (e) {}
+  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_orders_time ON orders(order_time);`); } catch (e) {}
+  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_orders_source ON orders(order_source);`); } catch (e) {}
+  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_orders_table_id ON orders(table_id);`); } catch (e) {}
+  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_tables_qr_token ON tables_floor(qr_token);`); } catch (e) {}
+  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_reservations_date ON reservations(date);`); } catch (e) {}
+  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_logs(timestamp);`); } catch (e) {}
 }

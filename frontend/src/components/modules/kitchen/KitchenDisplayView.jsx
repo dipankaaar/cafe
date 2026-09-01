@@ -12,7 +12,8 @@ import {
   AlertCircle,
   Bell,
   UtensilsCrossed,
-  Volume2
+  Volume2,
+  QrCode
 } from 'lucide-react';
 
 export default function KitchenDisplayView() {
@@ -141,6 +142,12 @@ export default function KitchenDisplayView() {
                       >
                         {order.status}
                       </Badge>
+                      {order.orderSource === 'QR_TABLE' && (
+                        <span className="px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400 font-bold text-[10px] uppercase flex items-center gap-1 border border-purple-500/30">
+                          <QrCode className="w-2.5 h-2.5" />
+                          <span>QR Table</span>
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 font-semibold">
                       {order.orderType === 'dine-in' ? `Table ${order.tableNumber || 'Indoor'}` : order.orderType.toUpperCase()}
