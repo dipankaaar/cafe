@@ -1,47 +1,95 @@
-# ☕ Dinenos Coffee House Clone
+# ☕ Dinenos Coffee House — Enterprise Fullstack Cafe Management Platform
 
-A high-fidelity, responsive clone of **[Dinenos Coffee House](https://reactheme.com/products/wordpress/dinenos/coffie-house/)**, built with **React**, **Vite**, and **Tailwind CSS**.
+A high-performance fullstack application combining a **Luxury Customer Storefront** with an **Enterprise Operations Suite & Kitchen Display System (KDS)**.
 
 ---
 
-## 🌟 Highlights & Features
+## 🏗️ System Architecture & Folder Layout
 
-- **Header & Sticky Navbar**: Transparent on top, dynamic glassmorphism dark background on scroll, dropdown menus for *Home*, *Pages*, *Menus*, *Shop*, and *Blog*.
-- **Interactive Offcanvas Sidebar**: Full contact info (address, phone, email, operating hours, social channels) and mobile navigation drawer.
-- **Interactive Cart System**: Slide-out cart drawer with live badge count, quantity management (+ / -), subtotal calculations, and checkout flow.
-- **Live Search Modal**: Real-time coffee & tea drinks search with quick suggestions and instant "Add to Order".
-- **Table Reservation Modal**: Interactive booking form (Name, Guests, Date, Time, Seating Area, Special Requests) with confirmation feedback code.
-- **Hero Banner**: Full-screen hero with Arapey serif typography, coffee badge, and action buttons.
-- **Info Ribbon**: Location bar for *12 Creek Street, Brisbane CBD* with opening hours and quick seat reservation CTA.
-- **Story & Counters Section**: About Dinenos Café story, decorative diamond dividers, dynamic count statistics (11+ Years Served, 99+ Coffee Items, 20+ Expert Chefs), and barista highlight.
-- **Handcrafted Coffee & Tea Menu**: Dual alternating layout with images, prices, descriptions, popular badges, and add-to-order buttons (Latte, Cappuccino, Americano, Espresso, Ristretto, Cold Brew, Mazagran, Galão).
-- **Cinematic Video Experience**: Embedded video modal for behind-the-scenes brewing story.
-- **Customer Testimonials Carousel**: Reviews slider with quote icons, 5-star ratings, and pagination.
-- **Photo Gallery & Lightbox**: 4-column Instagram cafe moments gallery with full-screen lightbox preview.
-- **Comprehensive 4-Column Footer**: Rotating coffee bean graphics, direct reservation phone, quick links, contact address, and Instagram thumbnail grid.
-- **Scroll-to-Top**: Floating button with circular SVG progress indicator.
+```
+cafe/
+├── 📁 frontend/                         # 🎨 React 19 Frontend Application
+│   ├── 📁 public/                       # Favicon & brand assets
+│   └── 📁 src/
+│       ├── 📁 components/
+│       │   ├── 📁 common/               # UI Primitives (Button, Modal, Card, Table, Badge, Tabs)
+│       │   ├── 📁 layout/               # Admin Shell (Sidebar, Topbar, NotificationDropdown)
+│       │   ├── 📁 modules/              # 20 Enterprise Admin Modules (POS, KDS, Inventory, etc.)
+│       │   └── 📁 storefront/           # Public Customer Storefront (Hero, Menu, Cart, Booking, Tracker)
+│       ├── 📁 context/                  # State Providers (AuthContext, ThemeContext, CafeContext)
+│       ├── 📁 hooks/                    # Custom Hooks (useSSE, useDebounce, useLocalStorage)
+│       ├── 📁 services/                 # api.js (HTTP Client), receiptPrinter.js, couponValidator.js
+│       ├── 📁 utils/                    # formatters.js, constants.js
+│       ├── App.jsx                      # Dual-Mode Root App Router
+│       ├── main.jsx                     # React DOM Entry
+│       └── index.css                    # Tailwind CSS
+│
+├── 📁 backend/                          # 🛡️ Express & SQLite Relational Backend
+│   ├── 📁 config/                       # env.js, constants.js
+│   ├── 📁 controllers/                  # 11 Modular HTTP Controllers
+│   ├── 📁 db/                           # SQLite WAL Engine, schema.js, seeds/
+│   ├── 📁 middlewares/                  # error.middleware.js, logger.middleware.js, auth.middleware.js
+│   ├── 📁 models/                       # Data Access Layer Repositories
+│   ├── 📁 routes/                       # 11 Express Routers & index.js
+│   ├── 📁 services/                     # Business Logic (Order workflow, Coupon engine, P&L aggregation)
+│   ├── 📁 utils/                        # ApiError.js, ApiResponse.js, asyncHandler.js
+│   ├── 📁 data/                         # cafe.db (SQLite Database file)
+│   ├── app.js                           # Express App Configuration
+│   └── index.js                         # Server Bootstrap & Graceful Shutdown
+│
+├── index.html                           # Root HTML
+├── package.json                         # Unified Scripts: dev, server, build, preview
+└── vite.config.js                       # Vite Configuration with API proxy
+```
+
+---
+
+## 🌟 Key Features
+
+### 1. Customer Storefront (`/`)
+- **Brand Experience**: Full-screen hero banner, history, roastery metrics, testimonials, and gallery.
+- **Interactive Food & Beverage Menu**: Filter by Coffee, Cold Brews, Teas, and Bakery with dietary tags.
+- **Online Cart & Customizations**: Variant sizes, milk alternatives, and custom syrups with online checkout.
+- **Live Order Status Tracker**: Real-time preparation progression (*Placed ➔ Accepted ➔ Brewing ➔ Ready ➔ Completed*).
+- **Table Reservations**: Online table booking with date, time, party size, and special requests.
+
+### 2. Enterprise Admin & POS Suite (`#admin`)
+- **POS / Billing Engine**: Fast search, custom modifiers, multi-tier tax calculations, split tender, and 80mm thermal receipt printing.
+- **Kitchen Display System (KDS)**: Real-time ticket boards with prep overdue timers and single-tap workflow progression.
+- **Recipe-Based Auto-Inventory Deduction**: Automatically calculates and deducts raw coffee beans, dairy, and syrups upon order completion.
+- **Strict Coupon Engine**: Backend validation enforcing date ranges, spend limits, category restrictions, and usage limits.
+- **20 Complete Modules**: Dashboard, POS, Kitchen, Orders, Menu, Tables, Reservations, Customers, Loyalty, Coupons, Inventory, Suppliers, Purchases, Expenses, Staff, Reports, Notifications, Audit Logs, Settings.
 
 ---
 
 ## 🚀 How to Run Locally
 
-1. **Install dependencies** (already installed in workspace):
-   ```bash
-   npm install
-   ```
+### 1. Start Both Frontend & Backend Concurrently:
+```bash
+npm run dev
+```
 
-2. **Start the local development server**:
-   ```bash
-   npm run dev
-   ```
-   Open `http://localhost:5173` in your browser.
+### 2. Start Backend API Server Only (Port 5000):
+```bash
+npm run server
+```
 
-3. **Create a production build**:
-   ```bash
-   npm run build
-   ```
+### 3. Create a Production Build:
+```bash
+npm run build
+```
 
-4. **Preview the production build**:
-   ```bash
-   npm run preview
-   ```
+---
+
+## 📡 Core API Endpoints
+
+- `GET /api/health` — System health & SQLite WAL status
+- `GET /api/events` — Server-Sent Events (SSE) live stream
+- `GET /api/menu/products` — Product catalog
+- `GET /api/orders` — Orders list with filtering
+- `POST /api/orders` — POS & Online order placement
+- `GET /api/orders/track/:orderNumber` — Public live order status lookup
+- `POST /api/coupons/validate` — Strict coupon validation
+- `GET /api/tables` — Floor plan occupancy
+- `POST /api/reservations` — Table booking
+- `GET /api/reports/analytics` — P&L & financial metrics
