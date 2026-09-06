@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Navbar from './Navbar';
 import HeroBanner from './HeroBanner';
 import InfoBar from './InfoBar';
@@ -16,13 +16,22 @@ import OffcanvasDrawer from './OffcanvasDrawer';
 import ScrollToTop from './ScrollToTop';
 import Toast from './Toast';
 import WebsiteQrScannerModal from './WebsiteQrScannerModal';
-import { useCafe } from '../../context/CafeContext';
 import { api } from '../../services/api';
 import confetti from 'canvas-confetti';
 
-export default function PublicStorefront({ onNavigateToAdmin, onNavigateToQrOrder }) {
-  const { products, categories, createOrder, addReservation } = useCafe();
+const CART_STORAGE_KEY = 'petuk_storefront_cart_v1';
 
+function loadPersistedCart() {
+  try {
+    const raw = localStorage.getItem(CART_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export default function PublicStorefront({ onNavigate, onNavigateToAdmin, onNavigateToQrOrder }) {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isReservationOpen, setIsReservationOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -30,38 +39,56 @@ export default function PublicStorefront({ onNavigateToAdmin, onNavigateToQrOrde
   const [isOffcanvasOpen, setIsOffcanvasOpen] = useState(false);
   const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
 
-  // Customer Cart state
-  const [cartItems, setCartItems] = useState([]);
-  const [toastMessage, setToastMessage] = useState('');
+  // Customer Cart state — persisted to localStorage
+  const [cartItems, setCartItems] = useState(loadPersistedCart);
+  const [toast, setToast] = useState({ message: '', type: 'success' });
 
-  const showToast = (msg) => {
-    setToastMessage(msg);
-  };
+  useEffect(() => {
+    try {
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems));
+    } catch {
+      /* storage unavailable — cart still works in-memory */
+    }
+  }, [cartItems]);
 
-  const handleAddToCart = (product, quantity = 1, variant = 'Standard', addons = []) => {
-    const existingIndex = cartItems.findIndex(
-      (item) => item.productId === product.id && item.variant === variant
+  const showToast = useCallback((message, type = 'success') => {
+    setToast({ message, type });
+  }, []);
+
+  const handleAddToCart = (product, quantity = 1, variant = 'Standard', addons = [], unitPriceOverride) => {
+    const variantKey = typeof variant === 'object' ? JSON.stringify(variant) : String(variant || 'Standard');
+    const addonsKey = (addons || []).map((a) => a.id || a.name).join('|');
+    const unitPrice = Number(
+      unitPriceOverride ?? product.sellingPrice ?? product.price ?? product.unitPrice ?? 150
     );
 
-    const unitPrice = product.sellingPrice || product.price || 150;
+    const existingIndex = cartItems.findIndex(
+      (item) =>
+        item.productId === product.id &&
+        item.variantKey === variantKey &&
+        item.addonsKey === addonsKey
+    );
 
     if (existingIndex > -1) {
       const updated = [...cartItems];
       updated[existingIndex].quantity += quantity;
-      updated[existingIndex].totalPrice = updated[existingIndex].quantity * unitPrice;
+      updated[existingIndex].totalPrice = updated[existingIndex].quantity * updated[existingIndex].unitPrice;
       setCartItems(updated);
     } else {
       const newItem = {
-        cartItemId: `item-${Date.now()}-${Math.random()}`,
+        cartItemId: `item-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
         productId: product.id,
         name: product.name || product.title,
         price: unitPrice,
         unitPrice,
         quantity,
         totalPrice: unitPrice * quantity,
-        image: product.image || product.img,
+        image: product.image || product.imageUrl || product.img,
+        category: typeof product.category === 'string' ? product.category : product.categoryId,
         variant,
-        addons
+        variantKey,
+        addons: addons || [],
+        addonsKey
       };
       setCartItems((prev) => [...prev, newItem]);
     }
@@ -87,29 +114,44 @@ export default function PublicStorefront({ onNavigateToAdmin, onNavigateToQrOrde
     setCartItems((prev) => prev.filter((i) => i.cartItemId !== cartItemId));
   };
 
-  // Online Checkout submission
+  // Online Checkout submission — live via POST /api/orders
   const handleOnlineCheckout = async (checkoutData) => {
-    const subtotal = cartItems.reduce((sum, i) => sum + i.totalPrice, 0);
-    const taxAmount = (subtotal * 0.05);
-    const grandTotal = subtotal + taxAmount;
+    const subtotal = cartItems.reduce((sum, i) => sum + (Number(i.totalPrice) || 0), 0);
+    const discountAmount = Number(checkoutData.discountAmount || 0);
+    const taxableAmount = Math.max(0, subtotal - discountAmount);
+    const taxAmount = Number((taxableAmount * 0.05).toFixed(2));
+    const deliveryFee = checkoutData.orderType === 'delivery' ? (taxableAmount >= 499 ? 0 : 30) : 0;
+    const grandTotal = Number((taxableAmount + taxAmount + deliveryFee).toFixed(2));
 
     const orderPayload = {
       orderType: checkoutData.orderType || 'takeaway',
       orderSource: 'ONLINE',
       customerName: checkoutData.customerName || 'Online Guest',
       customerPhone: checkoutData.customerPhone || '',
-      items: cartItems,
-      subtotal,
-      discountAmount: 0,
+      items: cartItems.map((i) => ({
+        productId: i.productId,
+        name: i.name,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+        price: i.unitPrice,
+        totalPrice: i.totalPrice,
+        variant: typeof i.variant === 'object' ? i.variant.name || 'Standard' : (i.variant || 'Standard'),
+        addons: i.addons || []
+      })),
+      subtotal: Number(subtotal.toFixed(2)),
+      discountAmount,
+      couponCode: checkoutData.couponCode || null,
+      couponId: checkoutData.couponId || null,
       taxAmount,
+      serviceCharge: 0,
       grandTotal,
       paymentMethod: checkoutData.paymentMethod || 'UPI',
-      paymentStatus: 'Paid',
+      paymentStatus: ['UPI', 'Card'].includes(checkoutData.paymentMethod) ? 'Paid' : 'Pending',
       notes: checkoutData.notes || 'Placed via Public Website',
       serverStaff: 'Online Storefront'
     };
 
-    const newOrder = createOrder(orderPayload);
+    const newOrder = await api.createOrder(orderPayload);
 
     // Trigger celebration confetti
     confetti({
@@ -119,54 +161,61 @@ export default function PublicStorefront({ onNavigateToAdmin, onNavigateToQrOrde
     });
 
     setCartItems([]);
+    try { localStorage.removeItem(CART_STORAGE_KEY); } catch { /* noop */ }
     setIsCartOpen(false);
     showToast(`Order #${newOrder.orderNumber} placed! You can track it live.`);
+    return newOrder;
   };
 
   return (
     <div className="bg-[#0b0c0e] text-white min-h-screen font-['Plus_Jakarta_Sans',sans-serif]">
-      
       {/* Top Banner Navigation */}
       <Navbar
+        onNavigate={onNavigate}
         cartCount={cartItems.reduce((sum, i) => sum + i.quantity, 0)}
         onOpenCart={() => setIsCartOpen(true)}
-        onOpenReservation={() => setIsReservationOpen(true)}
+        onOpenReservation={() => (onNavigate ? onNavigate('/find-table') : setIsReservationOpen(true))}
         onOpenSearch={() => setIsSearchOpen(true)}
         onOpenOffcanvas={() => setIsOffcanvasOpen(true)}
         onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
-        onOpenQrScanner={() => setIsQrScannerOpen(true)}
+        onOpenQrScanner={() => (onNavigate ? onNavigate('/scan-table') : setIsQrScannerOpen(true))}
         onNavigateToAdmin={onNavigateToAdmin}
       />
 
       {/* Main Public Hero & Content */}
-      <main>
+      <main id="main-content">
         <HeroBanner
-          onOpenReservation={() => setIsReservationOpen(true)}
-          onOpenMenu={() => {
-            const el = document.getElementById('menu');
-            if (el) el.scrollIntoView({ behavior: 'smooth' });
-          }}
-          onOpenQrScanner={() => setIsQrScannerOpen(true)}
+          onNavigate={onNavigate}
+          onOpenReservation={() => (onNavigate ? onNavigate('/find-table') : setIsReservationOpen(true))}
+          onOpenCart={() => (onNavigate ? onNavigate('/order-online') : setIsCartOpen(true))}
+          onOpenMenu={() => (onNavigate ? onNavigate('/menu') : null)}
+          onOpenQrScanner={() => (onNavigate ? onNavigate('/scan-table') : setIsQrScannerOpen(true))}
         />
         <InfoBar />
-        <AboutSection onOpenReservation={() => setIsReservationOpen(true)} />
+        <AboutSection
+          onOpenReservation={() => (onNavigate ? onNavigate('/find-table') : setIsReservationOpen(true))}
+        />
         <CoffeeMenuSection
           onAddToCart={handleAddToCart}
-          onOpenReservation={() => setIsReservationOpen(true)}
+          onOpenReservation={() => (onNavigate ? onNavigate('/find-table') : setIsReservationOpen(true))}
         />
-        <VideoBanner onOpenReservation={() => setIsReservationOpen(true)} />
+        <VideoBanner
+          onOpenReservation={() => (onNavigate ? onNavigate('/find-table') : setIsReservationOpen(true))}
+        />
         <TestimonialsSection />
         <GallerySection />
       </main>
 
       {/* Footer */}
       <Footer
-        onOpenReservation={() => setIsReservationOpen(true)}
+        onNavigate={onNavigate}
+        onOpenReservation={() => (onNavigate ? onNavigate('/find-table') : setIsReservationOpen(true))}
+        onOpenCart={() => (onNavigate ? onNavigate('/order-online') : setIsCartOpen(true))}
         onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
         onNavigateToAdmin={onNavigateToAdmin}
       />
 
-      {/* Drawers & Modals */}
+      {/* Drawers & Modals for in-page quick utilities */}
       <CartDrawer
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
@@ -180,7 +229,7 @@ export default function PublicStorefront({ onNavigateToAdmin, onNavigateToQrOrde
         isOpen={isReservationOpen}
         onClose={() => setIsReservationOpen(false)}
         onSuccess={(bookingData) => {
-          addReservation(bookingData);
+          setIsReservationOpen(false);
           showToast(`Table reserved for ${bookingData.customerName} on ${bookingData.date}!`);
         }}
       />
@@ -209,10 +258,7 @@ export default function PublicStorefront({ onNavigateToAdmin, onNavigateToQrOrde
       <OffcanvasDrawer
         isOpen={isOffcanvasOpen}
         onClose={() => setIsOffcanvasOpen(false)}
-        onOpenReservation={() => {
-          setIsOffcanvasOpen(false);
-          setIsReservationOpen(true);
-        }}
+        onNavigate={onNavigate}
         onOpenTrackOrder={() => {
           setIsOffcanvasOpen(false);
           setIsTrackOrderOpen(true);
@@ -222,13 +268,13 @@ export default function PublicStorefront({ onNavigateToAdmin, onNavigateToQrOrde
 
       <ScrollToTop />
 
-      {toastMessage && (
+      {toast.message && (
         <Toast
-          message={toastMessage}
-          onClose={() => setToastMessage('')}
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast({ message: '', type: 'success' })}
         />
       )}
-
     </div>
   );
 }

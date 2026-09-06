@@ -15,8 +15,14 @@ export default function Modal({
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' && isOpen) onClose();
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = '';
+    };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
@@ -30,11 +36,12 @@ export default function Modal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" aria-label={title}>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity duration-300"
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity duration-300"
         onClick={onClose}
+        aria-hidden="true"
       />
 
       <div className="min-h-full p-4 flex items-center justify-center relative z-10">
@@ -44,7 +51,7 @@ export default function Modal({
           {/* Header */}
           <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between gap-4">
             <div>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white font-['Plus_Jakarta_Sans',sans-serif]">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white font-[Inter,'Plus_Jakarta_Sans',sans-serif]">
                 {title}
               </h3>
               {subtitle && (
@@ -53,9 +60,10 @@ export default function Modal({
             </div>
             <button
               onClick={onClose}
+              aria-label="Close dialog"
               className="p-2 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
             >
-              <X className="w-5 h-5" />
+              <X className="w-5 h-5" aria-hidden="true" />
             </button>
           </div>
 

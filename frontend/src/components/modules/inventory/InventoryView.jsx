@@ -26,8 +26,14 @@ export default function InventoryView() {
     purchases,
     adjustInventoryStock,
     addInventoryItem,
+    updateInventoryItem,
+    deleteInventoryItem,
     addSupplier,
-    createPurchaseOrder
+    updateSupplier,
+    deleteSupplier,
+    createPurchaseOrder,
+    receivePurchaseOrder,
+    deletePurchaseOrder
   } = useCafe();
 
   const [activeTab, setActiveTab] = useState('stock'); // stock, suppliers, purchases
@@ -70,6 +76,63 @@ export default function InventoryView() {
   const [selectedPOItem, setSelectedPOItem] = useState(inventory[0]?.id || '');
   const [poQty, setPoQty] = useState(10);
   const [poUnitPrice, setPoUnitPrice] = useState(250);
+  const [poReceiveNow, setPoReceiveNow] = useState(true);
+
+  // Edit stock item state
+  const [editingItem, setEditingItem] = useState(null);
+  const [editItemForm, setEditItemForm] = useState({});
+  const [itemToDelete, setItemToDelete] = useState(null);
+
+  // Edit supplier state
+  const [editingSupplier, setEditingSupplier] = useState(null);
+  const [editSupForm, setEditSupForm] = useState({});
+  const [supplierToDelete, setSupplierToDelete] = useState(null);
+
+  const openEditItem = (item) => {
+    setEditingItem(item);
+    setEditItemForm({
+      name: item.name,
+      category: item.category,
+      currentStock: item.currentStock,
+      minStock: item.minStock,
+      maxStock: item.maxStock,
+      unit: item.unit,
+      costPerUnit: item.costPerUnit,
+      supplierId: item.supplierId || ''
+    });
+  };
+
+  const handleSaveEditItem = (e) => {
+    e.preventDefault();
+    if (!editingItem) return;
+    updateInventoryItem(editingItem.id, {
+      ...editItemForm,
+      currentStock: Number(editItemForm.currentStock),
+      minStock: Number(editItemForm.minStock),
+      maxStock: Number(editItemForm.maxStock),
+      costPerUnit: Number(editItemForm.costPerUnit)
+    });
+    setEditingItem(null);
+  };
+
+  const openEditSupplier = (sup) => {
+    setEditingSupplier(sup);
+    setEditSupForm({
+      name: sup.name,
+      contactPerson: sup.contactPerson || '',
+      phone: sup.phone || '',
+      email: sup.email || '',
+      category: sup.category || '',
+      leadTimeDays: sup.leadTimeDays ?? 2
+    });
+  };
+
+  const handleSaveEditSupplier = (e) => {
+    e.preventDefault();
+    if (!editingSupplier) return;
+    updateSupplier(editingSupplier.id, { ...editSupForm, leadTimeDays: Number(editSupForm.leadTimeDays) });
+    setEditingSupplier(null);
+  };
 
   // Filtered Stock
   const filteredStock = inventory.filter((item) => {
@@ -130,7 +193,7 @@ export default function InventoryView() {
     });
   };
 
-  // Create PO handler
+  // Create PO handler (create as Pending, optionally receive immediately -> restock + expense)
   const handleCreatePO = (e) => {
     e.preventDefault();
     const supObj = suppliers.find((s) => s.id === selectedPOSupplier);
@@ -149,7 +212,7 @@ export default function InventoryView() {
         }
       ],
       totalAmount: Number(poQty) * Number(poUnitPrice)
-    });
+    }, { receive: poReceiveNow });
 
     setIsAddPOModalOpen(false);
   };
@@ -318,16 +381,30 @@ export default function InventoryView() {
                             {isLow ? 'Low Stock' : 'In Stock'}
                           </Badge>
                         </td>
-                        <td className="px-5 py-3.5 text-right">
+                        <td className="px-5 py-3.5 text-right whitespace-nowrap">
                           <button
                             onClick={() => {
                               setAdjustingItem(item);
                               setAdjustQty(5);
                               setAdjustType('add');
                             }}
-                            className="px-2.5 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-[#DD5903] hover:text-white text-gray-700 dark:text-gray-300 rounded font-semibold text-xs transition-colors cursor-pointer"
+                            className="px-2.5 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-[#DD5903] hover:text-white text-gray-700 dark:text-gray-300 rounded font-semibold text-xs transition-colors cursor-pointer mr-1"
                           >
                             Adjust Stock
+                          </button>
+                          <button
+                            onClick={() => openEditItem(item)}
+                            className="px-2.5 py-1 text-xs font-semibold text-gray-500 hover:text-gray-900 dark:hover:text-white"
+                            title="Edit item"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => setItemToDelete(item)}
+                            className="px-2.5 py-1 text-xs font-semibold text-gray-500 hover:text-rose-600"
+                            title="Delete item"
+                          >
+                            Delete
                           </button>
                         </td>
                       </tr>
@@ -369,15 +446,23 @@ export default function InventoryView() {
                 <span className="text-gray-500 font-semibold">
                   Total POs: {purchases.filter((p) => p.supplierId === sup.id).length}
                 </span>
-                <button
-                  onClick={() => {
-                    setSelectedPOSupplier(sup.id);
-                    setIsAddPOModalOpen(true);
-                  }}
-                  className="text-[#DD5903] hover:underline font-bold"
-                >
-                  Create PO →
-                </button>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => openEditSupplier(sup)} className="text-gray-500 hover:text-gray-900 dark:hover:text-white font-bold">
+                    Edit
+                  </button>
+                  <button onClick={() => setSupplierToDelete(sup)} className="text-gray-500 hover:text-rose-600 font-bold">
+                    Delete
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedPOSupplier(sup.id);
+                      setIsAddPOModalOpen(true);
+                    }}
+                    className="text-[#DD5903] hover:underline font-bold"
+                  >
+                    Create PO →
+                  </button>
+                </div>
               </div>
             </Card>
           ))}
@@ -397,10 +482,13 @@ export default function InventoryView() {
                   <th className="px-5 py-3.5">Items & Quantity</th>
                   <th className="px-5 py-3.5">Total Amount</th>
                   <th className="px-5 py-3.5">Status</th>
+                  <th className="px-5 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800/80">
-                {purchases.map((po) => (
+                {purchases.map((po) => {
+                  const isDone = po.status === 'Completed' || po.status === 'Received';
+                  return (
                   <tr key={po.id} className="hover:bg-gray-50/80 dark:hover:bg-gray-800/40">
                     <td className="px-5 py-3.5 font-mono font-bold text-gray-900 dark:text-white">
                       {po.poNumber}
@@ -418,12 +506,31 @@ export default function InventoryView() {
                       ₹{po.totalAmount.toLocaleString()}
                     </td>
                     <td className="px-5 py-3.5">
-                      <Badge variant={po.status === 'Completed' ? 'success' : 'warning'}>
+                      <Badge variant={isDone ? 'success' : 'warning'}>
                         {po.status}
                       </Badge>
                     </td>
+                    <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                      {!isDone && (
+                        <button
+                          onClick={() => receivePurchaseOrder(po.id)}
+                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-semibold text-xs transition-colors cursor-pointer mr-1"
+                          title="Mark received: restocks inventory + records expense"
+                        >
+                          Receive
+                        </button>
+                      )}
+                      <button
+                        onClick={() => deletePurchaseOrder(po.id)}
+                        className="px-2.5 py-1 text-xs font-semibold text-gray-500 hover:text-rose-600"
+                        title="Delete purchase order"
+                      >
+                        Delete
+                      </button>
+                    </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -637,7 +744,7 @@ export default function InventoryView() {
                 Cancel
               </Button>
               <Button onClick={handleCreatePO}>
-                Place & Restock
+                {poReceiveNow ? 'Place & Restock' : 'Save as Pending'}
               </Button>
             </>
           }
@@ -714,6 +821,19 @@ export default function InventoryView() {
                 ₹{(Number(poQty) * Number(poUnitPrice)).toLocaleString()}
               </span>
             </div>
+
+            <label className="flex items-center gap-2 cursor-pointer font-semibold text-gray-700 dark:text-gray-300">
+              <input
+                type="checkbox"
+                checked={poReceiveNow}
+                onChange={(e) => setPoReceiveNow(e.target.checked)}
+                className="rounded text-emerald-600 focus:ring-emerald-500"
+              />
+              Receive immediately (restock inventory + record purchase expense)
+            </label>
+            {!poReceiveNow && (
+              <p className="text-[11px] text-gray-400">PO will be saved as Pending — use Receive in the table to restock later.</p>
+            )}
           </form>
         </Modal>
       )}
@@ -787,6 +907,126 @@ export default function InventoryView() {
               />
             </div>
           </form>
+        </Modal>
+      )}
+
+      {/* ================= EDIT RAW MATERIAL MODAL ================= */}
+      {editingItem && (
+        <Modal
+          isOpen={true}
+          onClose={() => setEditingItem(null)}
+          title={`Edit: ${editingItem.name}`}
+          size="md"
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setEditingItem(null)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveEditItem}>
+                Save Changes
+              </Button>
+            </>
+          }
+        >
+          <form onSubmit={handleSaveEditItem} className="space-y-3 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Item Name *</label>
+                <input type="text" required value={editItemForm.name || ''} onChange={(e) => setEditItemForm({ ...editItemForm, name: e.target.value })} className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none" />
+              </div>
+              <div>
+                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Category</label>
+                <input type="text" value={editItemForm.category || ''} onChange={(e) => setEditItemForm({ ...editItemForm, category: e.target.value })} className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Current Stock</label>
+                <input type="number" step="0.01" value={editItemForm.currentStock ?? 0} onChange={(e) => setEditItemForm({ ...editItemForm, currentStock: e.target.value })} className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none font-mono" />
+              </div>
+              <div>
+                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Min Alert Level</label>
+                <input type="number" step="0.01" value={editItemForm.minStock ?? 0} onChange={(e) => setEditItemForm({ ...editItemForm, minStock: e.target.value })} className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none font-mono" />
+              </div>
+              <div>
+                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Unit</label>
+                <input type="text" value={editItemForm.unit || ''} onChange={(e) => setEditItemForm({ ...editItemForm, unit: e.target.value })} className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Max Stock</label>
+                <input type="number" step="0.01" value={editItemForm.maxStock ?? 0} onChange={(e) => setEditItemForm({ ...editItemForm, maxStock: e.target.value })} className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none font-mono" />
+              </div>
+              <div>
+                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Cost Per Unit (₹)</label>
+                <input type="number" step="0.01" value={editItemForm.costPerUnit ?? 0} onChange={(e) => setEditItemForm({ ...editItemForm, costPerUnit: e.target.value })} className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none font-mono" />
+              </div>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ================= EDIT SUPPLIER MODAL ================= */}
+      {editingSupplier && (
+        <Modal
+          isOpen={true}
+          onClose={() => setEditingSupplier(null)}
+          title={`Edit Supplier: ${editingSupplier.name}`}
+          size="sm"
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setEditingSupplier(null)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveEditSupplier}>
+                Save Changes
+              </Button>
+            </>
+          }
+        >
+          <form onSubmit={handleSaveEditSupplier} className="space-y-3 text-xs">
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Vendor Name *</label>
+              <input type="text" required value={editSupForm.name || ''} onChange={(e) => setEditSupForm({ ...editSupForm, name: e.target.value })} className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none" />
+            </div>
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Contact Person</label>
+              <input type="text" value={editSupForm.contactPerson || ''} onChange={(e) => setEditSupForm({ ...editSupForm, contactPerson: e.target.value })} className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Phone</label>
+                <input type="tel" value={editSupForm.phone || ''} onChange={(e) => setEditSupForm({ ...editSupForm, phone: e.target.value })} className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none" />
+              </div>
+              <div>
+                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Lead Time (days)</label>
+                <input type="number" value={editSupForm.leadTimeDays ?? 2} onChange={(e) => setEditSupForm({ ...editSupForm, leadTimeDays: e.target.value })} className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none font-mono" />
+              </div>
+            </div>
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Email</label>
+              <input type="email" value={editSupForm.email || ''} onChange={(e) => setEditSupForm({ ...editSupForm, email: e.target.value })} className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none" />
+            </div>
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Supply Category</label>
+              <input type="text" value={editSupForm.category || ''} onChange={(e) => setEditSupForm({ ...editSupForm, category: e.target.value })} className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none" />
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {itemToDelete && (
+        <Modal isOpen={true} onClose={() => setItemToDelete(null)} title={`Delete "${itemToDelete.name}"`} size="sm"
+          footer={<><Button variant="secondary" onClick={() => setItemToDelete(null)}>Cancel</Button><Button onClick={() => { deleteInventoryItem(itemToDelete.id); setItemToDelete(null); }}>Yes, Delete</Button></>}>
+          <p className="text-xs text-gray-600 dark:text-gray-300">Remove this raw material from inventory? Products linked via recipe will no longer deduct it. This cannot be undone.</p>
+        </Modal>
+      )}
+
+      {supplierToDelete && (
+        <Modal isOpen={true} onClose={() => setSupplierToDelete(null)} title={`Delete "${supplierToDelete.name}"`} size="sm"
+          footer={<><Button variant="secondary" onClick={() => setSupplierToDelete(null)}>Cancel</Button><Button onClick={() => { deleteSupplier(supplierToDelete.id); setSupplierToDelete(null); }}>Yes, Delete</Button></>}>
+          <p className="text-xs text-gray-600 dark:text-gray-300">Remove this supplier? Past purchase orders are kept. This cannot be undone.</p>
         </Modal>
       )}
 

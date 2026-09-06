@@ -22,7 +22,7 @@ export default function NotificationDropdown({ isOpen, onClose, onNavigate }) {
               Notifications
             </h4>
             {unreadCount > 0 && (
-              <span className="bg-[#DD5903] text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full">
+              <span className="bg-[#DD5903] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                 {unreadCount} new
               </span>
             )}

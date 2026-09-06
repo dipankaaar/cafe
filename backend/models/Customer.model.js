@@ -1,5 +1,5 @@
 import { db } from '../db/connection.js';
-import { parseJSON, sanitize, getCurrentTimestamp } from '../utils/helpers.js';
+import { parseJSON, sanitize, getCurrentTimestamp, normalizeIndianPhone, tierForSpend } from '../utils/helpers.js';
 
 export class CustomerModel {
   static findAll({ search } = {}) {
@@ -24,8 +24,16 @@ export class CustomerModel {
   }
 
   static findByPhone(phone) {
-    const row = db.prepare('SELECT * FROM customers WHERE phone = ?').get(phone.trim());
-    return row ? this.format(row) : null;
+    const normalized = normalizeIndianPhone(phone);
+    const row = db.prepare('SELECT * FROM customers WHERE phone = ? OR phone LIKE ?').get(phone.trim(), `%${normalized}%`);
+    if (row) return this.format(row);
+    // fallback: scan normalized
+    if (normalized) {
+      const all = db.prepare('SELECT * FROM customers').all();
+      const hit = all.find((r) => normalizeIndianPhone(r.phone) === normalized);
+      return hit ? this.format(hit) : null;
+    }
+    return null;
   }
 
   static create(data) {
@@ -36,33 +44,69 @@ export class CustomerModel {
       INSERT INTO customers (id, name, phone, email, tier, loyalty_points, total_spent, total_orders, last_visit, favorite_products_json, notes)
       VALUES (?, ?, ?, ?, 'Bronze', 0, 0, 0, ?, '[]', ?)
     `);
-    stmt.run(id, data.name, data.phone, sanitize(data.email, ''), now, sanitize(data.notes, ''));
+    stmt.run(id, data.name.trim(), normalizeIndianPhone(data.phone), sanitize(data.email, '')?.trim?.() || '', now, sanitize(data.notes, ''));
 
     return this.findById(id);
   }
 
-  static updateLoyalty(id, deltaPoints, addedSpent = 0) {
+  static update(id, data) {
+    const existing = this.findById(id);
+    if (!existing) return null;
+    const name = data.name !== undefined ? String(data.name).trim() : existing.name;
+    const phone = data.phone !== undefined ? normalizeIndianPhone(data.phone) : existing.phone;
+    const email = data.email !== undefined ? String(data.email || '').trim() : (existing.email || '');
+    const notes = data.notes !== undefined ? String(data.notes || '') : (existing.notes || '');
+    db.prepare('UPDATE customers SET name = ?, phone = ?, email = ?, notes = ? WHERE id = ?')
+      .run(name, phone, email, notes, id);
+    return this.findById(id);
+  }
+
+  static delete(id) {
+    const existing = this.findById(id);
+    if (!existing) return false;
+    db.prepare('DELETE FROM customers WHERE id = ?').run(id);
+    return true;
+  }
+
+  static updateLoyalty(id, deltaPoints, addedSpent = 0, incrementOrders = false) {
     const cust = this.findById(id);
     if (!cust) return null;
 
     const newPoints = Math.max(0, cust.loyaltyPoints + Number(deltaPoints));
-    const newSpent = cust.totalSpent + Number(addedSpent);
-
-    let newTier = cust.tier;
-    if (newSpent >= 10000) newTier = 'Platinum';
-    else if (newSpent >= 5000) newTier = 'Gold';
-    else if (newSpent >= 2500) newTier = 'Silver';
+    const newSpent = Math.max(0, cust.totalSpent + Number(addedSpent));
+    const newOrders = cust.totalOrders + (incrementOrders ? 1 : 0);
+    const newTier = tierForSpend(newSpent);
 
     db.prepare(`
       UPDATE customers SET
         loyalty_points = ?,
         total_spent = ?,
+        total_orders = ?,
         tier = ?,
         last_visit = ?
       WHERE id = ?
-    `).run(newPoints, newSpent, newTier, getCurrentTimestamp(), id);
+    `).run(newPoints, newSpent, newOrders, newTier, getCurrentTimestamp(), id);
 
     return this.findById(id);
+  }
+
+  // Redeem: 1 pt = Rs1, enforced min threshold + sufficient balance
+  static redeemPoints(id, pointsToRedeem, minThreshold = 50) {
+    const cust = this.findById(id);
+    if (!cust) return { error: 'Customer not found' };
+    const pts = Math.floor(Number(pointsToRedeem || 0));
+    if (!pts || pts <= 0) return { error: 'Redeem points must be a positive integer' };
+    if (cust.loyaltyPoints < Number(minThreshold)) {
+      return { error: `Minimum ${minThreshold} points required to redeem (balance: ${cust.loyaltyPoints})` };
+    }
+    if (pts < Number(minThreshold)) {
+      return { error: `Minimum redemption is ${minThreshold} points` };
+    }
+    if (pts > cust.loyaltyPoints) {
+      return { error: `Insufficient points (balance: ${cust.loyaltyPoints}, requested: ${pts})` };
+    }
+    const updated = this.updateLoyalty(id, -pts, 0, false);
+    return { customer: updated, discountValue: pts };
   }
 
   static format(row) {
@@ -141,6 +185,63 @@ export class CouponModel {
         revenue_generated = revenue_generated + ?
       WHERE id = ? OR code = ?
     `).run(Number(discountAmount || 0), Number(orderTotal || 0), idOrCode, idOrCode);
+  }
+
+  static update(id, data) {
+    const existing = this.findById(id);
+    if (!existing) return null;
+    const allowed = [
+      'name', 'description', 'discountType', 'discountValue', 'maxDiscount',
+      'minOrderValue', 'maxOrderValue', 'startDate', 'expiryDate',
+      'usageLimit', 'perCustomerLimit', 'status', 'customerEligibility',
+      'applicableCategories', 'applicableOrderTypes'
+    ];
+    const merged = { ...existing };
+    for (const k of allowed) {
+      if (data[k] !== undefined) merged[k] = data[k];
+    }
+    // code is immutable-ish but allow rename with uniqueness
+    if (data.code !== undefined && String(data.code).trim().toUpperCase() !== existing.code) {
+      const newCode = String(data.code).trim().toUpperCase();
+      const clash = this.findByCode(newCode);
+      if (clash && clash.id !== id) throw new Error(`Coupon code "${newCode}" already exists`);
+      merged.code = newCode;
+    }
+    db.prepare(`
+      UPDATE coupons SET
+        code = ?, name = ?, description = ?, discount_type = ?, discount_value = ?,
+        max_discount = ?, min_order_value = ?, max_order_value = ?,
+        start_date = ?, expiry_date = ?, usage_limit = ?, per_customer_limit = ?,
+        status = ?, customer_eligibility = ?,
+        applicable_categories_json = ?, applicable_order_types_json = ?
+      WHERE id = ?
+    `).run(
+      merged.code,
+      merged.name || merged.code,
+      merged.description || '',
+      merged.discountType || 'percentage',
+      Number(merged.discountValue),
+      merged.maxDiscount === '' || merged.maxDiscount === null || merged.maxDiscount === undefined ? null : Number(merged.maxDiscount),
+      Number(merged.minOrderValue || 0),
+      merged.maxOrderValue === '' || merged.maxOrderValue === null || merged.maxOrderValue === undefined ? null : Number(merged.maxOrderValue),
+      merged.startDate || null,
+      merged.expiryDate || null,
+      merged.usageLimit === '' || merged.usageLimit === null || merged.usageLimit === undefined ? null : Number(merged.usageLimit),
+      Number(merged.perCustomerLimit || 1),
+      merged.status || 'active',
+      merged.customerEligibility || 'all',
+      JSON.stringify(merged.applicableCategories || []),
+      JSON.stringify(merged.applicableOrderTypes || ['dine-in', 'takeaway', 'delivery']),
+      id
+    );
+    return this.findById(id);
+  }
+
+  static delete(id) {
+    const existing = this.findById(id);
+    if (!existing) return false;
+    db.prepare('DELETE FROM coupons WHERE id = ?').run(id);
+    return true;
   }
 
   static toggleStatus(id) {

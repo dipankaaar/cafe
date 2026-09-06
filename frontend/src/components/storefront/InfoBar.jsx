@@ -15,11 +15,11 @@ export default function InfoBar({ onOpenReservation }) {
               </div>
               <div>
                 <h2 className="text-xl sm:text-2xl text-white font-['Arapey',serif] font-normal leading-tight">
-                  12 Creek Street, Brisbane CBD
+                  Salboni, Sakadihi-Ailakundi Road (Near High School)
                 </h2>
-                <div className="flex items-center gap-1.5 text-xs sm:text-sm text-gray-400 mt-0.5 justify-center sm:justify-start">
-                  <Clock className="w-3.5 h-3.5 text-[#DD5903]" />
-                  <span>We are open 7 days a week — <strong>7:00am – 4:00pm</strong></span>
+                <div className="flex items-center gap-1.5 text-xs sm:text-sm text-gray-400 mt-0.5 justify-center sm:justify-start flex-wrap">
+                  <Clock className="w-3.5 h-3.5 text-[#DD5903] flex-shrink-0" />
+                  <span>Open All Days — Morning: <strong>09:00 AM – 01:30 PM</strong> | Evening: <strong>04:30 PM – 10:30 PM</strong></span>
                 </div>
               </div>
             </div>

@@ -11,6 +11,7 @@ router.get('/audit-logs', systemController.getAuditLogs);
 
 // Notifications
 router.get('/notifications', systemController.getNotifications);
+router.post('/notifications', systemController.createNotification);
 router.patch('/notifications/:id/read', systemController.markNotificationRead);
 router.post('/notifications/read-all', systemController.markAllNotificationsRead);
 

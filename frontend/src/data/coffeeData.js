@@ -1,70 +1,70 @@
 export const coffeeMenuCol1 = [
   {
-    id: 'latte',
-    name: 'Latte',
-    price: 8,
-    badge: null,
-    description: 'A shot of Espresso and Steamed milk',
-    image: 'https://reactheme.com/products/wordpress/dinenos/wp-content/uploads/2023/03/latte.jpg'
-  },
-  {
-    id: 'cappuccino',
-    name: 'Cappuccino',
-    price: 9,
-    badge: null,
-    description: 'A shot of Espresso and Steamed milk',
-    image: 'https://reactheme.com/products/wordpress/dinenos/wp-content/uploads/2023/03/Cappuccino.jpg'
-  },
-  {
-    id: 'americano',
-    name: 'Americano',
-    price: 11,
+    id: 'bev-4',
+    name: 'Coffee',
+    price: 20,
     badge: 'Popular',
-    description: 'A shot of Espresso and Steamed milk',
-    image: 'https://reactheme.com/products/wordpress/dinenos/wp-content/uploads/2023/03/Americano.jpg'
+    description: 'Classic hot milk coffee brewed rich and smooth.',
+    image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=500&auto=format&fit=crop&q=60'
   },
   {
-    id: 'espresso',
-    name: 'Espresso',
-    price: 9,
+    id: 'bev-6',
+    name: 'Cappuccino',
+    price: 50,
     badge: null,
-    description: 'A shot of Espresso and Steamed milk',
-    image: 'https://reactheme.com/products/wordpress/dinenos/wp-content/uploads/2023/03/Espresso-1.jpg'
+    description: 'Espresso with velvety steamed milk and frothy foam.',
+    image: 'https://images.unsplash.com/photo-1534778101976-62847782c213?w=500&auto=format&fit=crop&q=60'
+  },
+  {
+    id: 'bev-7',
+    name: 'Cold Coffee',
+    price: 70,
+    badge: 'Popular',
+    description: 'Chilled blended thick creamy cold coffee.',
+    image: 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=500&auto=format&fit=crop&q=60'
+  },
+  {
+    id: 'crp-7',
+    name: 'Egg Chicken Roll',
+    price: 60,
+    badge: 'Must Try',
+    description: 'Flaky paratha layered with egg and wrapped around juicy spiced chicken chunks.',
+    image: 'https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?w=500&auto=format&fit=crop&q=60'
   }
 ];
 
 export const coffeeMenuCol2 = [
   {
-    id: 'ristretto',
-    name: 'Ristretto',
-    price: 9,
-    badge: null,
-    description: 'A shot of Espresso and Steamed milk',
-    image: 'https://reactheme.com/products/wordpress/dinenos/wp-content/uploads/2023/03/Cappuccino.jpg'
+    id: 'mog-3',
+    name: 'Peটুক আdda Special Moglai',
+    price: 120,
+    badge: 'Special',
+    description: "Chef's signature jumbo moglai loaded with double chicken, egg & secret spices.",
+    image: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=500&auto=format&fit=crop&q=60'
   },
   {
-    id: 'cold-brew',
-    name: 'Cold Brew',
-    price: 11,
+    id: 'ig-1',
+    name: 'Chicken Kosa (4Pcs)',
+    price: 150,
+    badge: 'Bestseller',
+    description: 'Authentic Bengali style rich and spicy slow-cooked chicken kasha (4 pcs).',
+    image: 'https://images.unsplash.com/photo-1588166524941-3bf61a9c41db?w=500&auto=format&fit=crop&q=60'
+  },
+  {
+    id: 'crp-4',
+    name: 'Egg Chicken Chowmin',
+    price: 70,
     badge: 'Popular',
-    description: 'A shot of Espresso and Steamed milk',
-    image: 'https://reactheme.com/products/wordpress/dinenos/wp-content/uploads/2023/03/Americano.jpg'
+    description: 'Classic stir-fried noodles tossed with chicken and scrambled egg.',
+    image: 'https://images.unsplash.com/photo-1585032226651-759b368d7246?w=500&auto=format&fit=crop&q=60'
   },
   {
-    id: 'mazagran',
-    name: 'Mazagran',
-    price: 9,
-    badge: null,
-    description: 'A shot of Espresso and Steamed milk',
-    image: 'https://reactheme.com/products/wordpress/dinenos/wp-content/uploads/2023/03/Espresso-1.jpg'
-  },
-  {
-    id: 'galao',
-    name: 'Galão',
-    price: 8,
-    badge: null,
-    description: 'A shot of Espresso and Steamed milk',
-    image: 'https://reactheme.com/products/wordpress/dinenos/wp-content/uploads/2023/03/Galao.jpg'
+    id: 'mock-1',
+    name: 'Mint Mojito',
+    price: 70,
+    badge: 'Chilled',
+    description: 'Chilled sparkling cooler with fresh mint leaves, lime and crushed ice.',
+    image: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=500&auto=format&fit=crop&q=60'
   }
 ];
 
@@ -103,20 +103,20 @@ export const footerThumbnails = [
 export const testimonials = [
   {
     id: 1,
-    quote: '“ Customer feedback is the information, insights, issues, & input shared by your community about their experiences with your company, product, or services. ”',
-    author: 'Alonso D. Dowson',
-    role: 'CEO of Alonso co.'
+    quote: '“ Petuk Adda Cafe is an absolute gem in Salboni! Where every sip and bite truly tells a story. The artisanal coffees and warm ambiance make every visit special. ”',
+    author: 'Rajdeep Mukherjee',
+    role: 'Food & Travel Blogger'
   },
   {
     id: 2,
-    quote: '“ Dinenos Cafe House serves the most exquisite single-origin espresso in the city. The warm atmosphere and barista mastery are second to none! ”',
+    quote: '“ Petuk Adda Cafe serves the most exquisite specialty espresso and delightful bites in Salboni. The atmosphere and hospitality are second to none! ”',
     author: 'Sarah Jenkins',
-    role: 'Food & Coffee Critic'
+    role: 'Coffee Enthusiast'
   },
   {
     id: 3,
-    quote: '“ From the Cold Brew to the handcrafted Galão, every sip is perfection. It has quickly become our favorite spot for brunch and meetings. ”',
-    author: 'Michael Vance',
-    role: 'Creative Director'
+    quote: '“ From the Cold Brew to the handcrafted beverages and snacks, every sip is perfection. It has quickly become our favorite spot in Salboni for adda and meetups. ”',
+    author: 'Aniket Banerjee',
+    role: 'Local Resident'
   }
 ];

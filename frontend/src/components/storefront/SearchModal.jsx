@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Search, X, ArrowRight } from 'lucide-react';
-import { coffeeMenuCol1, coffeeMenuCol2 } from '../../data/coffeeData';
+import { Search, X } from 'lucide-react';
+import { useCafe } from '../../context/CafeContext';
+import { formatINR, getProductImage, getProductPrice, handleImageFallback } from '../../utils/formatters';
 
 export default function SearchModal({ isOpen, onClose, onAddToCart }) {
+  const { products } = useCafe();
   const [query, setQuery] = useState('');
-  const allItems = [...coffeeMenuCol1, ...coffeeMenuCol2];
+  // Live API menu only — no mock data
+  const allItems = products || [];
 
   useEffect(() => {
     if (isOpen) {
@@ -14,15 +17,20 @@ export default function SearchModal({ isOpen, onClose, onAddToCart }) {
 
   if (!isOpen) return null;
 
-  const filteredItems = query.trim() === ''
+  const q = query.trim().toLowerCase();
+  const filteredItems = q === ''
     ? []
-    : allItems.filter(item =>
-        item.name.toLowerCase().includes(query.toLowerCase()) ||
-        item.description.toLowerCase().includes(query.toLowerCase())
-      );
+    : allItems.filter((item) => {
+        if (item.isAvailable === false) return false;
+        return (
+          (item.name && item.name.toLowerCase().includes(q)) ||
+          (item.description && item.description.toLowerCase().includes(q)) ||
+          (item.categoryName && item.categoryName.toLowerCase().includes(q))
+        );
+      }).slice(0, 20);
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" aria-label="Search menu">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/90 backdrop-blur-md transition-opacity"
@@ -30,34 +38,35 @@ export default function SearchModal({ isOpen, onClose, onAddToCart }) {
       />
 
       <div className="min-h-screen px-4 text-center flex flex-col items-center justify-start pt-24 pb-12 relative z-10">
-        
         {/* Close button */}
         <button
           onClick={onClose}
+          aria-label="Close search"
           className="absolute top-8 right-8 text-gray-400 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors cursor-pointer"
         >
           <X className="w-8 h-8" />
         </button>
 
         <div className="w-full max-w-2xl mx-auto">
-          <p className="text-xs uppercase tracking-widest text-[#DD5903] font-bold mb-3">Dinenos Menu Search</p>
+          <p className="text-xs uppercase tracking-widest text-[#DD5903] font-bold mb-3">Petuk Adda Cafe Menu Search</p>
           <h2 className="text-3xl sm:text-4xl text-white font-['Arapey',serif] mb-8">What coffee can we brew for you?</h2>
 
           {/* Search Input Box */}
           <div className="relative mb-8">
             <input
-              type="text"
+              type="search"
               autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search drinks, latte, cappuccino, espresso..."
+              aria-label="Search menu items"
               className="w-full bg-[#1e1e1e] border-2 border-white/20 focus:border-[#DD5903] rounded-full py-4 pl-14 pr-6 text-lg text-white placeholder-gray-400 outline-none transition-all shadow-2xl"
             />
             <Search className="w-6 h-6 text-gray-400 absolute left-5 top-1/2 -translate-y-1/2" />
             {query && (
               <button
                 onClick={() => setQuery('')}
-                className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs"
+                className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs cursor-pointer"
               >
                 Clear
               </button>
@@ -70,40 +79,54 @@ export default function SearchModal({ isOpen, onClose, onAddToCart }) {
               <p className="text-xs uppercase text-gray-400 font-semibold mb-2">
                 Found {filteredItems.length} result{filteredItems.length === 1 ? '' : 's'} for "{query}"
               </p>
-              
+
               {filteredItems.length === 0 ? (
                 <div className="text-center py-8 text-gray-400">
-                  <p>No matching coffee items found. Try "Latte", "Cold Brew", or "Espresso".</p>
+                  <p>No matching items found. Try "Latte", "Biryani", or "Paneer".</p>
                 </div>
               ) : (
                 filteredItems.map((item) => (
                   <div
                     key={item.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-[#222222]/80 hover:bg-[#282828] transition-colors border border-white/5"
+                    className="flex items-center justify-between gap-3 p-3 rounded-lg bg-[#222222]/80 hover:bg-[#282828] transition-colors border border-white/5"
                   >
-                    <div className="flex items-center gap-4">
-                      <img src={item.image} alt={item.name} className="w-12 h-12 rounded-full object-cover" />
-                      <div>
-                        <h4 className="text-white font-bold text-base flex items-center gap-2">
-                          {item.name}
+                    <div className="flex items-center gap-4 min-w-0">
+                      <img
+                        src={getProductImage(item)}
+                        alt={item.name}
+                        loading="lazy"
+                        onError={handleImageFallback}
+                        className="w-12 h-12 rounded-full object-cover flex-shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <h4 className="text-white font-bold text-base flex items-center gap-2 truncate">
+                          <span
+                            title={item.isVeg ? 'Veg' : 'Non-veg'}
+                            className={`w-3 h-3 rounded-[3px] border flex-shrink-0 ${item.isVeg ? 'border-emerald-500' : 'border-rose-500'}`}
+                          >
+                            <span className={`block w-full h-full rounded-full ${item.isVeg ? 'bg-emerald-500' : 'bg-rose-500'}`} style={{ transform: 'scale(0.55)' }} />
+                          </span>
+                          <span className="truncate">{item.name}</span>
                           {item.badge && (
-                            <span className="text-[10px] bg-[#DD5903] text-white px-2 py-0.5 rounded font-normal">
+                            <span className="text-[10px] bg-[#DD5903] text-white px-2 py-0.5 rounded font-normal flex-shrink-0">
                               {item.badge}
                             </span>
                           )}
                         </h4>
-                        <p className="text-xs text-gray-400">{item.description}</p>
+                        <p className="text-xs text-gray-400 line-clamp-1">{item.description}</p>
                       </div>
                     </div>
-                    
-                    <div className="flex items-center gap-3">
-                      <span className="text-lg font-bold text-[#DD5903] font-mono">${item.price}</span>
+
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <span className="text-lg font-bold text-[#DD5903] font-mono whitespace-nowrap">
+                        {formatINR(getProductPrice(item), { whole: true })}
+                      </span>
                       <button
                         onClick={() => {
                           onAddToCart(item);
                           onClose();
                         }}
-                        className="dinenos-btn !py-1.5 !px-3.5 text-xs"
+                        className="dinenos-btn !py-1.5 !px-3.5 text-xs cursor-pointer whitespace-nowrap"
                       >
                         Add to Order
                       </button>
@@ -118,18 +141,17 @@ export default function SearchModal({ isOpen, onClose, onAddToCart }) {
           {query.trim() === '' && (
             <div className="flex flex-wrap items-center justify-center gap-2 text-sm text-gray-400">
               <span>Popular searches:</span>
-              {['Americano', 'Cappuccino', 'Cold Brew', 'Latte', 'Ristretto'].map((tag) => (
+              {['Moglai', 'Chowmin', 'Chicken Kosa', 'Paneer 65', 'Cold Coffee', 'Mojito', 'Special Roll'].map((tag) => (
                 <button
                   key={tag}
                   onClick={() => setQuery(tag)}
-                  className="px-3 py-1 bg-white/5 hover:bg-white/10 hover:text-white rounded-full text-xs text-gray-300 transition-colors"
+                  className="px-3 py-1 bg-white/5 hover:bg-white/10 hover:text-white rounded-full text-xs text-gray-300 transition-colors cursor-pointer"
                 >
                   {tag}
                 </button>
               ))}
             </div>
           )}
-
         </div>
       </div>
     </div>

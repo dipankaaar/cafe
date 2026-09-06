@@ -15,38 +15,38 @@ export default function TestimonialsSection() {
 
   useEffect(() => {
     const timer = setInterval(() => {
-      nextSlide();
+      setCurrentIndex((prev) => (prev + 1) % testimonials.length);
     }, 5000);
     return () => clearInterval(timer);
-  }, []);
+  }, [currentIndex]);
 
   const current = testimonials[currentIndex];
 
   return (
-    <section id="testimonials" className="py-24 lg:py-32 bg-white relative overflow-hidden">
+    <section id="testimonials" aria-label="Guest testimonials" className="py-24 lg:py-32 bg-white relative overflow-hidden">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative">
         
         {/* Decorative Quote Icons */}
-        <div className="flex justify-center mb-8">
+        <div className="flex justify-center mb-8" aria-hidden="true">
           <div className="diamond-divider">
             <div className="diamond-shape"></div>
           </div>
         </div>
 
-        <div className="relative py-8 px-4 sm:px-12">
+        <div className="relative py-8 px-4 sm:px-12" aria-live="polite" aria-atomic="true">
           {/* Left Red Quote Icon */}
-          <div className="absolute top-0 left-0 w-12 h-12 sm:w-16 sm:h-16 opacity-80 pointer-events-none">
+          <div className="absolute top-0 left-0 w-12 h-12 sm:w-16 sm:h-16 opacity-80 pointer-events-none" aria-hidden="true">
             <img
               src="https://reactheme.com/products/wordpress/dinenos/wp-content/uploads/2023/02/quote-red-left.webp"
-              alt="Quote Left"
+              alt=""
               className="w-full h-full object-contain"
             />
           </div>
 
           {/* Review Stars */}
-          <div className="flex items-center justify-center gap-1 text-[#DD5903] mb-6">
+          <div className="flex items-center justify-center gap-1 text-[#DD5903] mb-6" role="img" aria-label="Rated 5 out of 5 stars">
             {[...Array(5)].map((_, i) => (
-              <Star key={i} className="w-5 h-5 fill-current" />
+              <Star key={i} className="w-5 h-5 fill-current" aria-hidden="true" />
             ))}
           </div>
 
@@ -66,10 +66,10 @@ export default function TestimonialsSection() {
           </div>
 
           {/* Right Red Quote Icon */}
-          <div className="absolute bottom-0 right-0 w-12 h-12 sm:w-16 sm:h-16 opacity-80 pointer-events-none">
+          <div className="absolute bottom-0 right-0 w-12 h-12 sm:w-16 sm:h-16 opacity-80 pointer-events-none" aria-hidden="true">
             <img
               src="https://reactheme.com/products/wordpress/dinenos/wp-content/uploads/2023/02/quote-red-right.webp"
-              alt="Quote Right"
+              alt=""
               className="w-full h-full object-contain"
             />
           </div>
@@ -79,17 +79,21 @@ export default function TestimonialsSection() {
         <div className="flex items-center justify-center gap-4 mt-8">
           <button
             onClick={prevSlide}
+            aria-label="Show previous testimonial"
             className="w-10 h-10 rounded-full border border-gray-200 hover:border-[#DD5903] hover:bg-[#DD5903] hover:text-white text-gray-600 flex items-center justify-center transition-all cursor-pointer shadow-sm"
             title="Previous Testimonial"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-4 h-4" aria-hidden="true" />
           </button>
 
           {/* Dots Indicator */}
-          <div className="flex items-center gap-2">
-            {testimonials.map((_, idx) => (
+          <div className="flex items-center gap-2" role="tablist" aria-label="Choose testimonial">
+            {testimonials.map((t, idx) => (
               <button
                 key={idx}
+                role="tab"
+                aria-selected={idx === currentIndex}
+                aria-label={`Show testimonial from ${t.author}`}
                 onClick={() => setCurrentIndex(idx)}
                 className={`h-2 rounded-full transition-all cursor-pointer ${
                   idx === currentIndex ? 'w-6 bg-[#DD5903]' : 'w-2 bg-gray-300 hover:bg-gray-400'
@@ -100,10 +104,11 @@ export default function TestimonialsSection() {
 
           <button
             onClick={nextSlide}
+            aria-label="Show next testimonial"
             className="w-10 h-10 rounded-full border border-gray-200 hover:border-[#DD5903] hover:bg-[#DD5903] hover:text-white text-gray-600 flex items-center justify-center transition-all cursor-pointer shadow-sm"
             title="Next Testimonial"
           >
-            <ArrowRight className="w-4 h-4" />
+            <ArrowRight className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
 

@@ -2,9 +2,16 @@
  * Fullstack API Client for Dinenos Cafe Management System
  */
 
-const API_BASE_URL = typeof window !== 'undefined' && window.location.hostname === 'localhost' && window.location.port !== '5000'
-  ? 'http://localhost:5000/api'
-  : '/api';
+// Production hardening: explicit base URL via VITE_API_URL (see frontend/.env.example).
+// Fallback preserves old behaviour — same-origin /api in production, localhost:5000
+// proxy target when running `vite dev` on :5173.
+const ENV_API_URL = typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL
+  ? import.meta.env.VITE_API_URL
+  : null;
+const API_BASE_URL = ENV_API_URL
+  || (typeof window !== 'undefined' && window.location.hostname === 'localhost' && window.location.port !== '5000'
+    ? 'http://localhost:5000/api'
+    : '/api');
 
 class ApiService {
   async request(endpoint, options = {}) {
@@ -20,7 +27,13 @@ class ApiService {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || errorData.error || `HTTP error! status: ${response.status}`);
       }
-      return await response.json();
+      const payload = await response.json();
+      // Unwrap backend envelope { success, statusCode, message, data } —
+      // all ApiResponse.success/created payloads carry the real body in `data`.
+      if (payload && payload.success === true && 'data' in payload) {
+        return payload.data;
+      }
+      return payload;
     } catch (error) {
       console.warn(`[API] Request to ${endpoint} failed:`, error.message);
       throw error;
@@ -59,6 +72,10 @@ class ApiService {
     return this.request(`/menu/products${query ? `?${query}` : ''}`);
   }
 
+  getProductById(id) {
+    return this.request(`/menu/products/${id}`);
+  }
+
   createProduct(productData) {
     return this.request('/menu/products', {
       method: 'POST',
@@ -73,6 +90,13 @@ class ApiService {
     });
   }
 
+  patchProduct(id, productData) {
+    return this.request(`/menu/products/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(productData)
+    });
+  }
+
   deleteProduct(id) {
     return this.request(`/menu/products/${id}`, {
       method: 'DELETE'
@@ -83,6 +107,10 @@ class ApiService {
     return this.request('/menu/categories');
   }
 
+  getCategoryById(id) {
+    return this.request(`/menu/categories/${id}`);
+  }
+
   createCategory(catData) {
     return this.request('/menu/categories', {
       method: 'POST',
@@ -90,14 +118,58 @@ class ApiService {
     });
   }
 
+  updateCategory(id, catData) {
+    return this.request(`/menu/categories/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(catData)
+    });
+  }
+
+  patchCategory(id, catData) {
+    return this.request(`/menu/categories/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(catData)
+    });
+  }
+
+  deleteCategory(id) {
+    return this.request(`/menu/categories/${id}`, {
+      method: 'DELETE'
+    });
+  }
+
   getAddons() {
     return this.request('/menu/addons');
+  }
+
+  getAddonById(id) {
+    return this.request(`/menu/addons/${id}`);
   }
 
   createAddon(addonData) {
     return this.request('/menu/addons', {
       method: 'POST',
       body: JSON.stringify(addonData)
+    });
+  }
+
+  updateAddon(id, addonData) {
+    return this.request(`/menu/addons/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(addonData)
+    });
+  }
+
+  patchAddon(id, addonData) {
+    return this.request(`/menu/addons/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(addonData)
+    });
+  }
+
+  deleteAddon(id) {
+    return this.request(`/menu/addons/${id}`, {
+      method: 'DELETE'
     });
   }
 
@@ -118,6 +190,18 @@ class ApiService {
     return this.request(`/orders/${id}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status, reason })
+    });
+  }
+
+  // Active KDS queue: placed + accepted + brewing + ready (backend resolves `active`)
+  getActiveOrders(params = {}) {
+    return this.getOrders({ status: 'active', ...params });
+  }
+
+  refundOrder(id, reason = '') {
+    return this.request(`/orders/${id}/refund`, {
+      method: 'POST',
+      body: JSON.stringify({ reason })
     });
   }
 
@@ -147,6 +231,24 @@ class ApiService {
   // --- QR Table Ordering API ---
   validateQrToken(token) {
     return this.request(`/tables/qr/validate/${encodeURIComponent(token)}`);
+  }
+
+  // Spec alias: GET /api/tables/qr/:token -> flat table info
+  getTableByQrToken(token) {
+    return this.request(`/tables/qr/${encodeURIComponent(token)}`);
+  }
+
+  occupyTable(id, { customerName = null, currentOrderId = null } = {}) {
+    return this.request(`/tables/${id}/occupy`, {
+      method: 'POST',
+      body: JSON.stringify({ customerName, currentOrderId })
+    });
+  }
+
+  releaseTable(id) {
+    return this.request(`/tables/${id}/release`, {
+      method: 'POST'
+    });
   }
 
   getTableQr(id) {
@@ -238,9 +340,14 @@ class ApiService {
     });
   }
 
-  // --- Inventory & Purchases ---
-  getInventory() {
-    return this.request('/inventory');
+  // --- Inventory & Purchases (full CRUD + PO receive) ---
+  getInventory(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/inventory${query ? `?${query}` : ''}`);
+  }
+
+  getInventoryItem(id) {
+    return this.request(`/inventory/${id}`);
   }
 
   adjustInventory(itemId, delta, reason) {
@@ -257,8 +364,32 @@ class ApiService {
     });
   }
 
+  updateInventoryItem(id, itemData) {
+    return this.request(`/inventory/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(itemData)
+    });
+  }
+
+  patchInventoryItem(id, itemData) {
+    return this.request(`/inventory/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(itemData)
+    });
+  }
+
+  deleteInventoryItem(id) {
+    return this.request(`/inventory/${id}`, {
+      method: 'DELETE'
+    });
+  }
+
   getSuppliers() {
     return this.request('/inventory/suppliers');
+  }
+
+  getSupplierById(id) {
+    return this.request(`/inventory/suppliers/${id}`);
   }
 
   createSupplier(supplierData) {
@@ -268,14 +399,66 @@ class ApiService {
     });
   }
 
-  getPurchases() {
-    return this.request('/inventory/purchases');
+  updateSupplier(id, supplierData) {
+    return this.request(`/inventory/suppliers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(supplierData)
+    });
+  }
+
+  patchSupplier(id, supplierData) {
+    return this.request(`/inventory/suppliers/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(supplierData)
+    });
+  }
+
+  deleteSupplier(id) {
+    return this.request(`/inventory/suppliers/${id}`, {
+      method: 'DELETE'
+    });
+  }
+
+  getPurchases(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/inventory/purchases${query ? `?${query}` : ''}`);
+  }
+
+  getPurchaseById(id) {
+    return this.request(`/inventory/purchases/${id}`);
   }
 
   createPurchaseOrder(poData) {
     return this.request('/inventory/purchases', {
       method: 'POST',
       body: JSON.stringify(poData)
+    });
+  }
+
+  updatePurchaseOrder(id, poData) {
+    return this.request(`/inventory/purchases/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(poData)
+    });
+  }
+
+  patchPurchaseOrder(id, poData) {
+    return this.request(`/inventory/purchases/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(poData)
+    });
+  }
+
+  deletePurchaseOrder(id) {
+    return this.request(`/inventory/purchases/${id}`, {
+      method: 'DELETE'
+    });
+  }
+
+  receivePurchaseOrder(id, payload = {}) {
+    return this.request(`/inventory/purchases/${id}/receive`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
     });
   }
 
@@ -298,8 +481,13 @@ class ApiService {
     });
   }
 
-  getAnalytics() {
-    return this.request('/reports/analytics');
+  getAnalytics(range = 'today') {
+    const safe = ['today', 'week', 'month'].includes(range) ? range : 'today';
+    return this.request(`/reports/analytics?range=${safe}`);
+  }
+
+  getRecentOrders(limit = 5) {
+    return this.request(`/orders?limit=${Number(limit) || 5}`);
   }
 
   // --- System, Notifications & Settings ---
@@ -310,6 +498,22 @@ class ApiService {
 
   getNotifications() {
     return this.request('/notifications');
+  }
+
+  // Customer "Call Waiter" button: POST /api/notifications
+  callWaiter({ tableId = null, tableNumber = null, customerName = '', message = '' } = {}) {
+    const label = tableNumber ? `Table ${tableNumber}` : 'your table';
+    return this.request('/notifications', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: `Waiter requested at ${label}`,
+        message: message || `${customerName ? `${customerName} at ${label}` : `A guest at ${label}`} needs assistance.`,
+        type: 'service',
+        tableId,
+        tableNumber,
+        link: '/tables'
+      })
+    });
   }
 
   markNotificationRead(id) {

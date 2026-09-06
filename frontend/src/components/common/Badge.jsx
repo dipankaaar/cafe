@@ -35,10 +35,11 @@ export default function Badge({
 
   return (
     <span
+      role="status"
       className={`inline-flex items-center gap-1.5 rounded-full border ${variantStyles[variant] || variantStyles.default} ${sizeStyles[size]} ${className}`}
     >
       {dot && (
-        <span className={`w-1.5 h-1.5 rounded-full ${dotColors[variant] || dotColors.default}`} />
+        <span aria-hidden="true" className={`w-1.5 h-1.5 rounded-full ${dotColors[variant] || dotColors.default}`} />
       )}
       {children}
     </span>

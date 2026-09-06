@@ -20,10 +20,11 @@ export default function ToastContainer() {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none">
+    <div aria-live="polite" aria-atomic="false" className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none">
       {activeToasts.map((toast) => (
         <div
           key={toast.id}
+          role="status"
           className="pointer-events-auto bg-white dark:bg-[#1f1f1f] border border-gray-200 dark:border-gray-800 shadow-xl rounded-xl p-4 flex items-start gap-3 animate-slideUp transition-all"
         >
           {iconMap[toast.type] || iconMap.info}
@@ -37,9 +38,10 @@ export default function ToastContainer() {
           </div>
           <button
             onClick={() => markNotificationAsRead(toast.id)}
+            aria-label={`Dismiss notification: ${toast.title}`}
             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 rounded-md"
           >
-            <X className="w-4 h-4" />
+            <X className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
       ))}

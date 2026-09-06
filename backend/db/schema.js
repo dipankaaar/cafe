@@ -157,6 +157,7 @@ export function initDatabaseSchema() {
       amount REAL NOT NULL,
       payment_method TEXT,
       date TEXT NOT NULL,
+      proof TEXT,
       logged_by TEXT
     );
 
@@ -166,10 +167,24 @@ export function initDatabaseSchema() {
       role TEXT NOT NULL,
       email TEXT NOT NULL UNIQUE,
       phone TEXT,
+      salary REAL DEFAULT 0,
       shift TEXT,
+      pin TEXT,
       status TEXT DEFAULT 'Active',
       joining_date TEXT,
       avatar_url TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS staff_attendance (
+      id TEXT PRIMARY KEY,
+      staff_id TEXT NOT NULL,
+      date TEXT NOT NULL,
+      status TEXT DEFAULT 'Present',
+      check_in TEXT,
+      check_out TEXT,
+      notes TEXT,
+      FOREIGN KEY(staff_id) REFERENCES staff(id) ON DELETE CASCADE,
+      UNIQUE(staff_id, date)
     );
 
     CREATE TABLE IF NOT EXISTS orders (
@@ -183,7 +198,7 @@ export function initDatabaseSchema() {
       customer_id TEXT,
       customer_name TEXT,
       customer_phone TEXT,
-      status TEXT DEFAULT 'New',
+      status TEXT DEFAULT 'placed',
       order_time TEXT NOT NULL,
       kitchen_accepted_at TEXT,
       kitchen_ready_at TEXT,
@@ -198,6 +213,7 @@ export function initDatabaseSchema() {
       grand_total REAL NOT NULL,
       payment_method TEXT DEFAULT 'Cash',
       payment_status TEXT DEFAULT 'Pending',
+      payments_json TEXT,
       notes TEXT,
       server_staff TEXT
     );
@@ -224,12 +240,34 @@ export function initDatabaseSchema() {
   `);
 
   // 2. Safe Column Additions for Existing Tables
-  try { db.exec(`ALTER TABLE tables_floor ADD COLUMN qr_token TEXT;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE tables_floor ADD COLUMN seats INTEGER;`); } catch (e) {}
+  // Backfill seats from capacity (spec alias: seats == capacity)
+  try { db.exec(`UPDATE tables_floor SET seats = capacity WHERE seats IS NULL;`); } catch (e) {}
   try { db.exec(`ALTER TABLE tables_floor ADD COLUMN qr_status TEXT DEFAULT 'active';`); } catch (e) {}
   try { db.exec(`ALTER TABLE tables_floor ADD COLUMN qr_created_at TEXT;`); } catch (e) {}
   try { db.exec(`ALTER TABLE tables_floor ADD COLUMN qr_regenerated_at TEXT;`); } catch (e) {}
   try { db.exec(`ALTER TABLE orders ADD COLUMN order_source TEXT DEFAULT 'POS';`); } catch (e) {}
   try { db.exec(`ALTER TABLE orders ADD COLUMN qr_token TEXT;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE orders ADD COLUMN payments_json TEXT;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE staff ADD COLUMN salary REAL DEFAULT 0;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE staff ADD COLUMN pin TEXT;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE expenses ADD COLUMN proof TEXT;`); } catch (e) {}
+  // Legacy-DB safety net: orders columns required by Order.model / seeds
+  try { db.exec(`ALTER TABLE orders ADD COLUMN table_id TEXT;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE orders ADD COLUMN table_number TEXT;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE orders ADD COLUMN order_type TEXT DEFAULT 'dine-in';`); } catch (e) {}
+  try { db.exec(`ALTER TABLE orders ADD COLUMN customer_id TEXT;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE orders ADD COLUMN customer_name TEXT;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE orders ADD COLUMN customer_phone TEXT;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE orders ADD COLUMN payment_status TEXT DEFAULT 'Pending';`); } catch (e) {}
+  try { db.exec(`ALTER TABLE orders ADD COLUMN payment_method TEXT DEFAULT 'Cash';`); } catch (e) {}
+  try { db.exec(`ALTER TABLE tables_floor ADD COLUMN qr_token TEXT;`); } catch (e) {}
+  // Backfill NULLs on legacy rows so service-layer expectations hold
+  try { db.exec(`UPDATE orders SET order_type = 'dine-in' WHERE order_type IS NULL;`); } catch (e) {}
+  try { db.exec(`UPDATE orders SET payment_status = 'Pending' WHERE payment_status IS NULL;`); } catch (e) {}
+  try { db.exec(`UPDATE orders SET order_source = 'POS' WHERE order_source IS NULL;`); } catch (e) {}
+  try { db.exec(`UPDATE orders SET status = 'New' WHERE status IS NULL;`); } catch (e) {}
+  try { db.exec(`UPDATE tables_floor SET qr_status = 'active' WHERE qr_status IS NULL;`); } catch (e) {}
 
   // 3. Ensure All Existing Tables Have a Permanent QR Token
   try {
@@ -250,6 +288,7 @@ export function initDatabaseSchema() {
   try { db.exec(`CREATE INDEX IF NOT EXISTS idx_orders_time ON orders(order_time);`); } catch (e) {}
   try { db.exec(`CREATE INDEX IF NOT EXISTS idx_orders_source ON orders(order_source);`); } catch (e) {}
   try { db.exec(`CREATE INDEX IF NOT EXISTS idx_orders_table_id ON orders(table_id);`); } catch (e) {}
+  try { db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_tables_qr_token_unique ON tables_floor(qr_token);`); } catch (e) {}
   try { db.exec(`CREATE INDEX IF NOT EXISTS idx_tables_qr_token ON tables_floor(qr_token);`); } catch (e) {}
   try { db.exec(`CREATE INDEX IF NOT EXISTS idx_reservations_date ON reservations(date);`); } catch (e) {}
   try { db.exec(`CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_logs(timestamp);`); } catch (e) {}

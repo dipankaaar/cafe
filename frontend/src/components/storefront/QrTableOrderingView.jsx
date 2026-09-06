@@ -20,13 +20,13 @@ import {
   Sparkles,
   ArrowLeft,
   Phone,
+  Bell,
   User,
-  CreditCard,
-  Banknote
 } from 'lucide-react';
 import { useCafe } from '../../context/CafeContext';
 import { api } from '../../services/api';
 import { useSSE } from '../../hooks/useSSE';
+import { formatINR } from '../../utils/formatters';
 
 export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
   const { products, categories, addons, cafeSettings, placeOrder } = useCafe();
@@ -64,6 +64,28 @@ export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
   const [activeTrackingOrder, setActiveTrackingOrder] = useState(null);
   const [sessionOrders, setSessionOrders] = useState([]);
   const [showSessionOrdersModal, setShowSessionOrdersModal] = useState(false);
+
+  // "Call Waiter" (POST /api/notifications) state
+  const [isCallingWaiter, setIsCallingWaiter] = useState(false);
+  const [waiterCallMessage, setWaiterCallMessage] = useState('');
+
+  const handleCallWaiter = async () => {
+    if (!tableInfo || isCallingWaiter) return;
+    try {
+      setIsCallingWaiter(true);
+      setWaiterCallMessage('');
+      await api.callWaiter({
+        tableId: tableInfo.id,
+        tableNumber: tableInfo.tableNumber,
+        customerName: customerName.trim()
+      });
+      setWaiterCallMessage(`A waiter has been notified and is on the way to Table ${tableInfo.tableNumber}.`);
+    } catch (err) {
+      setWaiterCallMessage('Could not reach staff right now. Please ask at the counter.');
+    } finally {
+      setIsCallingWaiter(false);
+    }
+  };
 
   // Validate QR Token on Mount
   const validateToken = async () => {
@@ -385,13 +407,13 @@ export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
                       <span className="text-gray-400 block text-[10px]">• Addons: {item.addons.join(', ')}</span>
                     )}
                   </div>
-                  <span className="font-bold text-gray-200">₹{(item.totalPrice || item.unitPrice * item.quantity).toFixed(2)}</span>
+                  <span className="font-bold text-gray-200">{formatINR(item.totalPrice || item.unitPrice * item.quantity)}</span>
                 </div>
               ))}
             </div>
             <div className="border-t border-white/10 mt-3 pt-3 flex justify-between text-sm font-bold">
               <span>Total Bill</span>
-              <span className="text-[#DD5903]">₹{activeTrackingOrder.grandTotal.toFixed(2)}</span>
+              <span className="text-[#DD5903]">{formatINR(activeTrackingOrder.grandTotal)}</span>
             </div>
           </div>
 
@@ -404,6 +426,18 @@ export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
               <Plus className="w-4 h-4" />
               <span>Order More Drinks or Food for Table {tableInfo.tableNumber}</span>
             </button>
+
+            <button
+              onClick={handleCallWaiter}
+              disabled={isCallingWaiter}
+              className="w-full py-2.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 rounded-xl font-bold text-xs flex items-center justify-center gap-2 border border-amber-500/40 transition-all cursor-pointer disabled:opacity-50"
+            >
+              <Bell className="w-4 h-4" />
+              <span>{isCallingWaiter ? 'Notifying Staff...' : `Call Waiter to Table ${tableInfo.tableNumber}`}</span>
+            </button>
+            {waiterCallMessage && (
+              <p className="text-[11px] text-amber-300/90 text-center font-medium">{waiterCallMessage}</p>
+            )}
 
             {sessionOrders.length > 1 && (
               <button
@@ -440,7 +474,7 @@ export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
                   {tableInfo.zone}
                 </span>
               </div>
-              <p className="text-[11px] text-gray-400">Dinenos Coffee House • Digital Self-Order</p>
+              <p className="text-[11px] text-gray-400">Petuk Adda Cafe • Digital Self-Order</p>
             </div>
           </div>
 
@@ -455,6 +489,16 @@ export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
                 <span>Track ({sessionOrders.length})</span>
               </button>
             )}
+
+            <button
+              onClick={handleCallWaiter}
+              disabled={isCallingWaiter}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/15 border border-amber-500/40 text-amber-300 rounded-full text-xs font-bold transition-all cursor-pointer hover:bg-amber-500/25 disabled:opacity-50"
+              title="Request table service"
+            >
+              <Bell className="w-3.5 h-3.5" />
+              <span>{isCallingWaiter ? 'Calling...' : 'Call Waiter'}</span>
+            </button>
             
             <button
               onClick={onBackToStorefront}
@@ -467,6 +511,19 @@ export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
 
         </div>
       </header>
+
+      {/* Table identity banner */}
+      <div className="bg-gradient-to-r from-[#DD5903]/20 via-[#DD5903]/10 to-transparent border-b border-[#DD5903]/20">
+        <div className="max-w-4xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
+          <p className="text-xs sm:text-sm font-bold text-white">
+            You are ordering from <span className="text-[#DD5903]">Table {tableInfo.tableNumber}</span>
+            <span className="text-gray-400 font-medium"> • {tableInfo.zone}{tableInfo.capacity ? ` • Seats ${tableInfo.capacity}` : ''}</span>
+          </p>
+          {waiterCallMessage && (
+            <p className="text-[11px] text-amber-300 font-semibold text-right max-w-[45%]">{waiterCallMessage}</p>
+          )}
+        </div>
+      </div>
 
       {/* Search & Dietary Filter */}
       <div className="max-w-4xl mx-auto px-4 pt-4">
@@ -576,7 +633,7 @@ export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
 
                     <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
                       <div>
-                        <span className="text-sm font-extrabold text-[#DD5903]">₹{price.toFixed(2)}</span>
+                        <span className="text-sm font-extrabold text-[#DD5903]">{formatINR(price)}</span>
                         {hasVariants && <span className="text-[10px] text-gray-500 block">Customizable</span>}
                       </div>
 
@@ -612,7 +669,7 @@ export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
               </div>
               <div className="text-left">
                 <span className="block text-xs uppercase tracking-wider text-white/80">Table {tableInfo.tableNumber} Cart</span>
-                <span className="text-sm font-extrabold">₹{cartGrandTotal.toFixed(2)}</span>
+                <span className="text-sm font-extrabold">{formatINR(cartGrandTotal)}</span>
               </div>
             </div>
 

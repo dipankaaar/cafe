@@ -20,33 +20,37 @@ import {
 } from './seedData.js';
 
 export function runDatabaseSeeds(force = false) {
+  // 1. Always ensure settings match latest brand definitions
+  const setStmt = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)');
+  Object.entries(initialCafeSettings).forEach(([k, v]) => {
+    setStmt.run(k, JSON.stringify(v));
+  });
+
   const countStmt = db.prepare('SELECT COUNT(*) as count FROM products');
   const result = countStmt.get();
 
   if (result.count === 0 || force) {
     console.log('🌱 [DB] Seeding database with initial master records...');
 
-    // 1. Settings
-    const setStmt = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)');
-    Object.entries(initialCafeSettings).forEach(([k, v]) => {
-      setStmt.run(k, JSON.stringify(v));
-    });
-
-    // 2. Categories
-    const catStmt = db.prepare('INSERT OR REPLACE INTO categories (id, name, slug, icon, color, item_count, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    // 2. Categories (ON CONFLICT DO UPDATE — NOT "OR REPLACE": REPLACE deletes the
+    // row first, which fires products.category_id ON DELETE SET NULL against a
+    // NOT NULL column and crashes every re-seed/server restart)
+    const catStmt = db.prepare(`INSERT INTO categories (id, name, slug, icon, color, item_count, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET name=excluded.name, slug=excluded.slug, icon=excluded.icon, color=excluded.color, item_count=excluded.item_count, is_active=excluded.is_active`);
     initialCategories.forEach((c) => {
       catStmt.run(c.id, c.name, c.slug, sanitize(c.icon, 'Coffee'), sanitize(c.color, '#DD5903'), sanitize(c.itemCount, 0), c.isActive ? 1 : 0);
     });
 
-    // 3. Addons
-    const addStmt = db.prepare('INSERT OR REPLACE INTO addons (id, name, category, price, is_available) VALUES (?, ?, ?, ?, ?)');
+    // 3. Addons (IGNORE: idempotent re-seed, preserves availability toggles)
+    const addStmt = db.prepare('INSERT OR IGNORE INTO addons (id, name, category, price, is_available) VALUES (?, ?, ?, ?, ?)');
     initialAddons.forEach((a) => {
       addStmt.run(a.id, a.name, a.category, sanitize(a.price, 0), a.isAvailable ? 1 : 0);
     });
 
-    // 4. Products
+    // 4. Products (IGNORE: REPLACE would DELETE+INSERT and churn the FK graph;
+    // also preserves runtime price/availability edits)
     const prodStmt = db.prepare(`
-      INSERT OR REPLACE INTO products (id, name, category_id, description, cost_price, selling_price, is_veg, prep_time, is_available, is_featured, image_url, variants_json, addons_json, ingredients_json)
+      INSERT OR IGNORE INTO products (id, name, category_id, description, cost_price, selling_price, is_veg, prep_time, is_available, is_featured, image_url, variants_json, addons_json, ingredients_json)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     initialProducts.forEach((p) => {
@@ -68,9 +72,10 @@ export function runDatabaseSeeds(force = false) {
       );
     });
 
-    // 5. Tables
+    // 5. Tables (IGNORE: preserves runtime status/occupancy AND stable qr_token —
+    // REPLACE would reset table status and rotate qr_created_at on every restart)
     const tblStmt = db.prepare(`
-      INSERT OR REPLACE INTO tables_floor (
+      INSERT OR IGNORE INTO tables_floor (
         id, table_number, zone, capacity, status, current_order_id, customer_name, qr_token, qr_status, qr_created_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
@@ -90,15 +95,15 @@ export function runDatabaseSeeds(force = false) {
       );
     });
 
-    // 6. Customers
-    const custStmt = db.prepare('INSERT OR REPLACE INTO customers (id, name, phone, email, tier, loyalty_points, total_spent, total_orders, last_visit, favorite_products_json, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    // 6. Customers (IGNORE: REPLACE would wipe earned loyalty_points/total_spent)
+    const custStmt = db.prepare('INSERT OR IGNORE INTO customers (id, name, phone, email, tier, loyalty_points, total_spent, total_orders, last_visit, favorite_products_json, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     initialCustomers.forEach((c) => {
       custStmt.run(c.id, c.name, c.phone, sanitize(c.email, ''), sanitize(c.tier, 'Bronze'), sanitize(c.loyaltyPoints, 0), sanitize(c.totalSpent, 0), sanitize(c.totalOrders, 0), sanitize(c.lastVisit, null), JSON.stringify(c.favoriteProducts || []), sanitize(c.notes, ''));
     });
 
-    // 7. Coupons
+    // 7. Coupons (IGNORE: REPLACE would reset used_count/discount counters)
     const cpnStmt = db.prepare(`
-      INSERT OR REPLACE INTO coupons (id, code, name, description, discount_type, discount_value, max_discount, min_order_value, max_order_value, start_date, expiry_date, usage_limit, used_count, per_customer_limit, status, total_discount_given, revenue_generated, customer_eligibility, applicable_categories_json, applicable_order_types_json)
+      INSERT OR IGNORE INTO coupons (id, code, name, description, discount_type, discount_value, max_discount, min_order_value, max_order_value, start_date, expiry_date, usage_limit, used_count, per_customer_limit, status, total_discount_given, revenue_generated, customer_eligibility, applicable_categories_json, applicable_order_types_json)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     initialCoupons.forEach((cpn) => {
@@ -126,14 +131,14 @@ export function runDatabaseSeeds(force = false) {
       );
     });
 
-    // 8. Inventory
-    const invStmt = db.prepare('INSERT OR REPLACE INTO inventory (id, name, category, current_stock, min_stock, max_stock, unit, cost_per_unit, supplier_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    // 8. Inventory (IGNORE: preserves live stock levels adjusted by sales/POs)
+    const invStmt = db.prepare('INSERT OR IGNORE INTO inventory (id, name, category, current_stock, min_stock, max_stock, unit, cost_per_unit, supplier_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     initialInventory.forEach((i) => {
       invStmt.run(i.id, i.name, i.category, sanitize(i.currentStock, 0), sanitize(i.minStock, 5), sanitize(i.maxStock, 50), sanitize(i.unit, 'kg'), sanitize(i.costPerUnit, 100), sanitize(i.supplierId, null), sanitize(i.status, 'In Stock'));
     });
 
-    // 9. Suppliers
-    const supStmt = db.prepare('INSERT OR REPLACE INTO suppliers (id, name, contact_person, phone, email, category, lead_time_days, total_purchases, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    // 9. Suppliers (IGNORE: preserves total_purchases ledger)
+    const supStmt = db.prepare('INSERT OR IGNORE INTO suppliers (id, name, contact_person, phone, email, category, lead_time_days, total_purchases, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
     initialSuppliers.forEach((sObj) => {
       supStmt.run(
         sObj.id,
@@ -148,40 +153,44 @@ export function runDatabaseSeeds(force = false) {
       );
     });
 
-    // 10. Purchases
-    const poStmt = db.prepare('INSERT OR REPLACE INTO purchases (id, po_number, supplier_id, supplier_name, order_date, items_json, total_amount, status, received_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    // 10. Purchases (IGNORE: transactional history must survive restarts)
+    const poStmt = db.prepare('INSERT OR IGNORE INTO purchases (id, po_number, supplier_id, supplier_name, order_date, items_json, total_amount, status, received_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');;
     initialPurchases.forEach((po) => {
       poStmt.run(po.id, po.poNumber, po.supplierId, po.supplierName, po.orderDate, JSON.stringify(po.items || []), sanitize(po.totalAmount, 0), sanitize(po.status, 'Completed'), sanitize(po.receivedDate, null));
     });
 
-    // 11. Expenses
-    const expStmt = db.prepare('INSERT OR REPLACE INTO expenses (id, title, category, amount, payment_method, date, logged_by) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    // 11. Expenses (IGNORE: financial ledger must survive restarts)
+    const expStmt = db.prepare('INSERT OR IGNORE INTO expenses (id, title, category, amount, payment_method, date, logged_by) VALUES (?, ?, ?, ?, ?, ?, ?)');
     initialExpenses.forEach((e) => {
       expStmt.run(e.id, e.title, e.category, sanitize(e.amount, 0), sanitize(e.paymentMethod, 'Cash'), e.date, sanitize(e.loggedBy, 'Admin'));
     });
 
-    // 12. Staff
-    const stfStmt = db.prepare('INSERT OR REPLACE INTO staff (id, name, role, email, phone, shift, status, joining_date, avatar_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    // 12. Staff (IGNORE: preserves role/status edits incl. the admin user)
+    const stfStmt = db.prepare('INSERT OR IGNORE INTO staff (id, name, role, email, phone, shift, status, joining_date, avatar_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
     initialStaff.forEach((st) => {
       stfStmt.run(st.id, st.name, st.role, st.email, sanitize(st.phone, ''), sanitize(st.shift, 'Morning'), sanitize(st.status, 'Active'), sanitize(st.joiningDate, null), sanitize(st.avatar, ''));
     });
 
-    // 13. Reservations
-    const resStmt = db.prepare('INSERT OR REPLACE INTO reservations (id, customer_name, phone, email, date, time, guests, table_id, table_number, special_request, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    // 13. Reservations (IGNORE: preserves live booking statuses)
+    const resStmt = db.prepare('INSERT OR IGNORE INTO reservations (id, customer_name, phone, email, date, time, guests, table_id, table_number, special_request, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     initialReservations.forEach((r) => {
       resStmt.run(r.id, r.customerName, r.phone, sanitize(r.email, ''), r.date, r.time, sanitize(r.guests, 2), sanitize(r.tableId, null), sanitize(r.tableNumber, null), sanitize(r.specialRequest, ''), sanitize(r.status, 'Confirmed'), r.createdAt);
     });
 
-    // 14. Orders
+    // 14. Orders (INSERT OR IGNORE → idempotent, no duplicate-key errors on re-seed;
+    // IGNORE also preserves live order statuses — REPLACE would reset Completed
+    // orders back to seed status on every restart)
     const ordStmt = db.prepare(`
-      INSERT OR REPLACE INTO orders (id, order_number, order_type, table_id, table_number, customer_id, customer_name, customer_phone, status, order_time, kitchen_accepted_at, kitchen_ready_at, completed_at, items_json, subtotal, discount_amount, coupon_code, coupon_id, tax_amount, service_charge, grand_total, payment_method, payment_status, notes, server_staff)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT OR IGNORE INTO orders (id, order_number, order_type, order_source, qr_token, table_id, table_number, customer_id, customer_name, customer_phone, status, order_time, kitchen_accepted_at, kitchen_ready_at, completed_at, items_json, subtotal, discount_amount, coupon_code, coupon_id, tax_amount, service_charge, grand_total, payment_method, payment_status, notes, server_staff)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     initialOrders.forEach((o) => {
       ordStmt.run(
         o.id,
         o.orderNumber,
-        o.orderType,
+        sanitize(o.orderType, 'dine-in'),
+        sanitize(o.orderSource, o.qrToken ? 'QR_TABLE' : (o.orderType === 'dine-in' ? 'POS' : 'ONLINE')),
+        sanitize(o.qrToken, null),
         sanitize(o.tableId, null),
         sanitize(o.tableNumber, null),
         sanitize(o.customerId, null),
@@ -207,14 +216,14 @@ export function runDatabaseSeeds(force = false) {
       );
     });
 
-    // 15. Audit Logs
-    const logStmt = db.prepare('INSERT OR REPLACE INTO audit_logs (id, timestamp, user_name, action, category, details, ip_address) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    // 15. Audit Logs (IGNORE: append-only trail must survive restarts)
+    const logStmt = db.prepare('INSERT OR IGNORE INTO audit_logs (id, timestamp, user_name, action, category, details, ip_address) VALUES (?, ?, ?, ?, ?, ?, ?)');
     initialAuditLogs.forEach((l) => {
       logStmt.run(l.id, l.timestamp, l.user, l.action, l.category, sanitize(l.details, ''), sanitize(l.ip, '127.0.0.1'));
     });
 
-    // 16. Notifications
-    const notifStmt = db.prepare('INSERT OR REPLACE INTO notifications (id, title, message, type, time, is_read, link_url) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    // 16. Notifications (IGNORE: preserves is_read flags)
+    const notifStmt = db.prepare('INSERT OR IGNORE INTO notifications (id, title, message, type, time, is_read, link_url) VALUES (?, ?, ?, ?, ?, ?, ?)');
     initialNotifications.forEach((n) => {
       notifStmt.run(n.id, n.title, n.message, sanitize(n.type, 'info'), n.time, n.isRead ? 1 : 0, sanitize(n.link, '/'));
     });

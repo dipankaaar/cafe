@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 
 export default function TableManagementView({ onNavigate }) {
-  const { tables, orders, updateTableStatus, addTable, cafeSettings, refreshData } = useCafe();
+  const { tables, orders, updateTableStatus, occupyTable, releaseTable, addTable, cafeSettings, refreshData } = useCafe();
   
   const [activeTab, setActiveTab] = useState('floor-plan'); // 'floor-plan' | 'qr-ordering'
   const [selectedZone, setSelectedZone] = useState('all');
@@ -278,6 +278,36 @@ export default function TableManagementView({ onNavigate }) {
           }
         >
           <div className="space-y-4 text-xs">
+            {/* Quick Occupy / Release actions */}
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                size="sm"
+                onClick={async () => {
+                  try {
+                    if (occupyTable) await occupyTable(selectedTableForAction.id);
+                    else updateTableStatus(selectedTableForAction.id, 'Occupied');
+                  } catch (e) { updateTableStatus(selectedTableForAction.id, 'Occupied'); }
+                  setSelectedTableForAction(null);
+                  if (refreshData) refreshData();
+                }}
+              >
+                Occupy Table
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={async () => {
+                  try {
+                    if (releaseTable) await releaseTable(selectedTableForAction.id);
+                    else updateTableStatus(selectedTableForAction.id, 'Available');
+                  } catch (e) { updateTableStatus(selectedTableForAction.id, 'Available'); }
+                  setSelectedTableForAction(null);
+                  if (refreshData) refreshData();
+                }}
+              >
+                Release Table
+              </Button>
+            </div>
             <div>
               <label className="font-bold text-gray-700 dark:text-gray-300 block mb-2">
                 Update Table Status:

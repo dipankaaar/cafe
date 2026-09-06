@@ -62,17 +62,18 @@ export default function Topbar({
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         <button
           onClick={onOpenMobileSidebar}
+          aria-label="Open navigation menu"
           className="lg:hidden p-2 rounded-lg text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
           title="Toggle Navigation Menu"
         >
-          <Menu className="w-5 h-5" />
+          <Menu className="w-5 h-5" aria-hidden="true" />
         </button>
 
         {/* Public Storefront Switcher Button */}
         {onSwitchToPublic && (
           <button
             onClick={onSwitchToPublic}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-[#DD5903] hover:text-white text-gray-700 dark:text-gray-300 text-xs font-bold transition-all cursor-pointer shadow-2xs"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-[#DD5903] hover:text-white text-gray-700 dark:text-gray-300 text-xs font-bold transition-all cursor-pointer shadow-sm"
             title="View Public Storefront"
           >
             <Globe className="w-3.5 h-3.5" />
@@ -94,13 +95,13 @@ export default function Topbar({
       <div className="flex-1 max-w-md mx-4 hidden lg:block">
         <button
           onClick={onOpenSearch}
-          className="w-full flex items-center justify-between px-3.5 py-2 bg-gray-100 dark:bg-gray-800/80 hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 text-xs rounded-xl border border-gray-200/80 dark:border-gray-700/60 transition-all cursor-pointer shadow-2xs"
+          className="w-full flex items-center justify-between px-3.5 py-2 bg-gray-100 dark:bg-gray-800/80 hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 text-xs rounded-xl border border-gray-200/80 dark:border-gray-700/60 transition-all cursor-pointer shadow-sm"
         >
           <div className="flex items-center gap-2">
             <Search className="w-4 h-4 text-gray-400" />
             <span>Search orders, menu items, guests, coupons...</span>
           </div>
-          <kbd className="hidden xl:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-mono bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded border border-gray-200 dark:border-gray-600 shadow-2xs">
+          <kbd className="hidden xl:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-mono bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded border border-gray-200 dark:border-gray-600 shadow-sm">
             Ctrl+K
           </kbd>
         </button>
@@ -112,10 +113,11 @@ export default function Topbar({
         {/* Mobile Search Button */}
         <button
           onClick={onOpenSearch}
+          aria-label="Open search"
           className="lg:hidden p-2 rounded-lg text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
           title="Search"
         >
-          <Search className="w-5 h-5" />
+          <Search className="w-5 h-5" aria-hidden="true" />
         </button>
 
         {/* Quick Role Switcher Pill (For seamless role testing) */}
@@ -173,13 +175,15 @@ export default function Topbar({
         {/* Theme Toggle Button */}
         <button
           onClick={toggleTheme}
+          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          aria-pressed={theme === 'dark'}
           className="p-2 rounded-lg text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
           title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
         >
           {theme === 'dark' ? (
-            <Sun className="w-5 h-5 text-amber-400" />
+            <Sun className="w-5 h-5 text-amber-400" aria-hidden="true" />
           ) : (
-            <Moon className="w-5 h-5 text-gray-600" />
+            <Moon className="w-5 h-5 text-gray-600" aria-hidden="true" />
           )}
         </button>
 
@@ -187,10 +191,12 @@ export default function Topbar({
         <div className="relative">
           <button
             onClick={() => setIsNotifOpen(!isNotifOpen)}
+            aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
+            aria-expanded={isNotifOpen}
             className="p-2 rounded-lg text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors relative cursor-pointer"
             title="Notifications"
           >
-            <Bell className="w-5 h-5" />
+            <Bell className="w-5 h-5" aria-hidden="true" />
             {unreadCount > 0 && (
               <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-[#DD5903] rounded-full ring-2 ring-white dark:ring-[#141414] animate-pulse" />
             )}

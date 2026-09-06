@@ -26,14 +26,17 @@ export default function MenuManagementView() {
     products,
     categories,
     addons,
+    inventory,
     addProduct,
     updateProduct,
     deleteProduct,
     duplicateProduct,
     addCategory,
     updateCategory,
+    deleteCategory,
     addAddon,
-    updateAddon
+    updateAddon,
+    deleteAddon
   } = useCafe();
 
   const [activeTab, setActiveTab] = useState('products'); // products, categories, addons
@@ -56,15 +59,42 @@ export default function MenuManagementView() {
     prepTimeMinutes: 5,
     isAvailable: true,
     isFeatured: false,
-    image: 'https://reactheme.com/products/wordpress/dinenos/wp-content/uploads/2023/03/latte.jpg'
+    image: 'https://reactheme.com/products/wordpress/dinenos/wp-content/uploads/2023/03/latte.jpg',
+    variants: [],
+    inventoryIngredients: []
   });
+  const [variantName, setVariantName] = useState('');
+  const [variantPrice, setVariantPrice] = useState(0);
+  const [recipeIngredientId, setRecipeIngredientId] = useState('');
+  const [recipeQty, setRecipeQty] = useState(0.1);
+  const [imageError, setImageError] = useState('');
+
+  const handleImageFile = (file) => {
+    setImageError('');
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setImageError('Please choose an image file (PNG/JPG/WebP).');
+      return;
+    }
+    if (file.size > 2.5 * 1024 * 1024) {
+      setImageError('Image is large (>2.5MB). It will still upload as base64, but prefer a URL for big photos.');
+    }
+    const reader = new FileReader();
+    reader.onload = () => setProdForm((f) => ({ ...f, image: reader.result }));
+    reader.onerror = () => setImageError('Could not read that file.');
+    reader.readAsDataURL(file);
+  };
 
   // Category Modal State
   const [isCatModalOpen, setIsCatModalOpen] = useState(false);
   const [catName, setCatName] = useState('');
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [categoryToDelete, setCategoryToDelete] = useState(null);
 
   // Addon Modal State
   const [isAddonModalOpen, setIsAddonModalOpen] = useState(false);
+  const [editingAddon, setEditingAddon] = useState(null);
+  const [addonToDelete, setAddonToDelete] = useState(null);
   const [addonName, setAddonName] = useState('');
   const [addonPrice, setAddonPrice] = useState(40);
   const [addonCategory, setAddonCategory] = useState('Coffee');
@@ -91,8 +121,13 @@ export default function MenuManagementView() {
       prepTimeMinutes: 5,
       isAvailable: true,
       isFeatured: false,
-      image: 'https://reactheme.com/products/wordpress/dinenos/wp-content/uploads/2023/03/latte.jpg'
+      image: 'https://reactheme.com/products/wordpress/dinenos/wp-content/uploads/2023/03/latte.jpg',
+      variants: [],
+      inventoryIngredients: []
     });
+    setVariantName('');
+    setVariantPrice(0);
+    setImageError('');
     setIsProductModalOpen(true);
   };
 
@@ -108,8 +143,13 @@ export default function MenuManagementView() {
       prepTimeMinutes: prod.prepTimeMinutes,
       isAvailable: prod.isAvailable,
       isFeatured: prod.isFeatured,
-      image: prod.image
+      image: prod.image,
+      variants: Array.isArray(prod.variants) ? prod.variants : [],
+      inventoryIngredients: Array.isArray(prod.inventoryIngredients) ? prod.inventoryIngredients : []
     });
+    setVariantName('');
+    setVariantPrice(0);
+    setImageError('');
     setIsProductModalOpen(true);
   };
 
@@ -128,17 +168,27 @@ export default function MenuManagementView() {
   const handleSaveCategory = (e) => {
     e.preventDefault();
     if (!catName.trim()) return;
-    addCategory({ name: catName, slug: catName.toLowerCase().replace(/\s+/g, '-') });
+    if (editingCategory) {
+      updateCategory(editingCategory.id, { name: catName.trim(), slug: catName.trim().toLowerCase().replace(/\s+/g, '-') });
+    } else {
+      addCategory({ name: catName, slug: catName.toLowerCase().replace(/\s+/g, '-') });
+    }
     setCatName('');
+    setEditingCategory(null);
     setIsCatModalOpen(false);
   };
 
   const handleSaveAddon = (e) => {
     e.preventDefault();
     if (!addonName.trim()) return;
-    addAddon({ name: addonName, price: Number(addonPrice), category: addonCategory });
+    if (editingAddon) {
+      updateAddon(editingAddon.id, { name: addonName.trim(), price: Number(addonPrice), category: addonCategory });
+    } else {
+      addAddon({ name: addonName, price: Number(addonPrice), category: addonCategory });
+    }
     setAddonName('');
     setAddonPrice(40);
+    setEditingAddon(null);
     setIsAddonModalOpen(false);
   };
 
@@ -162,11 +212,11 @@ export default function MenuManagementView() {
             Add Product
           </Button>
         ) : activeTab === 'categories' ? (
-          <Button onClick={() => setIsCatModalOpen(true)} size="sm" icon={Plus}>
+          <Button onClick={() => { setEditingCategory(null); setCatName(''); setIsCatModalOpen(true); }} size="sm" icon={Plus}>
             New Category
           </Button>
         ) : (
-          <Button onClick={() => setIsAddonModalOpen(true)} size="sm" icon={Plus}>
+          <Button onClick={() => { setEditingAddon(null); setAddonName(''); setAddonPrice(40); setIsAddonModalOpen(true); }} size="sm" icon={Plus}>
             New Add-on
           </Button>
         )}
@@ -371,6 +421,22 @@ export default function MenuManagementView() {
                   </p>
                 </div>
               </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => { setEditingCategory(cat); setCatName(cat.name); setIsCatModalOpen(true); }}
+                  className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
+                  title="Edit category"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setCategoryToDelete(cat)}
+                  className="p-1.5 rounded-lg text-gray-500 hover:text-rose-600 hover:bg-gray-100 dark:hover:bg-gray-800"
+                  title="Delete category"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             </Card>
           ))}
         </div>
@@ -392,7 +458,25 @@ export default function MenuManagementView() {
                   Extra Price: <span className="text-emerald-600">+₹{add.price}</span>
                 </p>
               </div>
-              <Badge variant="success">Active</Badge>
+              <div className="flex flex-col items-end gap-2">
+                <Badge variant="success">Active</Badge>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => { setEditingAddon(add); setAddonName(add.name); setAddonPrice(add.price); setAddonCategory(add.category); setIsAddonModalOpen(true); }}
+                    className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
+                    title="Edit add-on"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setAddonToDelete(add)}
+                    className="p-1.5 rounded-lg text-gray-500 hover:text-rose-600 hover:bg-gray-100 dark:hover:bg-gray-800"
+                    title="Delete add-on"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
             </Card>
           ))}
         </div>
@@ -504,18 +588,125 @@ export default function MenuManagementView() {
 
             <div>
               <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
-                Image Web URL
+                Image — URL or Upload (base64)
               </label>
-              <input
-                type="url"
-                value={prodForm.image}
-                onChange={(e) => setProdForm({ ...prodForm, image: e.target.value })}
-                placeholder="https://..."
-                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none font-mono"
-              />
+              <div className="flex items-center gap-3">
+                {prodForm.image ? (
+                  <img src={prodForm.image} alt="preview" className="w-12 h-12 rounded-lg object-cover border border-gray-200 dark:border-gray-700 flex-shrink-0" onError={(e) => { e.target.style.display = 'none'; }} />
+                ) : null}
+                <input
+                  type="text"
+                  value={prodForm.image}
+                  onChange={(e) => setProdForm({ ...prodForm, image: e.target.value })}
+                  placeholder="https://... or paste data:image/...;base64,..."
+                  className="flex-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none font-mono"
+                />
+                <label className="px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 font-bold cursor-pointer whitespace-nowrap hover:bg-gray-200 dark:hover:bg-gray-700">
+                  Upload
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageFile(e.target.files?.[0])} />
+                </label>
+              </div>
+              {imageError ? <p className="text-[11px] text-amber-600 mt-1">{imageError}</p> : null}
             </div>
 
-            <div className="flex items-center gap-6 pt-2">
+            {/* Variants (size / modifier options stored on product) */}
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                Variants (e.g. Small / Medium / Large with price delta)
+              </label>
+              {(prodForm.variants || []).length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {(prodForm.variants || []).map((v, idx) => (
+                    <span key={idx} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-semibold">
+                      {v.name} (+₹{v.price})
+                      <button type="button" onClick={() => setProdForm({ ...prodForm, variants: prodForm.variants.filter((_, i) => i !== idx) })} className="text-rose-500 hover:text-rose-700 font-bold">×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={variantName}
+                  onChange={(e) => setVariantName(e.target.value)}
+                  placeholder="Variant name (e.g. Large)"
+                  className="flex-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none"
+                />
+                <input
+                  type="number"
+                  value={variantPrice}
+                  onChange={(e) => setVariantPrice(Number(e.target.value))}
+                  placeholder="+₹"
+                  className="w-24 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={() => { if (!variantName.trim()) return; setProdForm({ ...prodForm, variants: [...(prodForm.variants || []), { name: variantName.trim(), price: Number(variantPrice || 0) }] }); setVariantName(''); setVariantPrice(0); }}
+                  className="px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 font-bold hover:bg-gray-200 dark:hover:bg-gray-700"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+
+            {/* Recipe / stock link: auto-deducts inventory on order completion */}
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                Recipe → Stock Link (deducted automatically when order completes)
+              </label>
+              {(prodForm.inventoryIngredients || []).length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {(prodForm.inventoryIngredients || []).map((ing, idx) => {
+                    const invObj = (inventory || []).find((i) => i.id === ing.ingredientId);
+                    return (
+                      <span key={idx} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/40 text-amber-800 dark:text-amber-200 font-semibold">
+                        {invObj?.name || ing.ingredientId}: {ing.quantity}{invObj ? ` ${invObj.unit}` : ''}
+                        <button type="button" onClick={() => setProdForm({ ...prodForm, inventoryIngredients: prodForm.inventoryIngredients.filter((_, i) => i !== idx) })} className="text-rose-500 hover:text-rose-700 font-bold">×</button>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <select
+                  value={recipeIngredientId}
+                  onChange={(e) => setRecipeIngredientId(e.target.value)}
+                  className="flex-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none"
+                >
+                  <option value="">Select raw material…</option>
+                  {(inventory || []).map((inv) => (
+                    <option key={inv.id} value={inv.id}>{inv.name} ({inv.currentStock} {inv.unit})</option>
+                  ))}
+                </select>
+                <input
+                  type="number" min="0.01" step="0.01"
+                  value={recipeQty}
+                  onChange={(e) => setRecipeQty(Number(e.target.value))}
+                  placeholder="Qty"
+                  className="w-24 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={() => { if (!recipeIngredientId) return; setProdForm({ ...prodForm, inventoryIngredients: [...(prodForm.inventoryIngredients || []), { ingredientId: recipeIngredientId, quantity: Number(recipeQty || 0) }] }); setRecipeIngredientId(''); setRecipeQty(0.1); }}
+                  className="px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 font-bold hover:bg-gray-200 dark:hover:bg-gray-700"
+                >
+                  Link
+                </button>
+              </div>
+              <p className="text-[11px] text-gray-400 mt-1">Each unit sold deducts the linked quantity from inventory stock.</p>
+            </div>
+
+            <div className="flex items-center gap-6 pt-2 flex-wrap">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={prodForm.isAvailable}
+                  onChange={(e) => setProdForm({ ...prodForm, isAvailable: e.target.checked })}
+                  className="rounded text-[#DD5903] focus:ring-[#DD5903]"
+                />
+                <span className="font-semibold text-gray-700 dark:text-gray-300">Available for sale</span>
+              </label>
+
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
@@ -544,16 +735,16 @@ export default function MenuManagementView() {
       {isCatModalOpen && (
         <Modal
           isOpen={true}
-          onClose={() => setIsCatModalOpen(false)}
-          title="Add New Menu Category"
+          onClose={() => { setIsCatModalOpen(false); setEditingCategory(null); setCatName(''); }}
+          title={editingCategory ? `Edit Category "${editingCategory.name}"` : 'Add New Menu Category'}
           size="sm"
           footer={
             <>
-              <Button variant="secondary" onClick={() => setIsCatModalOpen(false)}>
+              <Button variant="secondary" onClick={() => { setIsCatModalOpen(false); setEditingCategory(null); setCatName(''); }}>
                 Cancel
               </Button>
               <Button onClick={handleSaveCategory}>
-                Save Category
+                {editingCategory ? 'Save Changes' : 'Save Category'}
               </Button>
             </>
           }
@@ -576,16 +767,16 @@ export default function MenuManagementView() {
       {isAddonModalOpen && (
         <Modal
           isOpen={true}
-          onClose={() => setIsAddonModalOpen(false)}
-          title="Add Custom Add-on / Modifier"
+          onClose={() => { setIsAddonModalOpen(false); setEditingAddon(null); }}
+          title={editingAddon ? `Edit Add-on "${editingAddon.name}"` : 'Add Custom Add-on / Modifier'}
           size="sm"
           footer={
             <>
-              <Button variant="secondary" onClick={() => setIsAddonModalOpen(false)}>
+              <Button variant="secondary" onClick={() => { setIsAddonModalOpen(false); setEditingAddon(null); }}>
                 Cancel
               </Button>
               <Button onClick={handleSaveAddon}>
-                Save Add-on
+                {editingAddon ? 'Save Changes' : 'Save Add-on'}
               </Button>
             </>
           }
@@ -624,6 +815,28 @@ export default function MenuManagementView() {
           message="Are you sure you want to remove this product from the cafe menu? This action cannot be undone."
           confirmText="Yes, Delete Product"
           onConfirm={() => deleteProduct(productToDelete.id)}
+        />
+      )}
+
+      {categoryToDelete && (
+        <ConfirmDialog
+          isOpen={true}
+          onClose={() => setCategoryToDelete(null)}
+          title={`Delete category "${categoryToDelete.name}"`}
+          message="Products linked to this category will remain but show an unlinked category. Continue?"
+          confirmText="Yes, Delete Category"
+          onConfirm={() => { deleteCategory(categoryToDelete.id); setCategoryToDelete(null); }}
+        />
+      )}
+
+      {addonToDelete && (
+        <ConfirmDialog
+          isOpen={true}
+          onClose={() => setAddonToDelete(null)}
+          title={`Delete add-on "${addonToDelete.name}"`}
+          message="Are you sure you want to remove this add-on / modifier? This action cannot be undone."
+          confirmText="Yes, Delete Add-on"
+          onConfirm={() => { deleteAddon(addonToDelete.id); setAddonToDelete(null); }}
         />
       )}
 

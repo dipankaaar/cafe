@@ -1,11 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CafeProvider } from './context/CafeContext';
 
-// Public Customer Storefront
+// Public Customer Storefront & Sub-Pages
 import PublicStorefront from './components/storefront/PublicStorefront';
-import QrTableOrderingView from './components/storefront/QrTableOrderingView';
+import OrderOnlinePage from './pages/OrderOnlinePage';
+import ExploreMenuPage from './pages/ExploreMenuPage';
+import ScanTablePage from './pages/ScanTablePage';
+import FindTablePage from './pages/FindTablePage';
+import TableOrder from './components/storefront/TableOrder';
 
 // Admin Suite Layout
 import Sidebar from './components/layout/Sidebar';
@@ -35,91 +39,152 @@ import SettingsView from './components/modules/settings/SettingsView';
 import { ShieldAlert } from 'lucide-react';
 import Button from './components/common/Button';
 
+function parseRoute() {
+  if (typeof window === 'undefined') return { path: '/', token: '' };
+
+  const hash = window.location.hash || '';
+  const rawPath = (window.location.pathname || '/').split('?')[0].split('#')[0];
+  // Normalise: collapse trailing slash (except root) so /admin/ and /menu/ match
+  const pathname = rawPath.length > 1 ? rawPath.replace(/\/+$/, '') : rawPath;
+
+  // QR order deep links — token is the segment after /order/
+  if (hash.startsWith('#order/') || hash.startsWith('#/order/')) {
+    const token = decodeURIComponent(hash.replace(/^#\/?order\//, '').split('?')[0].split('#')[0].trim());
+    return { path: '/order', token };
+  }
+  if (pathname === '/order' || pathname.startsWith('/order/')) {
+    const token = decodeURIComponent(pathname.replace(/^\/order\/?/, '').split('/')[0].split('?')[0].trim());
+    return { path: '/order', token };
+  }
+
+  // Hash + BrowserRouter public routes (hash kept for backwards compat)
+  if (hash.startsWith('#/order-online') || hash === '#order-online' || pathname === '/order-online') {
+    return { path: '/order-online', token: '' };
+  }
+  if (hash.startsWith('#/menu') || hash === '#menu' || pathname === '/menu') {
+    return { path: '/menu', token: '' };
+  }
+  if (hash.startsWith('#/scan-table') || hash === '#scan-table' || pathname === '/scan-table') {
+    return { path: '/scan-table', token: '' };
+  }
+  if (hash.startsWith('#/find-table') || hash === '#find-table' || pathname === '/find-table') {
+    return { path: '/find-table', token: '' };
+  }
+  if (hash === '#admin' || hash.startsWith('#/admin') || hash.includes('admin') || pathname === '/admin' || (typeof window !== 'undefined' && window.location.search.includes('mode=admin'))) {
+    return { path: '/admin', token: '' };
+  }
+
+  // Known routes pass through; unknown paths fall back to public homepage
+  // (never strand a mistyped URL inside the admin shell)
+  if (pathname === '/' || pathname === '') return { path: '/', token: '' };
+  return { path: '/*', token: '' };
+}
+
 function MainApp() {
   const { hasPermission, role } = useAuth();
   
-  // App Mode: 'public' | 'admin' | 'qr_order'
-  const [appMode, setAppMode] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const hash = window.location.hash;
-      const pathname = window.location.pathname;
-      if (hash.startsWith('#order/') || hash.startsWith('#/order/') || pathname.startsWith('/order/')) return 'qr_order';
-      if (hash.includes('admin') || window.location.search.includes('mode=admin')) return 'admin';
-    }
-    return 'public';
-  });
-
-  const [qrToken, setQrToken] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const hash = window.location.hash;
-      if (hash.startsWith('#order/')) return hash.replace('#order/', '');
-      if (hash.startsWith('#/order/')) return hash.replace('#/order/', '');
-      const pathname = window.location.pathname;
-      if (pathname.startsWith('/order/')) return pathname.replace('/order/', '');
-    }
-    return '';
-  });
-
+  const [currentRoute, setCurrentRoute] = useState(() => parseRoute());
   const [currentModule, setCurrentModule] = useState('dashboard');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
-  // Sync hash with appMode
+  // Sync state on back/forward and hash changes
   useEffect(() => {
-    const handleHash = () => {
-      const hash = window.location.hash;
-      if (hash.startsWith('#order/')) {
-        setQrToken(hash.replace('#order/', ''));
-        setAppMode('qr_order');
-      } else if (hash.startsWith('#/order/')) {
-        setQrToken(hash.replace('#/order/', ''));
-        setAppMode('qr_order');
-      } else if (hash.includes('admin')) {
-        setAppMode('admin');
-      } else {
-        setAppMode('public');
+    const handleLocationChange = () => {
+      setCurrentRoute(parseRoute());
+    };
+
+    window.addEventListener('popstate', handleLocationChange);
+    window.addEventListener('hashchange', handleLocationChange);
+    return () => {
+      window.removeEventListener('popstate', handleLocationChange);
+      window.removeEventListener('hashchange', handleLocationChange);
+    };
+  }, []);
+
+  // Ctrl/⌘+K opens global admin search from anywhere in the shell
+  useEffect(() => {
+    const handleShortcut = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsSearchOpen((prev) => !prev);
       }
     };
-    window.addEventListener('hashchange', handleHash);
-    return () => window.removeEventListener('hashchange', handleHash);
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  }, []);
+
+  // Programmatic Navigate Helper (BrowserRouter-style paths)
+  const navigate = useCallback((toPath) => {
+    if (!toPath) return;
+    let target = String(toPath).trim();
+    if (!target.startsWith('/')) target = '/' + target;
+
+    // Push state and update route
+    if (typeof window !== 'undefined') {
+      window.history.pushState({}, '', target);
+    }
+    setCurrentRoute(parseRoute());
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
   const handleSwitchToAdmin = () => {
-    setAppMode('admin');
-    window.location.hash = 'admin';
+    navigate('/admin');
   };
 
   const handleSwitchToPublic = () => {
-    setAppMode('public');
-    window.location.hash = '';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    navigate('/');
   };
 
-  // If in QR Table Ordering Mode
-  if (appMode === 'qr_order' && qrToken) {
+  // 1. ORDER ONLINE PAGE (/order-online)
+  if (currentRoute.path === '/order-online') {
+    return <OrderOnlinePage onNavigate={navigate} />;
+  }
+
+  // 2. EXPLORE MENU PAGE (/menu)
+  if (currentRoute.path === '/menu') {
+    return <ExploreMenuPage onNavigate={navigate} />;
+  }
+
+  // 3. SCAN TABLE QR PAGE (/scan-table)
+  if (currentRoute.path === '/scan-table') {
+    return <ScanTablePage onNavigate={navigate} />;
+  }
+
+  // 4. FIND A TABLE PAGE (/find-table)
+  if (currentRoute.path === '/find-table') {
+    return <FindTablePage onNavigate={navigate} />;
+  }
+
+  // 5. QR TABLE SELF-ORDERING ROUTE (/order/:token) — public, no admin shell.
+  // Bare /order (no token) redirects guests to the scanner instead of 404.
+  if (currentRoute.path === '/order') {
+    if (!currentRoute.token) {
+      return <ScanTablePage onNavigate={navigate} />;
+    }
     return (
-      <QrTableOrderingView
-        qrToken={qrToken}
+      <TableOrder
+        qrToken={currentRoute.token}
         onBackToStorefront={handleSwitchToPublic}
       />
     );
   }
 
-  // If in Public Storefront Mode, render the public customer website
-  if (appMode === 'public') {
+  // 6. PUBLIC HOMEPAGE (/ + unknown-path fallback)
+  if (currentRoute.path === '/' || currentRoute.path === '' || currentRoute.path === '/*') {
     return (
       <PublicStorefront
+        onNavigate={navigate}
         onNavigateToAdmin={handleSwitchToAdmin}
         onNavigateToQrOrder={(token) => {
-          setQrToken(token);
-          setAppMode('qr_order');
-          window.location.hash = `order/${token}`;
+          navigate(`/order/${token}`);
         }}
       />
     );
   }
 
-  // Admin Suite Permission check helper
+  // 7. ADMIN MANAGEMENT SUITE (/admin only — reached via navigate('/admin'),
+  // #admin legacy hash, or ?mode=admin). Anything else already returned above.
   const getPermissionKey = (key) => {
     if (key.startsWith('orders')) return 'orders';
     if (key.startsWith('menu')) return 'menu';
@@ -152,52 +217,31 @@ function MainApp() {
       );
     }
 
-    if (currentModule.startsWith('orders')) {
-      return <OrdersView />;
-    }
-    if (currentModule.startsWith('menu')) {
-      return <MenuManagementView />;
-    }
-    if (currentModule.startsWith('inventory')) {
-      return <InventoryView />;
-    }
+    if (currentModule.startsWith('orders')) return <OrdersView />;
+    if (currentModule.startsWith('menu')) return <MenuManagementView />;
+    if (currentModule.startsWith('inventory')) return <InventoryView />;
 
     switch (currentModule) {
-      case 'dashboard':
-        return <DashboardView onNavigate={setCurrentModule} />;
-      case 'pos':
-        return <POSView />;
-      case 'kitchen':
-        return <KitchenDisplayView />;
-      case 'tables':
-        return <TableManagementView onNavigate={setCurrentModule} />;
-      case 'reservations':
-        return <ReservationsView onNavigate={setCurrentModule} />;
-      case 'customers':
-        return <CustomersView />;
-      case 'loyalty':
-        return <LoyaltyView />;
-      case 'coupons':
-        return <CouponsView />;
-      case 'expenses':
-        return <ExpensesView />;
-      case 'staff':
-        return <StaffManagementView />;
-      case 'reports':
-        return <ReportsView />;
-      case 'notifications':
-        return <NotificationsView onNavigate={setCurrentModule} />;
-      case 'audit':
-        return <AuditLogsView />;
-      case 'settings':
-        return <SettingsView />;
-      default:
-        return <DashboardView onNavigate={setCurrentModule} />;
+      case 'dashboard': return <DashboardView onNavigate={setCurrentModule} />;
+      case 'pos': return <POSView />;
+      case 'kitchen': return <KitchenDisplayView />;
+      case 'tables': return <TableManagementView onNavigate={setCurrentModule} />;
+      case 'reservations': return <ReservationsView onNavigate={setCurrentModule} />;
+      case 'customers': return <CustomersView />;
+      case 'loyalty': return <LoyaltyView />;
+      case 'coupons': return <CouponsView />;
+      case 'expenses': return <ExpensesView />;
+      case 'staff': return <StaffManagementView />;
+      case 'reports': return <ReportsView />;
+      case 'notifications': return <NotificationsView onNavigate={setCurrentModule} />;
+      case 'audit': return <AuditLogsView />;
+      case 'settings': return <SettingsView />;
+      default: return <DashboardView onNavigate={setCurrentModule} />;
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] dark:bg-[#0f0f0f] text-gray-900 dark:text-gray-100 flex transition-colors">
+    <div className="min-h-screen bg-[#f8f9fa] dark:bg-[#0f0f0f] text-gray-900 dark:text-gray-100 flex transition-colors font-[Inter,'Plus_Jakarta_Sans',sans-serif]">
       
       {/* Sidebar Navigation */}
       <Sidebar
@@ -226,10 +270,10 @@ function MainApp() {
 
         {/* Global Admin Footer */}
         <footer className="px-6 py-4 border-t border-gray-200 dark:border-gray-800 text-center text-xs text-gray-400 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <p>© 2026 Dinenos Coffee House • Enterprise Fullstack Management Suite</p>
+          <p>© 2025 Petuk Adda Cafe • Enterprise Fullstack Management Suite</p>
           <button
             onClick={handleSwitchToPublic}
-            className="text-[#DD5903] hover:underline font-bold"
+            className="text-[#DD5903] hover:underline font-bold cursor-pointer"
           >
             ← Return to Public Website
           </button>

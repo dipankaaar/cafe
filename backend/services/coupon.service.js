@@ -1,12 +1,16 @@
-import { CouponModel } from '../models/Customer.model.js';
+import { CouponModel, CustomerModel } from '../models/Customer.model.js';
+import { OrderModel } from '../models/Order.model.js';
 import { ApiError } from '../utils/ApiError.js';
 import { roundCurrency } from '../utils/helpers.js';
 
 export class CouponService {
   /**
-   * Strictly validate coupon against current cart and rules
+   * Strictly validate coupon against current cart and rules.
+   * Checks: existence, status active, valid_from/to, usage_limit,
+   * min_spend/max, %/flat + max_discount cap, categories, order types,
+   * customer eligibility, per-customer limit.
    */
-  static validateCoupon({ couponCode, subtotal, cartItems = [], orderType = 'dine-in', customerId }) {
+  static validateCoupon({ couponCode, subtotal, cartItems = [], orderType = 'dine-in', customerId, customerPhone, customer }) {
     if (!couponCode || !couponCode.trim()) {
       throw new ApiError(400, 'Coupon code cannot be empty');
     }
@@ -42,6 +46,53 @@ export class CouponService {
 
     if (coupon.maxOrderValue && totalNum > coupon.maxOrderValue) {
       throw new ApiError(400, `Coupon "${coupon.code}" only valid up to ₹${coupon.maxOrderValue}.`);
+    }
+
+    // Order-type restriction
+    const oType = String(orderType || 'dine-in').toLowerCase();
+    if (coupon.applicableOrderTypes && coupon.applicableOrderTypes.length > 0) {
+      const allowed = coupon.applicableOrderTypes.map((t) => String(t).toLowerCase());
+      if (!allowed.includes(oType)) {
+        throw new ApiError(400, `Coupon "${coupon.code}" is not valid for ${orderType} orders. Allowed: ${coupon.applicableOrderTypes.join(', ')}.`);
+      }
+    }
+
+    // Category restriction: at least one cart item must match
+    if (coupon.applicableCategories && coupon.applicableCategories.length > 0) {
+      const items = Array.isArray(cartItems) ? cartItems : [];
+      const hasMatch = items.some((it) => {
+        const cat = it.category || it.categoryName || it.categoryId;
+        return cat && coupon.applicableCategories.includes(cat);
+      });
+      if (!hasMatch) {
+        throw new ApiError(400, `Coupon "${coupon.code}" is only valid on select categories (${coupon.applicableCategories.join(', ')}).`);
+      }
+    }
+
+    // Customer eligibility
+    const cust = customer || (customerId ? CustomerModel.findById(customerId) : null);
+    const eligibility = coupon.customerEligibility || 'all';
+    if (eligibility === 'new') {
+      if (cust && Number(cust.totalOrders || 0) > 0) {
+        throw new ApiError(400, `Coupon "${coupon.code}" is exclusively reserved for first-time guests.`);
+      }
+    } else if (eligibility === 'vip') {
+      if (!cust || !['Gold', 'Platinum'].includes(cust.tier)) {
+        throw new ApiError(400, `Coupon "${coupon.code}" is reserved for Gold & Platinum loyalty members.`);
+      }
+    }
+
+    // Per-customer usage limit (counted from orders history)
+    const perLimit = Number(coupon.perCustomerLimit || 0);
+    if (perLimit > 0 && (customerId || customerPhone || cust)) {
+      const used = OrderModel.countCouponUsageByCustomer(
+        coupon.code,
+        customerId || cust?.id,
+        customerPhone || cust?.phone
+      );
+      if (used >= perLimit) {
+        throw new ApiError(400, `Coupon "${coupon.code}" per-customer limit (${perLimit}) already reached.`);
+      }
     }
 
     // Calculate discount

@@ -4,21 +4,52 @@ import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
 // --- REAL-TIME SSE ---
-export const streamEvents = (req, res) => {
-  eventHub.registerClient(req, res);
+export const streamEvents = (req, res, next) => {
+  try {
+    // Allow EventSource cross-origin where CORS permits; EventHub handles cleanup
+    eventHub.registerClient(req, res);
+  } catch (err) {
+    next(err);
+  }
 };
 
 // --- AUDIT LOGS ---
 export const getAuditLogs = asyncHandler(async (req, res) => {
-  const { category, limit } = req.query;
-  const logs = AuditLogModel.findAll({ category, limit: limit ? Number(limit) : 200 });
+  const { category, action, search, limit } = req.query;
+  const logs = AuditLogModel.findAll({ category, action, search, limit: limit ? Number(limit) : 200 });
   return ApiResponse.success(res, logs);
 });
 
 // --- NOTIFICATIONS ---
 export const getNotifications = asyncHandler(async (req, res) => {
-  const notifications = NotificationModel.findAll();
+  const { limit, unreadOnly } = req.query;
+  const notifications = NotificationModel.findAll(
+    limit ? Number(limit) : 50,
+    { unreadOnly: unreadOnly === 'true' || unreadOnly === '1' }
+  );
   return ApiResponse.success(res, notifications);
+});
+
+export const createNotification = asyncHandler(async (req, res) => {
+  const { ApiError } = await import('../utils/ApiError.js');
+  const { title, message, type = 'info', time, link = '/', tableNumber = null } = req.body || {};
+  if (!title || !message) {
+    throw new ApiError(400, 'Notification title and message are required');
+  }
+  const created = NotificationModel.create({ title, message, type, time: time || new Date().toISOString(), link });
+  // Push live to all SSE subscribers (Topbar bell, Notification center)
+  eventHub.broadcast('NEW_NOTIFICATION', created);
+  // Typed fan-out for low-stock / order / reservation consumers
+  const t = String(type || 'info').toLowerCase();
+  if (t === 'warning' || t === 'low-stock' || t === 'low_stock') {
+    eventHub.broadcast('LOW_STOCK_ALERT', created);
+  } else if (t === 'order') {
+    eventHub.broadcast('ORDER_ALERT', created);
+  } else if (t === 'reservation') {
+    eventHub.broadcast('RESERVATION_ALERT', created);
+  }
+  if (tableNumber) eventHub.broadcast('notification_created', created);
+  return ApiResponse.created(res, created);
 });
 
 export const markNotificationRead = asyncHandler(async (req, res) => {

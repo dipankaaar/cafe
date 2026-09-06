@@ -20,6 +20,7 @@ import {
   initialNotifications
 } from '../services/seedData';
 import { validateAndCalculateCoupon } from '../services/couponValidator';
+import { normalizeOrderStatus, generateOrderNumber } from '../utils/orderStatus';
 import { useAuth } from './AuthContext';
 
 const CafeContext = createContext();
@@ -29,10 +30,42 @@ export function CafeProvider({ children }) {
   const userName = currentUser ? `${currentUser.name} (${currentUser.role})` : 'System';
 
   // State slices initialized from local cache or seed data
-  const [settings, setSettings] = useState(() => dbService.get(DB_KEYS.SETTINGS, initialCafeSettings));
-  const [categories, setCategories] = useState(() => dbService.get(DB_KEYS.CATEGORIES, initialCategories));
+  const [settings, setSettings] = useState(() => {
+    const cached = dbService.get(DB_KEYS.SETTINGS, initialCafeSettings);
+    if (!cached || cached.cafeName?.includes('Dinenos') || cached.address?.includes('Brisbane')) {
+      return { 
+        ...initialCafeSettings, 
+        ...cached, 
+        cafeName: 'Petuk Adda Cafe', 
+        tagline: initialCafeSettings.tagline,
+        address: initialCafeSettings.address, 
+        phone: initialCafeSettings.phone, 
+        altPhone: initialCafeSettings.altPhone,
+        email: initialCafeSettings.email, 
+        openingHours: initialCafeSettings.openingHours,
+        deliveryArea: initialCafeSettings.deliveryArea,
+        invoicePrefix: 'DN-'
+      };
+    }
+    return cached;
+  });
+  const [categories, setCategories] = useState(() => {
+    const cached = dbService.get(DB_KEYS.CATEGORIES, initialCategories);
+    if (!cached || !cached.length || cached.some(c => c.id === 'cat-1' || c.name === 'Hot Coffee')) {
+      dbService.set(DB_KEYS.CATEGORIES, initialCategories);
+      return initialCategories;
+    }
+    return cached;
+  });
   const [addons, setAddons] = useState(() => dbService.get(DB_KEYS.ADDONS, initialAddons));
-  const [products, setProducts] = useState(() => dbService.get(DB_KEYS.PRODUCTS, initialProducts));
+  const [products, setProducts] = useState(() => {
+    const cached = dbService.get(DB_KEYS.PRODUCTS, initialProducts);
+    if (!cached || !cached.length || cached.some(p => p.id === 'prod-1' || p.name === 'Classic Latte' || p.id === 'prod-12')) {
+      dbService.set(DB_KEYS.PRODUCTS, initialProducts);
+      return initialProducts;
+    }
+    return cached;
+  });
   const [tables, setTables] = useState(() => dbService.get(DB_KEYS.TABLES, initialTables));
   const [customers, setCustomers] = useState(() => dbService.get(DB_KEYS.CUSTOMERS, initialCustomers));
   const [coupons, setCoupons] = useState(() => dbService.get(DB_KEYS.COUPONS, initialCoupons));
@@ -107,7 +140,9 @@ export function CafeProvider({ children }) {
         if (fetchedProducts && fetchedProducts.length > 0) setProducts(fetchedProducts);
         if (fetchedCategories && fetchedCategories.length > 0) setCategories(fetchedCategories);
         if (fetchedAddons && fetchedAddons.length > 0) setAddons(fetchedAddons);
-        if (fetchedOrders && fetchedOrders.length > 0) setOrders(fetchedOrders);
+        if (fetchedOrders && fetchedOrders.length > 0) {
+          setOrders(fetchedOrders.map((o) => ({ ...o, status: normalizeOrderStatus(o.status) })));
+        }
         if (fetchedTables && fetchedTables.length > 0) setTables(fetchedTables);
         if (fetchedReservations && fetchedReservations.length > 0) setReservations(fetchedReservations);
         if (fetchedCustomers && fetchedCustomers.length > 0) setCustomers(fetchedCustomers);
@@ -129,14 +164,18 @@ export function CafeProvider({ children }) {
 
     // Subscribe to SSE real-time events
     const sse = api.subscribeToEvents((event) => {
-      if (event.type === 'NEW_ORDER') {
+      if (event.type === 'NEW_ORDER' || event.type === 'order_created') {
         setOrders((prev) => {
           if (prev.some((o) => o.id === event.data.id)) return prev;
-          return [event.data, ...prev];
+          return [{ ...event.data, status: normalizeOrderStatus(event.data.status) }, ...prev];
         });
-      } else if (event.type === 'ORDER_STATUS_CHANGED') {
+      } else if (event.type === 'ORDER_STATUS_CHANGED' || event.type === 'order_status_changed') {
         setOrders((prev) =>
-          prev.map((o) => (o.id === event.data.id ? { ...o, ...event.data } : o))
+          prev.map((o) =>
+            o.id === event.data.id
+              ? { ...o, ...event.data, status: normalizeOrderStatus(event.data.status) }
+              : o
+          )
         );
       } else if (event.type === 'NEW_RESERVATION') {
         setReservations((prev) => {
@@ -147,6 +186,15 @@ export function CafeProvider({ children }) {
         setTables((prev) =>
           prev.map((t) => (t.id === event.data.id ? { ...t, status: event.data.status } : t))
         );
+      } else if (event.type === 'table_updated') {
+        setTables((prev) =>
+          prev.map((t) => (t.id === event.data.id ? { ...t, ...event.data } : t))
+        );
+      } else if (event.type === 'NEW_NOTIFICATION' || event.type === 'notification_created') {
+        setNotifications((prev) => {
+          if (prev.some((n) => n.id === event.data.id)) return prev;
+          return [event.data, ...prev];
+        });
       }
     });
 
@@ -186,8 +234,7 @@ export function CafeProvider({ children }) {
   // ORDER MANAGEMENT & WORKFLOW
   // -------------------------------------------------------------
   const createOrder = useCallback((orderData) => {
-    const nextNum = Math.floor(1000 + Math.random() * 9000);
-    const invoiceNum = orderData.orderNumber || `${settings.invoicePrefix || 'DIN-'}${nextNum}`;
+    const invoiceNum = orderData.orderNumber || generateOrderNumber((settings.invoicePrefix || 'DN-').replace(/-$/, ''));
 
     const newOrder = {
       id: `ord-${Date.now()}`,
@@ -198,9 +245,10 @@ export function CafeProvider({ children }) {
       customerId: orderData.customerId || null,
       customerName: orderData.customerName || 'Walk-in Guest',
       customerPhone: orderData.customerPhone || '',
-      status: orderData.status || 'New',
+      status: normalizeOrderStatus(orderData.status || 'placed'),
       orderTime: new Date().toISOString(),
       kitchenAcceptedAt: null,
+      brewingStartedAt: null,
       kitchenReadyAt: null,
       completedAt: null,
       items: orderData.items || [],
@@ -212,6 +260,7 @@ export function CafeProvider({ children }) {
       serviceCharge: Number((orderData.serviceCharge || 0).toFixed(2)),
       grandTotal: Number((orderData.grandTotal || 0).toFixed(2)),
       paymentMethod: orderData.paymentMethod || 'Cash',
+      payments: orderData.payments || null,
       paymentStatus: orderData.paymentStatus || 'Pending',
       notes: orderData.notes || '',
       serverStaff: orderData.serverStaff || currentUser?.name || 'Cashier'
@@ -219,8 +268,19 @@ export function CafeProvider({ children }) {
 
     setOrders((prev) => [newOrder, ...prev]);
 
-    // Send to Backend API
-    api.createOrder(newOrder).catch((e) => console.warn('Order API sync error:', e));
+    // POST /api/orders — reconcile with the server record when it responds
+    api.createOrder(newOrder)
+      .then((saved) => {
+        const record = saved && (saved.data || saved);
+        if (record && record.id) {
+          setOrders((prev) =>
+            prev.map((o) =>
+              o.id === newOrder.id ? { ...record, status: normalizeOrderStatus(record.status) } : o
+            )
+          );
+        }
+      })
+      .catch((e) => console.warn('Order API sync error:', e));
 
     // 1. If assigned to a Table, set table to Occupied
     if (newOrder.tableId) {
@@ -271,12 +331,16 @@ export function CafeProvider({ children }) {
     const targetOrder = orders.find((o) => o.id === orderId);
     if (!targetOrder) return;
 
+    const normalized = normalizeOrderStatus(newStatus);
     const now = new Date().toISOString();
-    const updatedOrder = { ...targetOrder, status: newStatus };
+    const updatedOrder = { ...targetOrder, status: normalized };
 
-    if (newStatus === 'Accepted' && !targetOrder.kitchenAcceptedAt) {
+    if (normalized === 'accepted' && !targetOrder.kitchenAcceptedAt) {
       updatedOrder.kitchenAcceptedAt = now;
-    } else if (newStatus === 'Ready' && !targetOrder.kitchenReadyAt) {
+    } else if (normalized === 'brewing' && !targetOrder.brewingStartedAt) {
+      updatedOrder.brewingStartedAt = now;
+      if (!updatedOrder.kitchenAcceptedAt) updatedOrder.kitchenAcceptedAt = now;
+    } else if (normalized === 'ready' && !targetOrder.kitchenReadyAt) {
       updatedOrder.kitchenReadyAt = now;
       addToastNotification(
         'Order Ready for Pickup / Table',
@@ -284,7 +348,7 @@ export function CafeProvider({ children }) {
         'success',
         '/orders'
       );
-    } else if (newStatus === 'Completed') {
+    } else if (normalized === 'completed') {
       updatedOrder.completedAt = now;
       updatedOrder.paymentStatus = 'Paid';
 
@@ -371,8 +435,19 @@ export function CafeProvider({ children }) {
 
     setOrders((prev) => prev.map((o) => (o.id === orderId ? updatedOrder : o)));
 
-    // Send update to Backend API
-    api.updateOrderStatus(orderId, newStatus).catch((e) => console.warn('Order status sync error:', e));
+    // PATCH /api/orders/:id/status — reconcile with the server record when it responds
+    api.updateOrderStatus(orderId, normalized)
+      .then((saved) => {
+        const record = saved && (saved.data || saved);
+        if (record && record.id) {
+          setOrders((prev) =>
+            prev.map((o) =>
+              o.id === orderId ? { ...o, ...record, status: normalizeOrderStatus(record.status) } : o
+            )
+          );
+        }
+      })
+      .catch((e) => console.warn('Order status sync error:', e));
   }, [orders, products, settings, addToastNotification, addAuditLog]);
 
   const cancelOrder = useCallback((orderId, reason = 'Customer request') => {
@@ -384,14 +459,27 @@ export function CafeProvider({ children }) {
               tbls.map((t) => (t.id === o.tableId ? { ...t, status: 'Available', currentOrderId: null, customerName: null } : t))
             );
           }
-          return { ...o, status: 'Cancelled', notes: `${o.notes || ''} [Cancelled: ${reason}]` };
+          return { ...o, status: 'cancelled', notes: `${o.notes || ''} [Cancelled: ${reason}]` };
         }
         return o;
       })
     );
-    api.updateOrderStatus(orderId, 'Cancelled', reason).catch(() => {});
+    api.updateOrderStatus(orderId, 'cancelled', reason).catch(() => {});
     addAuditLog('CANCEL_ORDER', 'Orders', `Cancelled order ID ${orderId}. Reason: ${reason}`);
     addToastNotification('Order Cancelled', `Order #${orderId} has been cancelled.`, 'error', '/orders');
+  }, [addAuditLog, addToastNotification]);
+
+  const refundOrder = useCallback((orderId, reason = 'Refund via Orders dashboard') => {
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId
+          ? { ...o, status: 'refunded', paymentStatus: 'Refunded', notes: `${o.notes || ''} [Refunded: ${reason}]` }
+          : o
+      )
+    );
+    api.refundOrder(orderId, reason).catch(() => api.updateOrderStatus(orderId, 'refunded', reason).catch(() => {}));
+    addAuditLog('REFUND_ORDER', 'Orders', `Refunded order ID ${orderId}. Reason: ${reason}`);
+    addToastNotification('Order Refunded', `Order #${orderId} has been refunded.`, 'warning', '/orders');
   }, [addAuditLog, addToastNotification]);
 
   // -------------------------------------------------------------
@@ -463,8 +551,17 @@ export function CafeProvider({ children }) {
     setCategories((prev) =>
       prev.map((c) => (c.id === catId ? { ...c, ...updatedData } : c))
     );
+    api.updateCategory(catId, updatedData).catch(() => {});
     addAuditLog('UPDATE_CATEGORY', 'Menu', `Updated category ID ${catId}`);
   }, [addAuditLog]);
+
+  const deleteCategory = useCallback((catId) => {
+    const cat = categories.find((c) => c.id === catId);
+    setCategories((prev) => prev.filter((c) => c.id !== catId));
+    api.deleteCategory(catId).catch(() => {});
+    addAuditLog('DELETE_CATEGORY', 'Menu', `Deleted category "${cat?.name || catId}"`);
+    addToastNotification('Category Removed', `Category has been deleted.`, 'info', '/menu');
+  }, [categories, addAuditLog, addToastNotification]);
 
   const addAddon = useCallback((addonData) => {
     const newAddon = {
@@ -482,11 +579,56 @@ export function CafeProvider({ children }) {
     setAddons((prev) =>
       prev.map((a) => (a.id === addonId ? { ...a, ...updatedData } : a))
     );
-  }, []);
+    api.updateAddon(addonId, updatedData).catch(() => {});
+    addAuditLog('UPDATE_ADDON', 'Menu', `Updated add-on ID ${addonId}`);
+  }, [addAuditLog]);
+
+  const deleteAddon = useCallback((addonId) => {
+    setAddons((prev) => prev.filter((a) => a.id !== addonId));
+    api.deleteAddon(addonId).catch(() => {});
+    addAuditLog('DELETE_ADDON', 'Menu', `Deleted add-on ID ${addonId}`);
+  }, [addAuditLog]);
 
   // -------------------------------------------------------------
   // TABLES & FLOOR PLAN
   // -------------------------------------------------------------
+  const refreshData = useCallback(async () => {
+    try {
+      const [fetchedTables, fetchedOrders] = await Promise.all([
+        api.getTables().catch(() => null),
+        api.getOrders().catch(() => null)
+      ]);
+      if (fetchedTables && fetchedTables.length > 0) setTables(fetchedTables);
+      if (fetchedOrders && fetchedOrders.length > 0) setOrders(fetchedOrders);
+    } catch (err) {
+      console.warn('Table refresh failed:', err);
+    }
+  }, []);
+
+  const occupyTable = useCallback(async (tableId, { customerName = null, currentOrderId = null } = {}) => {
+    try {
+      const updated = await api.occupyTable(tableId, { customerName, currentOrderId });
+      setTables((prev) => prev.map((t) => (t.id === tableId ? { ...t, ...updated } : t)));
+      addAuditLog('OCCUPY_TABLE', 'Tables', `Marked Table ID ${tableId} as Occupied`);
+      return updated;
+    } catch (err) {
+      // Fallback to generic status update if dedicated endpoint is unreachable
+      updateTableStatus(tableId, 'Occupied');
+      throw err;
+    }
+  }, [addAuditLog]);
+
+  const releaseTable = useCallback(async (tableId) => {
+    try {
+      const updated = await api.releaseTable(tableId);
+      setTables((prev) => prev.map((t) => (t.id === tableId ? { ...t, ...updated } : t)));
+      addAuditLog('RELEASE_TABLE', 'Tables', `Released Table ID ${tableId} back to Available`);
+      return updated;
+    } catch (err) {
+      updateTableStatus(tableId, 'Available');
+      throw err;
+    }
+  }, [addAuditLog]);
   const updateTableStatus = useCallback((tableId, newStatus) => {
     setTables((prev) =>
       prev.map((t) => (t.id === tableId ? { ...t, status: newStatus } : t))
@@ -669,11 +811,11 @@ export function CafeProvider({ children }) {
     const newItem = {
       id: `inv-${Date.now()}`,
       ...itemData,
-      currentStock: Number(itemData.currentStock || 0),
-      minStock: Number(itemData.minStock || 5),
-      maxStock: Number(itemData.maxStock || 50),
-      costPerUnit: Number(itemData.costPerUnit || 100),
-      status: Number(itemData.currentStock || 0) <= Number(itemData.minStock || 5) ? 'Low Stock' : 'In Stock'
+      currentStock: Number(itemData.currentStock ?? itemData.stock ?? 0),
+      minStock: Number(itemData.minStock ?? itemData.min_level ?? 5),
+      maxStock: Number(itemData.maxStock ?? 50),
+      costPerUnit: Number(itemData.costPerUnit ?? 100),
+      status: Number(itemData.currentStock ?? itemData.stock ?? 0) <= Number(itemData.minStock ?? itemData.min_level ?? 5) ? 'Low Stock' : 'In Stock'
     };
     setInventory((prev) => [...prev, newItem]);
     api.createInventoryItem(newItem).catch(() => {});
@@ -681,8 +823,29 @@ export function CafeProvider({ children }) {
     return newItem;
   }, [addAuditLog]);
 
+  const updateInventoryItem = useCallback((itemId, updatedData) => {
+    setInventory((prev) =>
+      prev.map((item) => {
+        if (item.id !== itemId) return item;
+        const merged = { ...item, ...updatedData };
+        const stock = Number(merged.currentStock ?? 0);
+        const min = Number(merged.minStock ?? 5);
+        return { ...merged, status: stock <= min ? 'Low Stock' : 'In Stock' };
+      })
+    );
+    api.updateInventoryItem(itemId, updatedData).catch(() => {});
+    addAuditLog('UPDATE_INVENTORY_ITEM', 'Inventory', `Updated raw stock item ${itemId}`);
+  }, [addAuditLog]);
+
+  const deleteInventoryItem = useCallback((itemId) => {
+    setInventory((prev) => prev.filter((i) => i.id !== itemId));
+    api.deleteInventoryItem(itemId).catch(() => {});
+    addAuditLog('DELETE_INVENTORY_ITEM', 'Inventory', `Deleted raw stock item ${itemId}`);
+    addToastNotification('Stock Item Removed', 'Raw material deleted.', 'info', '/inventory');
+  }, [addAuditLog, addToastNotification]);
+
   // -------------------------------------------------------------
-  // SUPPLIERS & PURCHASES
+  // SUPPLIERS & PURCHASES (PO create -> receive restocks + expense)
   // -------------------------------------------------------------
   const addSupplier = useCallback((supplierData) => {
     const newSup = {
@@ -697,45 +860,119 @@ export function CafeProvider({ children }) {
     return newSup;
   }, [addAuditLog]);
 
-  const createPurchaseOrder = useCallback((poData) => {
+  const updateSupplier = useCallback((supplierId, updatedData) => {
+    setSuppliers((prev) =>
+      prev.map((s) => (s.id === supplierId ? { ...s, ...updatedData } : s))
+    );
+    api.updateSupplier(supplierId, updatedData).catch(() => {});
+    addAuditLog('UPDATE_SUPPLIER', 'Suppliers', `Updated supplier ${supplierId}`);
+  }, [addAuditLog]);
+
+  const deleteSupplier = useCallback((supplierId) => {
+    setSuppliers((prev) => prev.filter((s) => s.id !== supplierId));
+    api.deleteSupplier(supplierId).catch(() => {});
+    addAuditLog('DELETE_SUPPLIER', 'Suppliers', `Deleted supplier ${supplierId}`);
+    addToastNotification('Supplier Removed', 'Vendor deleted.', 'info', '/inventory');
+  }, [addAuditLog, addToastNotification]);
+
+  const applyPoStockBump = useCallback((poItems) => {
+    if (!poItems || poItems.length === 0) return;
+    setInventory((prevInv) => {
+      let updated = [...prevInv];
+      poItems.forEach((poItem) => {
+        updated = updated.map((inv) => {
+          if (inv.id === poItem.ingredientId) {
+            const newQty = Number((inv.currentStock + Number(poItem.quantity)).toFixed(3));
+            return {
+              ...inv,
+              currentStock: newQty,
+              status: newQty > inv.minStock ? 'In Stock' : 'Low Stock'
+            };
+          }
+          return inv;
+        });
+      });
+      return updated;
+    });
+  }, []);
+
+  const createPurchaseOrder = useCallback((poData, opts = {}) => {
+    const receiveImmediately = opts.receive ?? true;
     const newPO = {
       id: `po-${Date.now()}`,
       poNumber: `PO-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
       ...poData,
       totalAmount: Number(poData.totalAmount || 0),
       orderDate: new Date().toISOString().split('T')[0],
-      status: 'Completed',
-      receivedDate: new Date().toISOString().split('T')[0]
+      status: receiveImmediately ? 'Received' : 'Pending',
+      receivedDate: receiveImmediately ? new Date().toISOString().split('T')[0] : null
     };
 
     setPurchases((prev) => [newPO, ...prev]);
-    api.createPurchaseOrder(newPO).catch(() => {});
+    api.createPurchaseOrder({ ...newPO, status: 'Pending' })
+      .then((created) => {
+        const backendId = created?.id || created?.data?.id;
+        if (receiveImmediately) {
+          const targetId = backendId || newPO.id;
+          api.receivePurchaseOrder(targetId).catch(() => {});
+        }
+      })
+      .catch(() => {});
 
-    // Automatically increase inventory stock for items in PO
-    if (newPO.items && newPO.items.length > 0) {
-      setInventory((prevInv) => {
-        let updated = [...prevInv];
-        newPO.items.forEach((poItem) => {
-          updated = updated.map((inv) => {
-            if (inv.id === poItem.ingredientId) {
-              const newQty = Number((inv.currentStock + Number(poItem.quantity)).toFixed(3));
-              return {
-                ...inv,
-                currentStock: newQty,
-                status: newQty > inv.minStock ? 'In Stock' : 'Low Stock'
-              };
-            }
-            return inv;
-          });
-        });
-        return updated;
-      });
+    // Optimistic local stock bump when receiving immediately
+    if (receiveImmediately) {
+      applyPoStockBump(newPO.items);
+      const poExpense = {
+        id: `exp-${Date.now()}`,
+        title: `PO #${newPO.poNumber} — ${newPO.supplierName || 'Supplier'}`,
+        category: 'Purchases',
+        amount: Number(newPO.totalAmount || 0),
+        paymentMethod: 'Cash',
+        date: newPO.receivedDate,
+        loggedBy: userName
+      };
+      setExpenses((prev) => [poExpense, ...prev]);
     }
 
-    addAuditLog('CREATE_PURCHASE', 'Purchases', `Created Purchase Order #${newPO.poNumber} for ₹${newPO.totalAmount}`);
-    addToastNotification('Purchase Received', `Inventory restocked from PO #${newPO.poNumber}.`, 'success', '/purchases');
+    addAuditLog('CREATE_PURCHASE', 'Purchases', `Created Purchase Order #${newPO.poNumber} for ₹${newPO.totalAmount} (${newPO.status})`);
+    addToastNotification(
+      newPO.status === 'Pending' ? 'Purchase Order Created' : 'Purchase Received',
+      newPO.status === 'Pending' ? `PO #${newPO.poNumber} is pending receipt.` : `Inventory restocked from PO #${newPO.poNumber}.`,
+      'success', '/purchases'
+    );
     return newPO;
-  }, [addAuditLog, addToastNotification]);
+  }, [addAuditLog, addToastNotification, applyPoStockBump, userName]);
+
+  const receivePurchaseOrder = useCallback((poId) => {
+    const po = purchases.find((p) => p.id === poId);
+    if (!po || po.status === 'Received' || po.status === 'Completed') return po;
+    const receivedDate = new Date().toISOString().split('T')[0];
+    setPurchases((prev) =>
+      prev.map((p) => (p.id === poId ? { ...p, status: 'Received', receivedDate } : p))
+    );
+    api.receivePurchaseOrder(poId).catch(() => {});
+    if (po) {
+      applyPoStockBump(po.items);
+      setExpenses((prev) => [{
+        id: `exp-${Date.now()}`,
+        title: `PO #${po.poNumber} — ${po.supplierName || 'Supplier'}`,
+        category: 'Purchases',
+        amount: Number(po.totalAmount || 0),
+        paymentMethod: 'Cash',
+        date: receivedDate,
+        loggedBy: userName
+      }, ...prev]);
+    }
+    addAuditLog('RECEIVE_PURCHASE', 'Purchases', `Received PO #${po?.poNumber} — stock updated, expense recorded`);
+    addToastNotification('Purchase Received', `Inventory restocked from PO #${po?.poNumber}.`, 'success', '/purchases');
+    return { ...po, status: 'Received', receivedDate };
+  }, [purchases, applyPoStockBump, addAuditLog, addToastNotification, userName]);
+
+  const deletePurchaseOrder = useCallback((poId) => {
+    setPurchases((prev) => prev.filter((p) => p.id !== poId));
+    api.deletePurchaseOrder(poId).catch(() => {});
+    addAuditLog('DELETE_PURCHASE', 'Purchases', `Deleted purchase order ${poId}`);
+  }, [addAuditLog]);
 
   // -------------------------------------------------------------
   // EXPENSES
@@ -857,15 +1094,21 @@ export function CafeProvider({ children }) {
         createOrder,
         updateOrderStatus,
         cancelOrder,
+        refundOrder,
         addProduct,
         updateProduct,
         deleteProduct,
         duplicateProduct,
         addCategory,
         updateCategory,
+        deleteCategory,
         addAddon,
         updateAddon,
+        deleteAddon,
         updateTableStatus,
+        occupyTable,
+        releaseTable,
+        refreshData,
         addTable,
         addReservation,
         updateReservationStatus,
@@ -876,8 +1119,14 @@ export function CafeProvider({ children }) {
         toggleCouponStatus,
         adjustInventoryStock,
         addInventoryItem,
+        updateInventoryItem,
+        deleteInventoryItem,
         addSupplier,
+        updateSupplier,
+        deleteSupplier,
         createPurchaseOrder,
+        receivePurchaseOrder,
+        deletePurchaseOrder,
         addExpense,
         deleteExpense,
         addStaffMember,

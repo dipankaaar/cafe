@@ -151,3 +151,65 @@ export function validateAndCalculateCoupon({
     successMessage: `Coupon "${coupon.code}" applied! You saved ₹${discountAmount.toFixed(2)} (${coupon.name})`
   };
 }
+
+/**
+ * Backwards-compatible wrapper.
+ * Legacy storefront call sites invoke:
+ *   validateCouponCompat(couponObject, { subtotal, orderType, items })
+ * New call sites invoke:
+ *   validateCouponCompat({ couponCode, cartItems, subtotal, orderType, allCoupons, ... })
+ * Both route to validateAndCalculateCoupon.
+ */
+export function validateCouponCompat(firstArg, secondArg = {}) {
+  if (firstArg && typeof firstArg === 'object' && ('couponCode' in firstArg || 'allCoupons' in firstArg || 'cartItems' in firstArg)) {
+    return validateAndCalculateCoupon(firstArg);
+  }
+  const coupon = firstArg || {};
+  const {
+    subtotal = 0,
+    orderType = 'dine-in',
+    items = [],
+    cartItems = [],
+    customer = null,
+    allCoupons = []
+  } = secondArg || {};
+  return validateAndCalculateCoupon({
+    couponCode: coupon.code || coupon.couponCode || '',
+    cartItems: cartItems.length > 0 ? cartItems : items,
+    subtotal,
+    orderType,
+    customer,
+    allCoupons: allCoupons.length > 0 ? allCoupons : (coupon.code ? [coupon] : [])
+  });
+}
+
+/**
+ * Live coupon validation via POST /api/coupons/validate.
+ * Falls back to the local engine when the API is unreachable.
+ * Returns { isValid, coupon, discountAmount, successMessage?, error? }.
+ */
+export async function validateCouponLive(api, { couponCode, subtotal, orderType = 'takeaway', cartItems = [], customerId } = {}) {
+  const code = String(couponCode || '').trim().toUpperCase();
+  if (!code) return { isValid: false, error: 'Please enter a coupon code.' };
+  try {
+    const res = await api.validateCoupon({
+      couponCode: code,
+      subtotal: Number(subtotal || 0),
+      cartItems,
+      orderType,
+      ...(customerId ? { customerId } : {})
+    });
+    // Backend returns { isValid, coupon, discountAmount, successMessage }
+    if (res && (res.isValid || typeof res.discountAmount === 'number')) {
+      return {
+        isValid: res.isValid !== false,
+        coupon: res.coupon || { code },
+        discountAmount: Number(res.discountAmount || 0),
+        successMessage: res.successMessage || `Coupon "${code}" applied!`
+      };
+    }
+    return { isValid: false, error: res?.message || `Coupon "${code}" is invalid.` };
+  } catch (err) {
+    return { isValid: false, error: err?.message || `Coupon "${code}" is invalid or expired.`, liveFailed: true };
+  }
+}

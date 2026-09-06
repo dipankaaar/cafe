@@ -32,7 +32,7 @@ export default function AboutSection({ onOpenReservation }) {
             {/* Heading */}
             <h2 className="text-4xl sm:text-5xl lg:text-[54px] text-[#111111] font-['Arapey',serif] font-normal leading-[1.15]">
               More About <br />
-              <span className="italic text-[#DD5903]">Dinenos Café</span>
+              <span className="italic text-[#DD5903]">Petuk Adda Cafe</span>
             </h2>
 
             {/* Diamond divider */}
@@ -42,11 +42,11 @@ export default function AboutSection({ onOpenReservation }) {
 
             {/* Story description */}
             <p className="text-[#666666] text-base leading-relaxed font-normal">
-              It’s the story of an everlasting love affair, Dieter Delicioz and the Atlantic Ocean. Our proximity of the sea and Portugal’s excellent produce inspire every brew we create.
+              Where every sip and bite tells a story. Situated in Salboni, Petuk Adda Cafe is dedicated to delivering extraordinary cafe dining, rich artisan coffees, and delightful culinary experiences.
             </p>
 
             <p className="text-[#777777] text-sm leading-relaxed font-normal">
-              We source specialty beans directly from micro-lot farms across Ethiopia, Colombia, and Guatemala, lightly roasting each batch to unlock vibrant floral notes and sweet caramel undertones.
+              We carefully select premium ingredients and fresh specialty beans, lightly roasting and crafting each creation to unlock unforgettable taste, heartwarming aromas, and memorable moments in Salboni.
             </p>
 
             {/* More About Us CTA */}

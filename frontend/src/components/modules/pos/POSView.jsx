@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Search,
   Plus,
@@ -43,12 +43,26 @@ export default function POSView() {
 
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Cart state
   const [cart, setCart] = useState([]);
   const [orderType, setOrderType] = useState('dine-in');
-  const [selectedTable, setSelectedTable] = useState(tables[0]?.id || '');
-  const [selectedCustomer, setSelectedCustomer] = useState(customers[0]?.id || '');
+  const [selectedTable, setSelectedTable] = useState('');
+  const [selectedCustomer, setSelectedCustomer] = useState('');
+
+  // Default table / customer once async data arrives (fixes stale mount-time defaults)
+  useEffect(() => {
+    if (!selectedTable && tables.length > 0) {
+      const firstAvailable = tables.find((t) => t.status === 'Available') || tables[0];
+      setSelectedTable(firstAvailable.id);
+    }
+  }, [tables, selectedTable]);
+
+  useEffect(() => {
+    if (!selectedCustomer && customers.length > 0) {
+      setSelectedCustomer(customers[0].id);
+    }
+  }, [customers, selectedCustomer]);
   
   // Promo / Coupon state
   const [couponCodeInput, setCouponCodeInput] = useState('');
@@ -69,6 +83,46 @@ export default function POSView() {
   const [amountTendered, setAmountTendered] = useState('');
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [lastPlacedOrder, setLastPlacedOrder] = useState(null);
+  const [paymentError, setPaymentError] = useState('');
+
+  // Split tender state: multiple { method, amount } rows that must sum to grandTotal
+  const [isSplitTender, setIsSplitTender] = useState(false);
+  const [splitPayments, setSplitPayments] = useState([
+    { method: 'Cash', amount: '' },
+    { method: 'UPI', amount: '' }
+  ]);
+
+  const splitTotal = splitPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  const splitRemaining = Number((grandTotal - splitTotal).toFixed(2));
+
+  const updateSplitRow = (idx, patch) => {
+    setSplitPayments((prev) => prev.map((row, i) => (i === idx ? { ...row, ...patch } : row)));
+    setPaymentError('');
+  };
+
+  const addSplitRow = () => {
+    if (splitPayments.length >= 3) return;
+    const used = splitPayments.map((p) => p.method);
+    const nextMethod = ['Cash', 'UPI', 'Card'].find((m) => !used.includes(m)) || 'Cash';
+    setSplitPayments((prev) => [...prev, { method: nextMethod, amount: '' }]);
+  };
+
+  const removeSplitRow = (idx) => {
+    if (splitPayments.length <= 2) return;
+    setSplitPayments((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  // Opening the payment modal resets tender state to a clean single-method flow
+  const openPaymentModal = () => {
+    setPaymentError('');
+    setAmountTendered('');
+    setIsSplitTender(false);
+    setSplitPayments([
+      { method: 'Cash', amount: '' },
+      { method: 'UPI', amount: '' }
+    ]);
+    setIsPaymentModalOpen(true);
+  };
 
   // Quick Customer Creation modal
   const [isNewCustModalOpen, setIsNewCustModalOpen] = useState(false);
@@ -79,10 +133,11 @@ export default function POSView() {
   // Filtered Products
   const filteredProducts = products.filter((p) => {
     const matchCat = selectedCategory === 'all' || p.category === selectedCategory;
+    const q = searchQuery.trim().toLowerCase();
     const matchQuery =
-      searchQuery.trim() === '' ||
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.description.toLowerCase().includes(searchQuery.toLowerCase());
+      q === '' ||
+      (p.name || '').toLowerCase().includes(q) ||
+      (p.description || '').toLowerCase().includes(q);
     return matchCat && matchQuery && p.isAvailable;
   });
 
@@ -190,6 +245,10 @@ export default function POSView() {
   const totalDiscount = (appliedCoupon ? appliedCoupon.discountAmount : 0) + loyaltyPointsDiscount;
   const discountedSubtotal = Math.max(0, subtotal - totalDiscount);
   const taxAmount = (discountedSubtotal * (settings.taxRate || 5)) / 100;
+  // CGST/SGST split of the configured GST rate (e.g. 5% -> 2.5% + 2.5%)
+  const cgstAmount = taxAmount / 2;
+  const sgstAmount = taxAmount / 2;
+  const halfGstRate = ((settings.taxRate || 5) / 2).toFixed(1);
   const serviceCharge = orderType === 'dine-in' ? (discountedSubtotal * (settings.serviceChargeRate || 2.5)) / 100 : 0;
   const grandTotal = discountedSubtotal + taxAmount + serviceCharge;
 

@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { db } from '../db/connection.js';
-import { sanitize, getCurrentTimestamp } from '../utils/helpers.js';
+import { sanitize, getCurrentTimestamp, timeToMinutes } from '../utils/helpers.js';
 
 export class TableModel {
   static format(r) {
@@ -17,6 +17,7 @@ export class TableModel {
       tableNumber: r.table_number,
       zone: r.zone,
       capacity: r.capacity,
+      seats: r.seats ?? r.capacity,
       status: r.status,
       currentOrderId: r.current_order_id,
       customerName: r.customer_name,
@@ -42,6 +43,18 @@ export class TableModel {
     // First query with exact token match
     let r = db.prepare('SELECT * FROM tables_floor WHERE qr_token = ?').get(token);
     if (!r) {
+      // Fallback: allow manual table-code entry (e.g. "T-02", "t02", "2")
+      // so seated guests can type the printed table number instead of scanning.
+      const normalized = String(token).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (normalized) {
+        const all = db.prepare('SELECT * FROM tables_floor').all();
+        const hit = all.find(t =>
+          String(t.table_number || '').toUpperCase().replace(/[^A-Z0-9]/g, '') === normalized
+        );
+        if (hit) r = hit;
+      }
+    }
+    if (!r) {
       // Ensure all tables are formatted / initialized in case tokens were generated on the fly
       const all = this.findAll();
       const matched = all.find(t => t.qrToken === token);
@@ -56,16 +69,19 @@ export class TableModel {
     const id = data.id || `tbl-${Date.now()}`;
     const now = getCurrentTimestamp();
     const token = data.qrToken || `qrt_${id.replace(/[^a-zA-Z0-9]/g, '')}_${crypto.randomBytes(8).toString('hex')}`;
-    
+    const capacity = Number(data.capacity ?? data.seats ?? 4);
+    try { db.prepare('UPDATE tables_floor SET seats = capacity WHERE seats IS NULL').run(); } catch (e) {}
+
     db.prepare(`
       INSERT INTO tables_floor (
-        id, table_number, zone, capacity, status, qr_token, qr_status, qr_created_at
-      ) VALUES (?, ?, ?, ?, 'Available', ?, 'active', ?)
+        id, table_number, zone, capacity, seats, status, qr_token, qr_status, qr_created_at
+      ) VALUES (?, ?, ?, ?, ?, 'Available', ?, 'active', ?)
     `).run(
       id,
       data.tableNumber.toUpperCase(),
       data.zone || 'Indoor Cafe',
-      Number(data.capacity || 4),
+      capacity,
+      capacity,
       token,
       now
     );
@@ -77,6 +93,39 @@ export class TableModel {
     db.prepare('UPDATE tables_floor SET status = ?, customer_name = ?, current_order_id = ? WHERE id = ?')
       .run(status, sanitize(customerName, null), sanitize(currentOrderId, null), id);
     return this.findById(id);
+  }
+
+  static update(id, data) {
+    const existing = this.findById(id);
+    if (!existing) return null;
+    const tableNumber = data.tableNumber !== undefined ? String(data.tableNumber).trim().toUpperCase() : existing.tableNumber;
+    const zone = data.zone !== undefined ? String(data.zone).trim() : existing.zone;
+    const rawCap = data.capacity !== undefined ? data.capacity : (data.seats !== undefined ? data.seats : existing.capacity);
+    const capacity = Math.max(1, Math.min(30, Number(rawCap) || existing.capacity));
+    // unique table_number guard
+    if (tableNumber !== existing.tableNumber) {
+      const clash = db.prepare('SELECT id FROM tables_floor WHERE table_number = ? AND id != ?').get(tableNumber, id);
+      if (clash) throw new Error(`Table number "${tableNumber}" already exists`);
+    }
+    try {
+      db.prepare('UPDATE tables_floor SET table_number = ?, zone = ?, capacity = ?, seats = ? WHERE id = ?')
+        .run(tableNumber, zone, capacity, capacity, id);
+    } catch (e) {
+      // fallback for DBs without seats column
+      db.prepare('UPDATE tables_floor SET table_number = ?, zone = ?, capacity = ? WHERE id = ?')
+        .run(tableNumber, zone, capacity, id);
+    }
+    return this.findById(id);
+  }
+
+  static delete(id) {
+    const existing = this.findById(id);
+    if (!existing) return false;
+    if (existing.status === 'Occupied') throw new Error('Cannot delete an Occupied table. Complete its orders first.');
+    const active = this.getActiveOrders(id);
+    if (active.length > 0) throw new Error('Cannot delete table with active orders.');
+    db.prepare('DELETE FROM tables_floor WHERE id = ?').run(id);
+    return true;
   }
 
   static regenerateQrToken(id) {
@@ -101,7 +150,7 @@ export class TableModel {
   static getActiveOrders(tableId) {
     const rows = db.prepare(`
       SELECT * FROM orders 
-      WHERE table_id = ? AND status NOT IN ('Completed', 'Cancelled')
+      WHERE table_id = ? AND LOWER(status) NOT IN ('completed', 'cancelled', 'refunded')
       ORDER BY order_time ASC
     `).all(tableId);
 
@@ -154,6 +203,9 @@ export class TableModel {
 }
 
 export class ReservationModel {
+  // Conflict window in minutes: same table + same date + overlapping time blocks
+  static CONFLICT_WINDOW_MIN = 90;
+
   static findAll({ date, status } = {}) {
     let sql = 'SELECT * FROM reservations WHERE 1=1';
     const params = [];
@@ -171,6 +223,32 @@ export class ReservationModel {
 
     const rows = db.prepare(sql).all(...params);
     return rows.map(this.format);
+  }
+
+  // True if another active reservation occupies same table+date within window
+  static hasConflict({ tableId, date, time, excludeId = null }) {
+    if (!tableId || !date || !time) return null;
+    const mins = timeToMinutes(time);
+    if (isNaN(mins)) return null;
+    const rows = db.prepare(`
+      SELECT * FROM reservations
+      WHERE table_id = ? AND date = ?
+      AND LOWER(status) NOT IN ('cancelled', 'no-show', 'completed')
+    `).all(tableId, date);
+    for (const r of rows) {
+      if (excludeId && r.id === excludeId) continue;
+      const rm = timeToMinutes(r.time);
+      if (isNaN(rm)) continue;
+      if (Math.abs(rm - mins) < this.CONFLICT_WINDOW_MIN) {
+        return this.format(r);
+      }
+    }
+    return null;
+  }
+
+  static findConflicts({ tableId, date, time, excludeId = null }) {
+    const hit = this.hasConflict({ tableId, date, time, excludeId });
+    return hit ? [hit] : [];
   }
 
   static findById(id) {
@@ -208,6 +286,39 @@ export class ReservationModel {
   static updateStatus(id, status) {
     db.prepare('UPDATE reservations SET status = ? WHERE id = ?').run(status, id);
     return this.findById(id);
+  }
+
+  static update(id, data) {
+    const existing = this.findById(id);
+    if (!existing) return null;
+    const merged = {
+      customerName: data.customerName !== undefined ? String(data.customerName).trim() : existing.customerName,
+      phone: data.phone !== undefined ? String(data.phone).trim() : existing.phone,
+      email: data.email !== undefined ? String(data.email || '').trim() : (existing.email || ''),
+      date: data.date !== undefined ? data.date : existing.date,
+      time: data.time !== undefined ? data.time : existing.time,
+      guests: data.guests !== undefined ? Math.max(1, Math.min(30, Number(data.guests) || existing.guests)) : existing.guests,
+      tableId: data.tableId !== undefined ? (data.tableId || null) : existing.tableId,
+      tableNumber: data.tableNumber !== undefined ? (data.tableNumber || null) : existing.tableNumber,
+      specialRequest: data.specialRequest !== undefined ? String(data.specialRequest || '') : (existing.specialRequest || '')
+    };
+    db.prepare(`
+      UPDATE reservations SET
+        customer_name = ?, phone = ?, email = ?, date = ?, time = ?,
+        guests = ?, table_id = ?, table_number = ?, special_request = ?
+      WHERE id = ?
+    `).run(
+      merged.customerName, merged.phone, merged.email, merged.date, merged.time,
+      merged.guests, merged.tableId, merged.tableNumber, merged.specialRequest, id
+    );
+    return this.findById(id);
+  }
+
+  static delete(id) {
+    const existing = this.findById(id);
+    if (!existing) return false;
+    db.prepare('DELETE FROM reservations WHERE id = ?').run(id);
+    return true;
   }
 
   static format(row) {

@@ -10,10 +10,12 @@ export default function Button({
   onClick,
   type = 'button',
   fullWidth = false,
-  title
+  title,
+  ariaLabel,
+  autoFocus = false
 }) {
   const variantStyles = {
-    primary: 'bg-[#DD5903] hover:bg-[#b84700] text-white shadow-sm hover:shadow-md hover:shadow-orange-950/20 active:translate-y-0.5',
+    primary: 'bg-[#DD5903] hover:bg-[#b84700] text-white shadow-sm hover:shadow-md hover:shadow-orange-950/20 active:translate-y-px focus-visible:outline-[#DD5903]',
     secondary: 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-100 border border-gray-200 dark:border-gray-700',
     outline: 'bg-transparent border border-gray-300 dark:border-gray-700 hover:border-[#DD5903] text-gray-700 dark:text-gray-200 hover:text-[#DD5903]',
     danger: 'bg-rose-600 hover:bg-rose-700 text-white shadow-sm hover:shadow-rose-900/20',
@@ -33,9 +35,11 @@ export default function Button({
       disabled={disabled}
       onClick={onClick}
       title={title}
-      className={`inline-flex items-center justify-center font-medium transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${variantStyles[variant] || variantStyles.primary} ${sizeStyles[size]} ${fullWidth ? 'w-full' : ''} ${className}`}
+      aria-label={ariaLabel || (typeof children === 'string' ? children : title)}
+      autoFocus={autoFocus}
+      className={`inline-flex items-center justify-center font-medium transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 ${variantStyles[variant] || variantStyles.primary} ${sizeStyles[size]} ${fullWidth ? 'w-full' : ''} ${className}`}
     >
-      {Icon && <Icon className={size === 'sm' ? 'w-3.5 h-3.5' : size === 'lg' ? 'w-5 h-5' : 'w-4 h-4'} />}
+      {Icon && <Icon className={size === 'sm' ? 'w-3.5 h-3.5' : size === 'lg' ? 'w-5 h-5' : 'w-4 h-4'} aria-hidden="true" />}
       {children}
     </button>
   );

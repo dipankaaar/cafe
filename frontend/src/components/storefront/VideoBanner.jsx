@@ -56,7 +56,7 @@ export default function VideoBanner() {
             <iframe
               className="w-full h-full"
               src="https://www.youtube.com/embed/yJYiko1W0i8?autoplay=1"
-              title="Dinenos Coffee Experience"
+              title="Petuk Adda Cafe Experience"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
             />

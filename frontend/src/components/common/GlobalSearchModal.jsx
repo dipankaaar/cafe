@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, X, ShoppingBag, Coffee, Users, Tag, Truck, ArrowRight, Shield } from 'lucide-react';
 import { useCafe } from '../../context/CafeContext';
+import { formatINR } from '../../utils/formatters';
 
 export default function GlobalSearchModal({ isOpen, onClose, onNavigate }) {
   const [query, setQuery] = useState('');
@@ -80,10 +81,11 @@ export default function GlobalSearchModal({ isOpen, onClose, onNavigate }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" aria-label="Global search">
       <div
-        className="fixed inset-0 bg-black/80 backdrop-blur-xs transition-opacity"
+        className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity"
         onClick={onClose}
+        aria-hidden="true"
       />
 
       <div className="min-h-screen px-4 flex items-start justify-center pt-20 pb-12 relative z-10">
@@ -91,8 +93,10 @@ export default function GlobalSearchModal({ isOpen, onClose, onNavigate }) {
           
           {/* Search Header */}
           <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center gap-3">
-            <Search className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+            <Search className="w-5 h-5 text-gray-400 dark:text-gray-500" aria-hidden="true" />
+            <label htmlFor="global-search-input" className="sr-only">Search orders, menu items, guests, coupons, staff</label>
             <input
+              id="global-search-input"
               type="text"
               autoFocus
               value={query}
@@ -164,7 +168,7 @@ export default function GlobalSearchModal({ isOpen, onClose, onNavigate }) {
                               <p className="text-sm font-bold text-gray-900 dark:text-white">
                                 {o.orderNumber} — {o.customerName}
                               </p>
-                              <p className="text-xs text-gray-500">{o.items.length} items • ₹{o.grandTotal} • {o.status}</p>
+                              <p className="text-xs text-gray-500">{o.items.length} items • {formatINR(o.grandTotal)} • {o.status}</p>
                             </div>
                           </div>
                           <ArrowRight className="w-4 h-4 text-gray-400" />
@@ -189,7 +193,7 @@ export default function GlobalSearchModal({ isOpen, onClose, onNavigate }) {
                             <Coffee className="w-4 h-4 text-amber-500" />
                             <div>
                               <p className="text-sm font-bold text-gray-900 dark:text-white">{p.name}</p>
-                              <p className="text-xs text-gray-500">₹{p.sellingPrice} • {p.isVeg ? 'Veg' : 'Non-Veg'}</p>
+                              <p className="text-xs text-gray-500">{formatINR(p.sellingPrice)} • {p.isVeg ? 'Veg' : 'Non-Veg'}</p>
                             </div>
                           </div>
                           <ArrowRight className="w-4 h-4 text-gray-400" />
@@ -239,7 +243,7 @@ export default function GlobalSearchModal({ isOpen, onClose, onNavigate }) {
                             <Tag className="w-4 h-4 text-emerald-500" />
                             <div>
                               <p className="text-sm font-bold text-gray-900 dark:text-white">{cpn.code} — {cpn.name}</p>
-                              <p className="text-xs text-gray-500">{cpn.discountType === 'percentage' ? `${cpn.discountValue}% off` : `₹${cpn.discountValue} flat`} • {cpn.status}</p>
+                              <p className="text-xs text-gray-500">{cpn.discountType === 'percentage' ? `${cpn.discountValue}% off` : `${formatINR(cpn.discountValue, { whole: true })} flat`} • {cpn.status}</p>
                             </div>
                           </div>
                           <ArrowRight className="w-4 h-4 text-gray-400" />

@@ -12,20 +12,44 @@ import expenseRoutes from './expense.routes.js';
 import reportRoutes from './report.routes.js';
 import systemRoutes from './system.routes.js';
 
+import * as authController from '../controllers/auth.controller.js';
+import * as customerController from '../controllers/customer.controller.js';
+import * as invController from '../controllers/inventory.controller.js';
+import { db } from '../db/connection.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+
 const apiRouter = Router();
 
-// Health Check
-apiRouter.get('/health', (req, res) => {
-  res.json({
-    status: 'healthy',
-    uptime: process.uptime(),
-    database: 'SQLite (node:sqlite) WAL-Mode',
-    timestamp: new Date().toISOString(),
-    service: 'Dinenos Cafe Enterprise Backend API'
-  });
-});
+// Health Check (with live DB probe — 503 when SQLite is unreachable)
+apiRouter.get(
+  '/health',
+  asyncHandler(async (req, res) => {
+    let dbStatus = 'up';
+    try {
+      db.prepare('SELECT 1 AS ok').get();
+    } catch (e) {
+      dbStatus = 'down';
+    }
+    const healthy = dbStatus === 'up';
+    return res.status(healthy ? 200 : 503).json({
+      success: healthy,
+      statusCode: healthy ? 200 : 503,
+      message: healthy ? 'Service healthy' : 'Service degraded: database unreachable',
+      data: {
+        status: healthy ? 'healthy' : 'degraded',
+        uptime: process.uptime(),
+        database: `SQLite (node:sqlite) WAL-Mode — ${dbStatus}`,
+        timestamp: new Date().toISOString(),
+        service: 'Petuk Adda Cafe Enterprise Backend API'
+      }
+    });
+  })
+);
 
-// Mount modular sub-routers
+// --- Canonical mounts (11 domains) ---
+// 1. menu, 2. orders, 3. tables, 4. reservations, 5. customers (+loyalty),
+// 6. coupons, 7. inventory (+suppliers/purchases), 8. expenses (+staff via auth),
+// 9. reports, 10. notifications/audit/settings (system), 11. auth
 apiRouter.use('/auth', authRoutes);
 apiRouter.use('/menu', menuRoutes);
 apiRouter.use('/orders', orderRoutes);
@@ -38,5 +62,32 @@ apiRouter.use('/expenses', expenseRoutes);
 apiRouter.use('/reports', reportRoutes);
 apiRouter.use('/system', systemRoutes);
 apiRouter.use('/', systemRoutes); // Flat shortcuts for /events, /notifications, /settings
+
+// --- Compatibility aliases so every domain in the 11-router contract resolves ---
+// 5b. Loyalty (subset of customers domain)
+const loyaltyRouter = Router();
+loyaltyRouter.get('/', customerController.getCustomers);
+loyaltyRouter.get('/lookup', customerController.getCustomerByPhone);
+loyaltyRouter.post('/adjust', customerController.adjustLoyalty);
+apiRouter.use('/loyalty', loyaltyRouter);
+
+// 7b. Suppliers (subset of inventory domain)
+const suppliersRouter = Router();
+suppliersRouter.get('/', invController.getSuppliers);
+suppliersRouter.post('/', invController.createSupplier);
+apiRouter.use('/suppliers', suppliersRouter);
+
+// 7c. Purchases (subset of inventory domain)
+const purchasesRouter = Router();
+purchasesRouter.get('/', invController.getPurchases);
+purchasesRouter.post('/', invController.createPurchaseOrder);
+apiRouter.use('/purchases', purchasesRouter);
+
+// 8b. Staff (subset of auth domain)
+const staffRouter = Router();
+staffRouter.get('/', authController.getStaff);
+staffRouter.post('/', authController.createStaff);
+staffRouter.put('/:id', authController.updateStaff);
+apiRouter.use('/staff', staffRouter);
 
 export default apiRouter;

@@ -25,11 +25,13 @@ export const qrPrintService = {
   },
 
   /**
-   * Generate Ordering URL for a table token
+   * Generate Ordering URL for a table token.
+   * Canonical QR link format: `${origin}/order/:qr_token`
+   * (Legacy hash form `${origin}/#order/:qr_token` is still parsed by App.jsx.)
    */
   getOrderingUrl(qrToken) {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';
-    return `${origin}/#order/${qrToken}`;
+    return `${origin}/order/${qrToken}`;
   },
 
   /**
@@ -41,7 +43,7 @@ export const qrPrintService = {
     
     const link = document.createElement('a');
     link.href = dataUrl;
-    link.download = `Dinenos_QR_${table.tableNumber.replace(/\s+/g, '_')}.png`;
+    link.download = `Petuk_Adda_Cafe_QR_${table.tableNumber.replace(/\s+/g, '_')}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -53,7 +55,7 @@ export const qrPrintService = {
   async printSingleTable(table, settings = {}) {
     const url = this.getOrderingUrl(table.qrToken);
     const qrDataUrl = await this.generateDataUrl(url, { width: 500 });
-    const cafeName = settings.cafeName || 'Dinenos Coffee House';
+    const cafeName = settings.cafeName || 'Petuk Adda Cafe';
 
     const printWindow = window.open('', '_blank', 'width=800,height=900');
     if (!printWindow) {
@@ -182,8 +184,8 @@ export const qrPrintService = {
       </head>
       <body>
         <div class="tent-card">
-          <div class="brand-logo">☕ DINENOS</div>
-          <div class="brand-sub">ARTISANAL COFFEE HOUSE & BISTRO</div>
+          <div class="brand-logo">☕ PETUK ADDA CAFE</div>
+          <div class="brand-sub">ARTISANAL COFFEE & GOURMET DINING • SALBONI</div>
           
           <div class="table-badge">TABLE ${table.tableNumber}</div>
           <div class="table-zone">${table.zone || 'Indoor Cafe'} • Seats ${table.capacity || 4}</div>
@@ -198,11 +200,10 @@ export const qrPrintService = {
           </div>
 
           <div class="footer-info">
-            <div class="footer-item">📶 Wi-Fi: <span>Dinenos_Guest</span></div>
+            <div class="footer-item">📶 Wi-Fi: <span>PetukAddaCafe_Guest</span></div>
             <div class="footer-item">⚡ High-Speed Ordering</div>
           </div>
         </div>
-
         <script>
           window.onload = function() {
             setTimeout(function() {
@@ -225,7 +226,7 @@ export const qrPrintService = {
    */
   async printAllTables(tables, settings = {}) {
     if (!tables || tables.length === 0) return;
-    const cafeName = settings.cafeName || 'Dinenos Coffee House';
+    const cafeName = settings.cafeName || 'Petuk Adda Cafe';
 
     const cardsHtmlPromises = tables.map(async (table) => {
       const url = this.getOrderingUrl(table.qrToken);
@@ -234,8 +235,8 @@ export const qrPrintService = {
       return `
         <div class="tent-card-page">
           <div class="tent-card">
-            <div class="brand-logo">☕ DINENOS</div>
-            <div class="brand-sub">ARTISANAL COFFEE HOUSE & BISTRO</div>
+            <div class="brand-logo">☕ PETUK ADDA CAFE</div>
+            <div class="brand-sub">ARTISANAL COFFEE & GOURMET DINING • SALBONI</div>
             
             <div class="table-badge">TABLE ${table.tableNumber}</div>
             <div class="table-zone">${table.zone || 'Indoor Cafe'} • Capacity: ${table.capacity || 4} Guests</div>
@@ -250,7 +251,7 @@ export const qrPrintService = {
             </div>
 
             <div class="footer-info">
-              <div class="footer-item">📶 Wi-Fi: <span>Dinenos_Guest</span></div>
+              <div class="footer-item">📶 Wi-Fi: <span>PetukAddaCafe_Guest</span></div>
               <div class="footer-item">⚡ Table Self-Service</div>
             </div>
           </div>

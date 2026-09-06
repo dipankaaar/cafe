@@ -78,4 +78,32 @@ export class AddonModel {
       isAvailable: true
     };
   }
+
+  static findById(id) {
+    const r = db.prepare('SELECT * FROM addons WHERE id = ?').get(id);
+    return r ? {
+      id: r.id,
+      name: r.name,
+      category: r.category,
+      price: r.price,
+      isAvailable: r.is_available === 1
+    } : null;
+  }
+
+  static update(id, data) {
+    const current = this.findById(id);
+    if (!current) return null;
+    const merged = { ...current, ...data };
+    // Accept available/isAvailable aliases
+    if (data.available !== undefined) merged.isAvailable = data.available;
+    if (data.is_available !== undefined) merged.isAvailable = !!data.is_available;
+    db.prepare('UPDATE addons SET name = ?, category = ?, price = ?, is_available = ? WHERE id = ?')
+      .run(merged.name, merged.category || 'General', Number(merged.price || 0), merged.isAvailable ? 1 : 0, id);
+    return this.findById(id);
+  }
+
+  static delete(id) {
+    const res = db.prepare('DELETE FROM addons WHERE id = ?').run(id);
+    return res.changes > 0;
+  }
 }

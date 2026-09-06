@@ -15,7 +15,10 @@ export default function Card({
   return (
     <div
       onClick={onClick}
-      className={`bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-xl shadow-xs transition-all duration-200 ${className}`}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(e); } } : undefined}
+      className={`bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm transition-all duration-200 ${onClick ? 'cursor-pointer hover:shadow-md hover:border-[#DD5903]/30' : ''} ${className}`}
     >
       {(title || action) && (
         <div
@@ -23,7 +26,7 @@ export default function Card({
         >
           <div>
             {title && (
-              <h3 className="text-base font-semibold text-gray-900 dark:text-white font-['Plus_Jakarta_Sans',sans-serif]">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white font-[Inter,'Plus_Jakarta_Sans',sans-serif]">
                 {title}
               </h3>
             )}

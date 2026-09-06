@@ -23,11 +23,19 @@ export const getProductById = asyncHandler(async (req, res) => {
 });
 
 export const createProduct = asyncHandler(async (req, res) => {
-  const { name, sellingPrice } = req.body;
-  if (!name || sellingPrice === undefined) {
-    throw new ApiError(400, 'Product name and selling price are required');
+  const b = req.body || {};
+  const name = b.name;
+  const price = b.sellingPrice ?? b.selling_price ?? b.price;
+  if (!name || price === undefined) {
+    throw new ApiError(400, 'Product name and selling price (sellingPrice/price) are required');
   }
-  const created = ProductModel.create(req.body);
+  // Accept base64 data-URL or http(s) URL for image; stored as-is (10mb JSON limit in app.js)
+  if (b.image !== undefined || b.image_url !== undefined || b.imageUrl !== undefined) {
+    const img = b.image ?? b.image_url ?? b.imageUrl;
+    if (img !== null && typeof img !== 'string') throw new ApiError(400, 'Product image must be a URL or base64 string');
+    if (typeof img === 'string' && img.length > 10 * 1024 * 1024) throw new ApiError(400, 'Product image too large (max ~10MB)');
+  }
+  const created = ProductModel.create(b);
   return ApiResponse.created(res, created);
 });
 
@@ -50,6 +58,12 @@ export const getCategories = asyncHandler(async (req, res) => {
   return ApiResponse.success(res, categories);
 });
 
+export const getCategoryById = asyncHandler(async (req, res) => {
+  const cat = CategoryModel.findById(req.params.id);
+  if (!cat) throw new ApiError(404, 'Category not found');
+  return ApiResponse.success(res, cat);
+});
+
 export const createCategory = asyncHandler(async (req, res) => {
   const { name } = req.body;
   if (!name) throw new ApiError(400, 'Category name is required');
@@ -57,9 +71,27 @@ export const createCategory = asyncHandler(async (req, res) => {
   return ApiResponse.created(res, created);
 });
 
+export const updateCategory = asyncHandler(async (req, res) => {
+  const updated = CategoryModel.update(req.params.id, req.body);
+  if (!updated) throw new ApiError(404, 'Category not found');
+  return ApiResponse.success(res, updated, 'Category updated successfully');
+});
+
+export const deleteCategory = asyncHandler(async (req, res) => {
+  const success = CategoryModel.delete(req.params.id);
+  if (!success) throw new ApiError(404, 'Category not found');
+  return ApiResponse.success(res, { id: req.params.id, success: true }, 'Category deleted successfully');
+});
+
 export const getAddons = asyncHandler(async (req, res) => {
   const addons = AddonModel.findAll();
   return ApiResponse.success(res, addons);
+});
+
+export const getAddonById = asyncHandler(async (req, res) => {
+  const addon = AddonModel.findById(req.params.id);
+  if (!addon) throw new ApiError(404, 'Addon not found');
+  return ApiResponse.success(res, addon);
 });
 
 export const createAddon = asyncHandler(async (req, res) => {
@@ -67,4 +99,16 @@ export const createAddon = asyncHandler(async (req, res) => {
   if (!name || price === undefined) throw new ApiError(400, 'Addon name and price are required');
   const created = AddonModel.create(req.body);
   return ApiResponse.created(res, created);
+});
+
+export const updateAddon = asyncHandler(async (req, res) => {
+  const updated = AddonModel.update(req.params.id, req.body);
+  if (!updated) throw new ApiError(404, 'Addon not found');
+  return ApiResponse.success(res, updated, 'Addon updated successfully');
+});
+
+export const deleteAddon = asyncHandler(async (req, res) => {
+  const success = AddonModel.delete(req.params.id);
+  if (!success) throw new ApiError(404, 'Addon not found');
+  return ApiResponse.success(res, { id: req.params.id, success: true }, 'Addon deleted successfully');
 });

@@ -8,5 +8,6 @@ router.post('/', orderController.createOrder);
 router.get('/track/:orderNumber', orderController.trackOrder);
 router.get('/:id', orderController.getOrderById);
 router.patch('/:id/status', orderController.updateOrderStatus);
+router.post('/:id/refund', orderController.refundOrder);
 
 export default router;

@@ -38,6 +38,18 @@ export function printOrderReceipt(order, settings) {
     .join('');
 
   const taxHalf = (order.taxAmount / 2).toFixed(2);
+  const gstRate = settings.taxRate || 5;
+  const halfRate = (Number(gstRate) / 2).toFixed(1);
+
+  // Split-tender breakdown (cash/UPI/card parts) when the order was paid with multiple methods
+  const payments = Array.isArray(order.payments) ? order.payments.filter((p) => Number(p.amount) > 0) : [];
+  const paymentsHtml = payments.length > 1
+    ? payments.map((p) => `
+          <tr>
+            <td class="small">Paid via ${p.method}:</td>
+            <td class="text-right small">₹${Number(p.amount).toFixed(2)}</td>
+          </tr>`).join('')
+    : '';
 
   const receiptHtml = `
     <!DOCTYPE html>
@@ -120,11 +132,11 @@ export function printOrderReceipt(order, settings) {
             </tr>
           ` : ''}
           <tr>
-            <td class="small">CGST (2.5%):</td>
+            <td class="small">CGST (${halfRate}%):</td>
             <td class="text-right small">₹${taxHalf}</td>
           </tr>
           <tr>
-            <td class="small">SGST (2.5%):</td>
+            <td class="small">SGST (${halfRate}%):</td>
             <td class="text-right small">₹${taxHalf}</td>
           </tr>
           ${order.serviceCharge > 0 ? `
@@ -141,6 +153,7 @@ export function printOrderReceipt(order, settings) {
             <td style="padding-top: 4px;">Payment Method:</td>
             <td style="padding-top: 4px;" class="text-right">${order.paymentMethod || 'Cash'}</td>
           </tr>
+          ${paymentsHtml}
           <tr>
             <td>Payment Status:</td>
             <td class="text-right">${order.paymentStatus || 'Paid'}</td>

@@ -204,12 +204,14 @@ export default function Sidebar({
       {/* Mobile Backdrop */}
       {isMobileOpen && (
         <div
-          className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-xs"
+          className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-sm"
           onClick={onCloseMobile}
+          aria-hidden="true"
         />
       )}
 
       <aside
+        aria-label="Admin navigation"
         className={`fixed top-0 bottom-0 left-0 z-40 w-64 bg-[#141414] text-gray-300 border-r border-gray-800 flex flex-col justify-between transition-transform duration-300 ease-in-out lg:translate-x-0 ${
           isMobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
@@ -222,8 +224,8 @@ export default function Sidebar({
                 <Coffee className="w-5 h-5" />
               </div>
               <div>
-                <h1 className="text-base font-bold text-white tracking-tight flex items-center gap-1.5 font-['Plus_Jakarta_Sans',sans-serif]">
-                  DINENOS <span className="text-[10px] bg-[#DD5903]/20 text-[#DD5903] font-mono px-1.5 py-0.2 rounded border border-[#DD5903]/30">ADMIN</span>
+                <h1 className="text-sm font-bold text-white tracking-tight flex items-center gap-1.5 font-[Inter,'Plus_Jakarta_Sans',sans-serif]">
+                  PETUK ADDA CAFE <span className="text-[10px] bg-[#DD5903]/20 text-[#DD5903] font-mono px-1.5 py-0.5 rounded border border-[#DD5903]/30">ADMIN</span>
                 </h1>
                 <p className="text-[10px] text-gray-400 font-medium">Cafe Management Suite</p>
               </div>
@@ -232,14 +234,15 @@ export default function Sidebar({
             {/* Mobile close button */}
             <button
               onClick={onCloseMobile}
+              aria-label="Close navigation menu"
               className="lg:hidden p-1.5 text-gray-400 hover:text-white rounded-md"
             >
-              <X className="w-5 h-5" />
+              <X className="w-5 h-5" aria-hidden="true" />
             </button>
           </div>
 
           {/* Navigation Items List */}
-          <nav className="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-140px)] custom-scrollbar">
+          <nav aria-label="Admin modules" className="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-140px)] custom-scrollbar">
             {navItems.map((item) => {
               // Permission check
               if (!hasPermission(item.permission)) return null;
@@ -254,13 +257,15 @@ export default function Sidebar({
                 <div key={item.key} className="space-y-0.5">
                   <button
                     onClick={() => handleNavClick(item)}
+                    aria-expanded={item.subItems ? Boolean(isExpanded) : undefined}
+                    aria-current={isSelected ? 'page' : undefined}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer ${
                       item.highlight
                         ? isSelected
                           ? 'bg-[#DD5903] text-white shadow-md'
                           : 'bg-[#DD5903]/15 text-[#DD5903] hover:bg-[#DD5903]/25 border border-[#DD5903]/30'
                         : isSelected
-                        ? 'bg-[#DD5903] text-white shadow-xs'
+                        ? 'bg-[#DD5903] text-white shadow-sm'
                         : 'text-gray-400 hover:text-white hover:bg-gray-800/60'
                     }`}
                   >
@@ -276,7 +281,7 @@ export default function Sidebar({
                     <div className="flex items-center gap-1.5">
                       {item.badge && (
                         <span
-                          className={`text-[10px] px-1.5 py-0.2 rounded-full text-white font-bold ${
+                          className={`text-[10px] px-1.5 py-0.5 rounded-full text-white font-bold ${
                             item.badgeColor || 'bg-gray-700'
                           }`}
                         >
@@ -345,9 +350,10 @@ export default function Sidebar({
             <button
               onClick={logout}
               title="Logout"
+              aria-label="Log out of admin"
               className="p-1.5 text-gray-400 hover:text-rose-400 hover:bg-gray-800 rounded-md transition-colors cursor-pointer"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
         </div>

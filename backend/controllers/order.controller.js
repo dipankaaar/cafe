@@ -5,12 +5,13 @@ import { ApiError } from '../utils/ApiError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
 export const getOrders = asyncHandler(async (req, res) => {
-  const { status, type, source, search, limit, offset } = req.query;
+  const { status, type, source, search, date, limit, offset } = req.query;
   const orders = OrderModel.findAll({
     status,
     type,
     source,
     search,
+    date,
     limit: limit ? Number(limit) : 100,
     offset: offset ? Number(offset) : 0
   });
@@ -59,5 +60,12 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
   const { status, reason } = req.body;
   if (!status) throw new ApiError(400, 'Status is required');
   const updated = OrderService.updateStatus(id, status, reason, req.ip || '127.0.0.1');
-  return ApiResponse.success(res, updated, `Order status updated to ${status}`);
+  return ApiResponse.success(res, updated, `Order status updated to ${updated.status}`);
+});
+
+export const refundOrder = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { reason } = req.body || {};
+  const updated = OrderService.refundOrder(id, reason || 'Refund via Orders dashboard', req.ip || '127.0.0.1');
+  return ApiResponse.success(res, updated, `Order ${updated.orderNumber} refunded`);
 });
