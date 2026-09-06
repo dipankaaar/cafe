@@ -21,8 +21,8 @@ import {
 } from 'lucide-react';
 
 export default function TableManagementView({ onNavigate }) {
-  const { tables, orders, updateTableStatus, occupyTable, releaseTable, addTable, cafeSettings, refreshData } = useCafe();
-  
+  const { tables, orders, updateTableStatus, occupyTable, releaseTable, addTable, cafeSettings, refreshData, branches, activeBranchId, switchBranch } = useCafe();
+
   const [activeTab, setActiveTab] = useState('floor-plan'); // 'floor-plan' | 'qr-ordering'
   const [selectedZone, setSelectedZone] = useState('all');
   const [selectedTableForAction, setSelectedTableForAction] = useState(null);
@@ -32,10 +32,15 @@ export default function TableManagementView({ onNavigate }) {
   const [newTableNumber, setNewTableNumber] = useState('');
   const [newZone, setNewZone] = useState('Indoor Cafe');
   const [newCapacity, setNewCapacity] = useState(4);
+  const [newBranchId, setNewBranchId] = useState('br-main');
 
   const zones = ['Indoor Cafe', 'Garden Terrace'];
 
-  const filteredTables = tables.filter((t) =>
+  // Branch scope: Topbar selection wins, local override via header select
+  const visibleTables = activeBranchId === 'all'
+    ? tables
+    : tables.filter((t) => (t.branchId || 'br-main') === activeBranchId);
+  const filteredTables = visibleTables.filter((t) =>
     selectedZone === 'all' ? true : t.zone === selectedZone
   );
 
@@ -46,7 +51,8 @@ export default function TableManagementView({ onNavigate }) {
     addTable({
       tableNumber: newTableNumber.trim().toUpperCase(),
       zone: newZone,
-      capacity: Number(newCapacity)
+      capacity: Number(newCapacity),
+      branchId: newBranchId || (activeBranchId !== 'all' ? activeBranchId : 'br-main')
     });
 
     setIsAddTableModalOpen(false);
@@ -82,6 +88,19 @@ export default function TableManagementView({ onNavigate }) {
         </div>
 
         <div className="flex items-center gap-2">
+          {branches.length > 0 && (
+            <select
+              value={activeBranchId}
+              onChange={(e) => switchBranch(e.target.value)}
+              title="Floor branch scope"
+              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-900 dark:text-white outline-none"
+            >
+              <option value="all">All Branches</option>
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </select>
+          )}
           <Button onClick={() => setIsAddTableModalOpen(true)} size="sm" icon={Plus}>
             Add Table
           </Button>
@@ -138,7 +157,7 @@ export default function TableManagementView({ onNavigate }) {
                     : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'
                 }`}
               >
-                All Zones ({tables.length})
+                All Zones ({visibleTables.length})
               </button>
               {zones.map((z) => (
                 <button
@@ -150,7 +169,7 @@ export default function TableManagementView({ onNavigate }) {
                       : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'
                   }`}
                 >
-                  {z} ({tables.filter((t) => t.zone === z).length})
+                  {z} ({visibleTables.filter((t) => t.zone === z).length})
                 </button>
               ))}
             </div>
@@ -412,6 +431,23 @@ export default function TableManagementView({ onNavigate }) {
                 className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none"
               />
             </div>
+
+            {branches.length > 0 && (
+              <div>
+                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                  Branch Outlet
+                </label>
+                <select
+                  value={newBranchId}
+                  onChange={(e) => setNewBranchId(e.target.value)}
+                  className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none"
+                >
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name} ({b.code})</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </form>
         </Modal>
       )}

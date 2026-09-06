@@ -17,16 +17,20 @@ export const ORDER_STATUS = {
   ACCEPTED: 'accepted',
   BREWING: 'brewing',
   READY: 'ready',
+  OUT_FOR_DELIVERY: 'out_for_delivery',
+  DELIVERED: 'delivered',
   COMPLETED: 'completed',
   CANCELLED: 'cancelled',
   REFUNDED: 'refunded'
 };
 
 // Terminal states — order leaves the active queue
-export const ACTIVE_ORDER_STATUSES = ['placed', 'accepted', 'brewing', 'ready'];
+export const ACTIVE_ORDER_STATUSES = ['placed', 'accepted', 'brewing', 'ready', 'out_for_delivery'];
 
 // Canonical KDS workflow: placed -> accepted -> brewing -> ready -> completed
+// Delivery leg: ready -> out_for_delivery -> delivered (delivery orders only)
 export const ORDER_STATUS_FLOW = ['placed', 'accepted', 'brewing', 'ready', 'completed'];
+export const DELIVERY_STATUS_FLOW = ['placed', 'accepted', 'brewing', 'ready', 'out_for_delivery', 'delivered'];
 
 // Legacy (pre-standardization) capitalized values still found in older DB rows / caches
 const LEGACY_STATUS_MAP = {
@@ -36,6 +40,10 @@ const LEGACY_STATUS_MAP = {
   preparing: 'brewing',
   brewing: 'brewing',
   ready: 'ready',
+  out_for_delivery: 'out_for_delivery',
+  outfordelivery: 'out_for_delivery',
+  'out for delivery': 'out_for_delivery',
+  delivered: 'delivered',
   completed: 'completed',
   cancelled: 'cancelled',
   refunded: 'refunded'
@@ -56,11 +64,14 @@ export function isValidOrderStatus(status) {
 }
 
 // Allowed forward transitions (cancelled/refunded reachable from any non-terminal state)
+// Delivery leg (delivery orders only): ready -> out_for_delivery -> delivered
 const STATUS_TRANSITIONS = {
   placed: ['accepted', 'brewing', 'cancelled'],
   accepted: ['brewing', 'ready', 'cancelled'],
   brewing: ['ready', 'cancelled'],
-  ready: ['completed', 'cancelled'],
+  ready: ['completed', 'cancelled', 'out_for_delivery'],
+  out_for_delivery: ['delivered', 'cancelled'],
+  delivered: ['refunded'],
   completed: ['refunded'],
   cancelled: [],
   refunded: []

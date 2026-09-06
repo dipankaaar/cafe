@@ -9,7 +9,8 @@ import { TABLE_STATUS } from '../config/constants.js';
 const ALLOWED_STATUSES = Object.values(TABLE_STATUS); // Available, Occupied, Reserved, Cleaning
 
 export const getTables = asyncHandler(async (req, res) => {
-  const tables = TableModel.findAll();
+  const { branchId } = req.query;
+  const tables = TableModel.findAll({ branchId });
   // Attach active orders count to each table for the dashboard
   const enriched = tables.map(t => {
     const active = TableModel.getActiveOrders(t.id);
@@ -195,6 +196,7 @@ export const validateQrToken = asyncHandler(async (req, res) => {
       capacity: table.capacity,
       seats: table.seats ?? table.capacity,
       status: table.status,
+      branchId: table.branchId || 'br-main',
       qrToken: table.qrToken,
       qr_token: table.qrToken,
       qrStatus: table.qrStatus,

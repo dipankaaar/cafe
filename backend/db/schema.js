@@ -237,6 +237,19 @@ export function initDatabaseSchema() {
       details TEXT,
       ip_address TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS branches (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      code TEXT NOT NULL UNIQUE,
+      address TEXT,
+      phone TEXT,
+      email TEXT,
+      manager_name TEXT,
+      opening_hours TEXT,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT NOT NULL
+    );
   `);
 
   // 2. Safe Column Additions for Existing Tables
@@ -269,6 +282,35 @@ export function initDatabaseSchema() {
   try { db.exec(`UPDATE orders SET status = 'New' WHERE status IS NULL;`); } catch (e) {}
   try { db.exec(`UPDATE tables_floor SET qr_status = 'active' WHERE qr_status IS NULL;`); } catch (e) {}
 
+  // ---- Phase-2: multi-branch scoping (branch_id on operational entities) ----
+  try { db.exec(`ALTER TABLE orders ADD COLUMN branch_id TEXT DEFAULT 'br-main';`); } catch (e) {}
+  try { db.exec(`ALTER TABLE tables_floor ADD COLUMN branch_id TEXT DEFAULT 'br-main';`); } catch (e) {}
+  try { db.exec(`ALTER TABLE reservations ADD COLUMN branch_id TEXT DEFAULT 'br-main';`); } catch (e) {}
+  try { db.exec(`ALTER TABLE expenses ADD COLUMN branch_id TEXT DEFAULT 'br-main';`); } catch (e) {}
+  try { db.exec(`ALTER TABLE inventory ADD COLUMN branch_id TEXT DEFAULT 'br-main';`); } catch (e) {}
+  try { db.exec(`ALTER TABLE staff ADD COLUMN branch_id TEXT DEFAULT 'br-main';`); } catch (e) {}
+  try { db.exec(`ALTER TABLE purchases ADD COLUMN branch_id TEXT DEFAULT 'br-main';`); } catch (e) {}
+  try { db.exec(`UPDATE orders SET branch_id = 'br-main' WHERE branch_id IS NULL;`); } catch (e) {}
+  try { db.exec(`UPDATE tables_floor SET branch_id = 'br-main' WHERE branch_id IS NULL;`); } catch (e) {}
+  try { db.exec(`UPDATE reservations SET branch_id = 'br-main' WHERE branch_id IS NULL;`); } catch (e) {}
+  try { db.exec(`UPDATE expenses SET branch_id = 'br-main' WHERE branch_id IS NULL;`); } catch (e) {}
+  try { db.exec(`UPDATE inventory SET branch_id = 'br-main' WHERE branch_id IS NULL;`); } catch (e) {}
+  try { db.exec(`UPDATE staff SET branch_id = 'br-main' WHERE branch_id IS NULL;`); } catch (e) {}
+  try { db.exec(`UPDATE purchases SET branch_id = 'br-main' WHERE branch_id IS NULL;`); } catch (e) {}
+
+  // ---- Phase-2: delivery tracking columns on orders ----
+  try { db.exec(`ALTER TABLE orders ADD COLUMN delivery_address TEXT;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE orders ADD COLUMN delivery_landmark TEXT;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE orders ADD COLUMN delivery_instructions TEXT;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE orders ADD COLUMN rider_id TEXT;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE orders ADD COLUMN rider_name TEXT;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE orders ADD COLUMN rider_phone TEXT;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE orders ADD COLUMN delivery_otp TEXT;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE orders ADD COLUMN delivery_status TEXT DEFAULT 'preparing';`); } catch (e) {}
+  try { db.exec(`ALTER TABLE orders ADD COLUMN out_for_delivery_at TEXT;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE orders ADD COLUMN delivered_at TEXT;`); } catch (e) {}
+  try { db.exec(`UPDATE orders SET delivery_status = 'preparing' WHERE delivery_status IS NULL;`); } catch (e) {}
+
   // 3. Ensure All Existing Tables Have a Permanent QR Token
   try {
     const existingTables = db.prepare('SELECT id, table_number, qr_token FROM tables_floor').all();
@@ -292,4 +334,7 @@ export function initDatabaseSchema() {
   try { db.exec(`CREATE INDEX IF NOT EXISTS idx_tables_qr_token ON tables_floor(qr_token);`); } catch (e) {}
   try { db.exec(`CREATE INDEX IF NOT EXISTS idx_reservations_date ON reservations(date);`); } catch (e) {}
   try { db.exec(`CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_logs(timestamp);`); } catch (e) {}
+  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_orders_branch ON orders(branch_id);`); } catch (e) {}
+  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_orders_delivery ON orders(order_type, delivery_status);`); } catch (e) {}
+  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_tables_branch ON tables_floor(branch_id);`); } catch (e) {}
 }

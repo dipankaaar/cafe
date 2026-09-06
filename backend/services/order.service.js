@@ -18,6 +18,17 @@ export class OrderService {
       throw new ApiError(400, 'Order cart cannot be empty');
     }
 
+    // Delivery orders must carry a drop address (Swiggy/Zomato-style contract)
+    if (String(orderData.orderType || '').toLowerCase() === 'delivery') {
+      if (!orderData.deliveryAddress || !String(orderData.deliveryAddress).trim()) {
+        throw new ApiError(400, 'Delivery address is required for delivery orders');
+      }
+      if (!orderData.customerPhone || !String(orderData.customerPhone).trim()) {
+        throw new ApiError(400, 'Customer phone is required for delivery orders');
+      }
+      orderData.deliveryStatus = orderData.deliveryStatus || 'preparing';
+    }
+
     // Strict coupon re-validation when a coupon is attached (POS + storefront ready)
     if (orderData.couponCode) {
       try {
@@ -99,11 +110,14 @@ export class OrderService {
 
     // 3. Dispatch Live Notification
     const isQr = createdOrder.orderSource === 'QR_TABLE';
+    const isDelivery = String(createdOrder.orderType || '').toLowerCase() === 'delivery';
     const newOrderNotif = NotificationModel.create({
-      title: isQr ? `New QR Table Order (${createdOrder.tableNumber})` : 'New Order Received',
-      message: `Order #${createdOrder.orderNumber} ${isQr ? `at Table ${createdOrder.tableNumber}` : `(${createdOrder.orderType.toUpperCase()})`} placed for ₹${createdOrder.grandTotal.toFixed(2)}`,
+      title: isQr ? `New QR Table Order (${createdOrder.tableNumber})` : isDelivery ? 'New Delivery Order' : 'New Order Received',
+      message: isDelivery
+        ? `Delivery order #${createdOrder.orderNumber} to ${String(createdOrder.deliveryAddress || '').slice(0, 60)} for ₹${createdOrder.grandTotal.toFixed(2)}`
+        : `Order #${createdOrder.orderNumber} ${isQr ? `at Table ${createdOrder.tableNumber}` : `(${createdOrder.orderType.toUpperCase()})`} placed for ₹${createdOrder.grandTotal.toFixed(2)}`,
       type: isQr ? 'order' : 'order',
-      link: '/kitchen'
+      link: isDelivery ? '/orders?tab=delivery' : '/kitchen'
     });
 
     // 4. Record Audit Log
@@ -135,18 +149,29 @@ export class OrderService {
 
     const normalized = normalizeOrderStatus(nextStatus);
     if (!normalized) {
-      throw new ApiError(400, `Invalid order status "${nextStatus}". Allowed: placed, accepted, brewing, ready, completed, cancelled, refunded`);
+      throw new ApiError(400, `Invalid order status "${nextStatus}". Allowed: placed, accepted, brewing, ready, out_for_delivery, delivered, completed, cancelled, refunded`);
     }
     if (!isValidStatusTransition(currentOrder.status, normalized)) {
       throw new ApiError(400, `Cannot transition order #${currentOrder.orderNumber} from "${currentOrder.status}" to "${normalized}"`);
     }
     nextStatus = normalized;
 
+    const isDeliveryOrder = String(currentOrder.orderType || '').toLowerCase() === 'delivery';
+    if (nextStatus === ORDER_STATUS.OUT_FOR_DELIVERY && !isDeliveryOrder) {
+      throw new ApiError(400, 'Only delivery orders can go out for delivery');
+    }
+    if (nextStatus === ORDER_STATUS.DELIVERED && !isDeliveryOrder) {
+      throw new ApiError(400, 'Only delivery orders can be marked delivered');
+    }
+
     const now = getCurrentTimestamp();
     let kitchenAcceptedAt = currentOrder.kitchenAcceptedAt;
     let kitchenReadyAt = currentOrder.kitchenReadyAt;
     let completedAt = currentOrder.completedAt;
     let paymentStatus = currentOrder.paymentStatus;
+    // Delivery-leg patch fields (persisted via OrderModel.updateStatus)
+    const deliveryPatch = {};
+    const isCompletion = nextStatus === ORDER_STATUS.COMPLETED || nextStatus === ORDER_STATUS.DELIVERED;
 
     if (nextStatus === ORDER_STATUS.ACCEPTED && !kitchenAcceptedAt) {
       kitchenAcceptedAt = now;
@@ -159,7 +184,36 @@ export class OrderService {
         link: '/orders'
       });
       eventHub.broadcast('NEW_NOTIFICATION', readyNotif);
-    } else if (nextStatus === ORDER_STATUS.COMPLETED) {
+    } else if (nextStatus === ORDER_STATUS.OUT_FOR_DELIVERY) {
+      // Rider leaves with the food — generate handover OTP (customer shows it, rider verifies)
+      const otp = String(Math.floor(1000 + Math.random() * 9000));
+      deliveryPatch.deliveryOtp = otp;
+      deliveryPatch.deliveryStatus = 'out_for_delivery';
+      deliveryPatch.outForDeliveryAt = now;
+      if (!kitchenReadyAt) kitchenReadyAt = now;
+      const riderLabel = currentOrder.riderName ? `Rider ${currentOrder.riderName}` : 'Rider';
+      const ofdNotif = NotificationModel.create({
+        title: 'Order Out for Delivery',
+        message: `Order #${currentOrder.orderNumber} is out for delivery (${riderLabel}). OTP ${otp} shared with customer.`,
+        type: 'info',
+        link: '/orders?tab=delivery'
+      });
+      eventHub.broadcast('NEW_NOTIFICATION', ofdNotif);
+      eventHub.broadcast('DELIVERY_OUT', { id: orderId, orderNumber: currentOrder.orderNumber, status: nextStatus, riderName: currentOrder.riderName || null });
+      AuditLogModel.log({
+        user: 'Delivery Desk',
+        action: 'OUT_FOR_DELIVERY',
+        category: 'Orders',
+        details: `Order #${currentOrder.orderNumber} dispatched ${currentOrder.riderName ? `with ${currentOrder.riderName}` : ''}. Handover OTP generated.`,
+        ip: clientIp
+      });
+    } else if (isCompletion) {
+      if (nextStatus === ORDER_STATUS.DELIVERED) {
+        deliveryPatch.deliveryStatus = 'delivered';
+        deliveryPatch.deliveredAt = now;
+      }
+      completedAt = now;
+      paymentStatus = 'Paid';
       completedAt = now;
       paymentStatus = 'Paid';
 
@@ -201,10 +255,12 @@ export class OrderService {
 
       // D. Record Audit Log
       AuditLogModel.log({
-        user: 'Kitchen/Staff',
-        action: 'COMPLETE_ORDER',
+        user: nextStatus === ORDER_STATUS.DELIVERED ? 'Delivery Desk' : 'Kitchen/Staff',
+        action: nextStatus === ORDER_STATUS.DELIVERED ? 'DELIVER_ORDER' : 'COMPLETE_ORDER',
         category: 'Orders',
-        details: `Completed order #${currentOrder.orderNumber}, deducted inventory stock, recorded ₹${currentOrder.grandTotal.toFixed(2)}`,
+        details: nextStatus === ORDER_STATUS.DELIVERED
+          ? `Delivered order #${currentOrder.orderNumber} to ${String(currentOrder.deliveryAddress || '').slice(0, 80)}, recorded ₹${currentOrder.grandTotal.toFixed(2)}`
+          : `Completed order #${currentOrder.orderNumber}, deducted inventory stock, recorded ₹${currentOrder.grandTotal.toFixed(2)}`,
         ip: clientIp
       });
     } else if (nextStatus === ORDER_STATUS.CANCELLED) {
@@ -233,8 +289,8 @@ export class OrderService {
       eventHub.broadcast('NEW_NOTIFICATION', NotificationModel.findAll(1)[0]);
     }
 
-    // Generic status-change audit trail (covers Accepted / Preparing / Ready too)
-    if (![ORDER_STATUS.COMPLETED, ORDER_STATUS.CANCELLED, ORDER_STATUS.REFUNDED].includes(nextStatus)) {
+    // Generic status-change audit trail (covers Accepted / Preparing / Ready / Out-for-delivery too)
+    if (![ORDER_STATUS.COMPLETED, ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED, ORDER_STATUS.REFUNDED].includes(nextStatus)) {
       AuditLogModel.log({
         user: 'Kitchen/Staff',
         action: 'UPDATE_ORDER_STATUS',
@@ -250,11 +306,13 @@ export class OrderService {
       kitchenAcceptedAt,
       kitchenReadyAt,
       completedAt,
-      paymentStatus
+      paymentStatus,
+      ...deliveryPatch
     });
 
     // Handle Table State Automation based on remaining active orders
-    if (currentOrder.tableId && (nextStatus === ORDER_STATUS.COMPLETED || nextStatus === ORDER_STATUS.CANCELLED || nextStatus === ORDER_STATUS.REFUNDED)) {
+    const isTerminal = [ORDER_STATUS.COMPLETED, ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED, ORDER_STATUS.REFUNDED].includes(nextStatus);
+    if (currentOrder.tableId && isTerminal) {
       const activeOrders = TableModel.getActiveOrders(currentOrder.tableId);
       if (activeOrders.length === 0) {
         TableModel.updateStatus(currentOrder.tableId, 'Cleaning', null, null);
@@ -279,12 +337,58 @@ export class OrderService {
       tableNumber: currentOrder.tableNumber,
       completedAt
     });
-    if (currentOrder.tableId && (nextStatus === ORDER_STATUS.COMPLETED || nextStatus === ORDER_STATUS.CANCELLED || nextStatus === ORDER_STATUS.REFUNDED)) {
+    if (currentOrder.tableId && isTerminal) {
       const latestTable = TableModel.findById(currentOrder.tableId);
       if (latestTable) eventHub.broadcast('table_updated', latestTable);
     }
 
     return updatedOrder;
+  }
+
+  /**
+   * Assign / change the delivery rider on a delivery order.
+   */
+  static assignRider(orderId, { riderName, riderPhone, riderId } = {}, clientIp = '127.0.0.1') {
+    const currentOrder = OrderModel.findById(orderId);
+    if (!currentOrder) throw new ApiError(404, `Order with ID "${orderId}" not found`);
+    if (String(currentOrder.orderType || '').toLowerCase() !== 'delivery') {
+      throw new ApiError(400, 'Riders can only be assigned to delivery orders');
+    }
+    if (['delivered', 'cancelled', 'refunded'].includes(String(currentOrder.status || '').toLowerCase())) {
+      throw new ApiError(400, `Cannot assign rider to a ${currentOrder.status} order`);
+    }
+    if (!riderName || !String(riderName).trim()) throw new ApiError(400, 'Rider name is required');
+    const updated = OrderModel.updateStatus(orderId, {
+      status: currentOrder.status,
+      riderId: riderId || currentOrder.riderId || `rider-${Date.now()}`,
+      riderName: String(riderName).trim(),
+      riderPhone: riderPhone ? String(riderPhone).trim() : currentOrder.riderPhone
+    });
+    eventHub.broadcast('RIDER_ASSIGNED', {
+      id: orderId, orderNumber: currentOrder.orderNumber,
+      riderName: String(riderName).trim(), riderPhone: riderPhone || null
+    });
+    AuditLogModel.log({
+      user: 'Delivery Desk', action: 'ASSIGN_RIDER', category: 'Orders',
+      details: `Assigned rider ${String(riderName).trim()} to delivery order #${currentOrder.orderNumber}`,
+      ip: clientIp
+    });
+    return updated;
+  }
+
+  /**
+   * Verify the handover OTP (rider collects OTP from customer) → marks delivered.
+   */
+  static verifyDeliveryOtp(orderId, otp, clientIp = '127.0.0.1') {
+    const currentOrder = OrderModel.findById(orderId);
+    if (!currentOrder) throw new ApiError(404, `Order with ID "${orderId}" not found`);
+    if (String(currentOrder.status || '').toLowerCase() !== 'out_for_delivery') {
+      throw new ApiError(400, 'OTP can only be verified for orders out for delivery');
+    }
+    if (!currentOrder.deliveryOtp || String(otp || '').trim() !== String(currentOrder.deliveryOtp)) {
+      throw new ApiError(400, 'Invalid handover OTP. Ask the customer for the 4-digit code in their tracker.');
+    }
+    return this.updateStatus(orderId, 'delivered', 'OTP verified at doorstep', clientIp);
   }
 
   /**

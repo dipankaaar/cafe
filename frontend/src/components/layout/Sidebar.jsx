@@ -46,9 +46,14 @@ export default function Sidebar({
     setExpandedMenus((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // Badge calculations
-  const pendingOrdersCount = orders.filter((o) => ['New', 'Accepted', 'Preparing'].includes(o.status)).length;
-  const kitchenOrdersCount = orders.filter((o) => ['Accepted', 'Preparing'].includes(o.status)).length;
+  // Badge calculations (normalization-safe: legacy + canonical statuses both match)
+  const norm = (s) => String(s || '').trim().toLowerCase();
+  const normActive = (s) => {
+    const n = norm(s);
+    return n === 'placed' || n === 'new' ? 'placed' : n === 'preparing' ? 'brewing' : n;
+  };
+  const pendingOrdersCount = orders.filter((o) => ['placed', 'accepted', 'brewing', 'ready', 'out_for_delivery'].includes(normActive(o.status))).length;
+  const kitchenOrdersCount = orders.filter((o) => ['accepted', 'brewing'].includes(normActive(o.status))).length;
   const lowStockCount = inventory.filter((i) => i.status === 'Low Stock').length;
   const unreadNotifsCount = notifications.filter((n) => !n.isRead).length;
   const todayPendingReservations = reservations.filter((r) => r.status === 'Pending').length;
@@ -69,10 +74,11 @@ export default function Sidebar({
       badgeColor: 'bg-[#DD5903]',
       subItems: [
         { key: 'orders-all', label: 'All Orders', filter: 'all' },
-        { key: 'orders-new', label: 'New Orders', filter: 'New' },
-        { key: 'orders-preparing', label: 'Preparing', filter: 'Preparing' },
-        { key: 'orders-ready', label: 'Ready', filter: 'Ready' },
-        { key: 'orders-completed', label: 'Completed', filter: 'Completed' }
+        { key: 'orders-new', label: 'New Orders', filter: 'placed' },
+        { key: 'orders-preparing', label: 'Brewing', filter: 'brewing' },
+        { key: 'orders-ready', label: 'Ready', filter: 'ready' },
+        { key: 'orders-delivery', label: 'Delivery', filter: 'delivery-type' },
+        { key: 'orders-completed', label: 'Completed', filter: 'completed' }
       ]
     },
     {

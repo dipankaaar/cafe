@@ -3,7 +3,20 @@ import { parseJSON, sanitize, getCurrentTimestamp, generateOrderNumber } from '.
 import { normalizeOrderStatus, ACTIVE_ORDER_STATUSES } from '../config/constants.js';
 
 export class OrderModel {
-  static findAll({ status, type, source, search, date, limit = 100, offset = 0 } = {}) {
+  static _colCache = null;
+
+  static _cols() {
+    if (this._colCache) return this._colCache;
+    try {
+      const cols = db.prepare('PRAGMA table_info(orders)').all().map((c) => c.name);
+      this._colCache = new Set(cols);
+    } catch (e) {
+      this._colCache = new Set();
+    }
+    return this._colCache;
+  }
+
+  static findAll({ status, type, source, search, date, branchId, deliveryStatus, limit = 100, offset = 0 } = {}) {
     let sql = 'SELECT * FROM orders WHERE 1=1';
     const params = [];
 
@@ -28,6 +41,15 @@ export class OrderModel {
     if (source && source !== 'all') {
       sql += ' AND LOWER(order_source) = LOWER(?)';
       params.push(source);
+    }
+    const cols = this._cols();
+    if (branchId && branchId !== 'all' && cols.has('branch_id')) {
+      sql += ' AND branch_id = ?';
+      params.push(branchId);
+    }
+    if (deliveryStatus && deliveryStatus !== 'all' && cols.has('delivery_status')) {
+      sql += ' AND LOWER(delivery_status) = LOWER(?)';
+      params.push(deliveryStatus);
     }
     if (date && String(date).trim()) {
       sql += ' AND substr(order_time, 1, 10) = ?';
@@ -91,15 +113,20 @@ export class OrderModel {
     const now = getCurrentTimestamp();
     const status = normalizeOrderStatus(data.status) || 'placed';
 
-    const hasPaymentsCol = this._hasPaymentsColumn();
+    const cols = this._cols();
+    const hasPaymentsCol = cols.has('payments_json');
+    const hasBranchCol = cols.has('branch_id');
+    const deliveryCols = ['delivery_address', 'delivery_landmark', 'delivery_instructions', 'rider_id', 'rider_name', 'rider_phone', 'delivery_otp', 'delivery_status', 'out_for_delivery_at', 'delivered_at'].filter((c) => cols.has(c));
+
+    const extraCols = [...(hasBranchCol ? ['branch_id'] : []), ...deliveryCols];
     const stmt = db.prepare(`
       INSERT INTO orders (
         id, order_number, order_type, order_source, qr_token, table_id, table_number,
         customer_id, customer_name, customer_phone, status, order_time,
         items_json, subtotal, discount_amount, coupon_code, coupon_id,
         tax_amount, service_charge, grand_total, payment_method, payment_status,
-        ${hasPaymentsCol ? 'payments_json, ' : ''}notes, server_staff
-      ) VALUES (${hasPaymentsCol ? '?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?' : '?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?'})
+        ${hasPaymentsCol ? 'payments_json, ' : ''}${extraCols.length ? extraCols.join(', ') + ', ' : ''}notes, server_staff
+      ) VALUES (${Array(22 + (hasPaymentsCol ? 1 : 0) + extraCols.length).fill('?').join(', ')}, ?, ?)
     `);
 
     const values = [
@@ -129,6 +156,20 @@ export class OrderModel {
     if (hasPaymentsCol) {
       values.push(data.payments ? JSON.stringify(data.payments) : sanitize(data.paymentsJson, null));
     }
+    if (hasBranchCol) values.push(sanitize(data.branchId, 'br-main'));
+    const deliveryVals = {
+      delivery_address: sanitize(data.deliveryAddress, null),
+      delivery_landmark: sanitize(data.deliveryLandmark, null),
+      delivery_instructions: sanitize(data.deliveryInstructions, null),
+      rider_id: sanitize(data.riderId, null),
+      rider_name: sanitize(data.riderName, null),
+      rider_phone: sanitize(data.riderPhone, null),
+      delivery_otp: sanitize(data.deliveryOtp, null),
+      delivery_status: sanitize(data.deliveryStatus, (data.orderType === 'delivery' ? 'preparing' : null)),
+      out_for_delivery_at: sanitize(data.outForDeliveryAt, null),
+      delivered_at: sanitize(data.deliveredAt, null)
+    };
+    deliveryCols.forEach((c) => values.push(deliveryVals[c]));
     values.push(sanitize(data.notes, ''));
     values.push(data.serverStaff || (data.orderSource === 'QR_TABLE' ? 'QR Self-Order' : 'Cashier'));
 
@@ -137,19 +178,17 @@ export class OrderModel {
     return this.findById(id);
   }
 
-  static updateStatus(id, { status, kitchenAcceptedAt, kitchenReadyAt, completedAt, paymentStatus, payments }) {
+  static updateStatus(id, { status, kitchenAcceptedAt, kitchenReadyAt, completedAt, paymentStatus, payments, deliveryOtp, deliveryStatus, outForDeliveryAt, deliveredAt, riderId, riderName, riderPhone }) {
     const normStatus = normalizeOrderStatus(status) || status;
-    const hasPaymentsCol = this._hasPaymentsColumn();
-    const stmt = db.prepare(`
-      UPDATE orders SET
-        status = ?,
-        kitchen_accepted_at = COALESCE(?, kitchen_accepted_at),
-        kitchen_ready_at = COALESCE(?, kitchen_ready_at),
-        completed_at = COALESCE(?, completed_at),
-        payment_status = COALESCE(?, payment_status)
-        ${hasPaymentsCol && payments ? ', payments_json = ?' : ''}
-      WHERE id = ?
-    `);
+    const cols = this._cols();
+    const hasPaymentsCol = cols.has('payments_json');
+    const sets = [
+      'status = ?',
+      'kitchen_accepted_at = COALESCE(?, kitchen_accepted_at)',
+      'kitchen_ready_at = COALESCE(?, kitchen_ready_at)',
+      'completed_at = COALESCE(?, completed_at)',
+      'payment_status = COALESCE(?, payment_status)'
+    ];
 
     const args = [
       normStatus,
@@ -158,21 +197,21 @@ export class OrderModel {
       sanitize(completedAt, null),
       sanitize(paymentStatus, null)
     ];
-    if (hasPaymentsCol && payments) args.push(JSON.stringify(payments));
+    if (hasPaymentsCol && payments) { sets.push('payments_json = ?'); args.push(JSON.stringify(payments)); }
+    // Delivery-leg fields ride along with status transitions (out_for_delivery / delivered)
+    const deliveryPatch = { delivery_otp: deliveryOtp, delivery_status: deliveryStatus, out_for_delivery_at: outForDeliveryAt, delivered_at: deliveredAt, rider_id: riderId, rider_name: riderName, rider_phone: riderPhone };
+    Object.entries(deliveryPatch).forEach(([col, val]) => {
+      if (val !== undefined && cols.has(col)) { sets.push(`${col} = ?`); args.push(sanitize(val, null)); }
+    });
     args.push(id);
 
-    stmt.run(...args);
+    db.prepare(`UPDATE orders SET ${sets.join(', ')} WHERE id = ?`).run(...args);
 
     return this.findById(id);
   }
 
   static _hasPaymentsColumn() {
-    try {
-      const cols = db.prepare('PRAGMA table_info(orders)').all();
-      return cols.some((c) => c.name === 'payments_json');
-    } catch (e) {
-      return false;
-    }
+    return this._cols().has('payments_json');
   }
 
   static format(row) {
@@ -206,7 +245,19 @@ export class OrderModel {
       paymentStatus: row.payment_status,
       payments: parseJSON(row.payments_json, null),
       notes: row.notes,
-      serverStaff: row.server_staff
+      serverStaff: row.server_staff,
+      branchId: row.branch_id || 'br-main',
+      // Delivery leg (null for dine-in / takeaway)
+      deliveryAddress: row.delivery_address || '',
+      deliveryLandmark: row.delivery_landmark || '',
+      deliveryInstructions: row.delivery_instructions || '',
+      riderId: row.rider_id || null,
+      riderName: row.rider_name || '',
+      riderPhone: row.rider_phone || '',
+      deliveryOtp: row.delivery_otp || null,
+      deliveryStatus: row.delivery_status || null,
+      outForDeliveryAt: row.out_for_delivery_at || null,
+      deliveredAt: row.delivered_at || null
     };
   }
 }

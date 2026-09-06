@@ -16,7 +16,8 @@ import {
   Users,
   Grid,
   Globe,
-  ArrowLeft
+  ArrowLeft,
+  Store
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -32,10 +33,13 @@ export default function Topbar({
 }) {
   const { currentUser, role, switchRole } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const { notifications, settings } = useCafe();
+  const { notifications, settings, branches, activeBranchId, switchBranch } = useCafe();
 
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isRoleMenuOpen, setIsRoleMenuOpen] = useState(false);
+  const [isBranchMenuOpen, setIsBranchMenuOpen] = useState(false);
+
+  const activeBranch = branches.find((b) => b.id === activeBranchId);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
@@ -109,6 +113,75 @@ export default function Topbar({
 
       {/* Right Controls */}
       <div className="flex items-center gap-2 sm:gap-3">
+
+        {/* Branch Scope Switcher (multi-outlet) */}
+        {branches.length > 0 && (
+          <div className="relative">
+            <button
+              onClick={() => setIsBranchMenuOpen(!isBranchMenuOpen)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/50 border border-sky-200 dark:border-sky-900/50 text-xs font-bold transition-colors cursor-pointer"
+              title="Switch outlet branch scope"
+            >
+              <Store className="w-3.5 h-3.5" />
+              <span className="hidden md:inline max-w-[140px] truncate">
+                {activeBranch ? activeBranch.name : 'All Branches'}
+              </span>
+              <span className="md:hidden">{activeBranch ? activeBranch.code : 'All'}</span>
+              <ChevronDown className="w-3 h-3 ml-0.5" />
+            </button>
+
+            {isBranchMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsBranchMenuOpen(false)} />
+                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-[#1c1c1c] border border-gray-200 dark:border-gray-800 rounded-xl shadow-2xl z-50 p-2 space-y-1 animate-fadeIn">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 px-2 py-1">
+                    Outlet Scope
+                  </p>
+                  <button
+                    onClick={() => { switchBranch('all'); setIsBranchMenuOpen(false); }}
+                    className={`w-full flex items-center justify-between p-2 rounded-lg text-left transition-colors cursor-pointer ${
+                      !activeBranch
+                        ? 'bg-[#DD5903]/15 text-[#DD5903] font-bold'
+                        : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Globe className="w-4 h-4 text-[#DD5903]" />
+                      <div>
+                        <p className="text-xs font-semibold">All Branches</p>
+                        <p className="text-[10px] text-gray-400">Consolidated view</p>
+                      </div>
+                    </div>
+                    {!activeBranch && <Check className="w-4 h-4 text-[#DD5903]" />}
+                  </button>
+                  {branches.map((b) => {
+                    const isCurrent = activeBranchId === b.id;
+                    return (
+                      <button
+                        key={b.id}
+                        onClick={() => { switchBranch(b.id); setIsBranchMenuOpen(false); }}
+                        className={`w-full flex items-center justify-between p-2 rounded-lg text-left transition-colors cursor-pointer ${
+                          isCurrent
+                            ? 'bg-[#DD5903]/15 text-[#DD5903] font-bold'
+                            : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <Store className="w-4 h-4 text-[#DD5903] flex-shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold truncate">{b.name}</p>
+                            <p className="text-[10px] text-gray-400">{b.code}{b.stats ? ` • ${b.stats.activeOrders} active` : ''}</p>
+                          </div>
+                        </div>
+                        {isCurrent && <Check className="w-4 h-4 text-[#DD5903] flex-shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        )}
         
         {/* Mobile Search Button */}
         <button

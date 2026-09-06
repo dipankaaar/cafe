@@ -24,12 +24,23 @@ export class TableModel {
       qrToken: qrToken,
       qrStatus: r.qr_status || 'active',
       qrCreatedAt: r.qr_created_at || getCurrentTimestamp(),
-      qrRegeneratedAt: r.qr_regenerated_at || null
+      qrRegeneratedAt: r.qr_regenerated_at || null,
+      branchId: r.branch_id || 'br-main'
     };
   }
 
-  static findAll() {
-    const rows = db.prepare('SELECT * FROM tables_floor ORDER BY table_number ASC').all();
+  static findAll({ branchId } = {}) {
+    let sql = 'SELECT * FROM tables_floor';
+    const params = [];
+    try {
+      const cols = db.prepare('PRAGMA table_info(tables_floor)').all().map((c) => c.name);
+      if (branchId && branchId !== 'all' && cols.includes('branch_id')) {
+        sql += ' WHERE branch_id = ?';
+        params.push(branchId);
+      }
+    } catch (e) {}
+    sql += ' ORDER BY table_number ASC';
+    const rows = db.prepare(sql).all(...params);
     return rows.map(r => this.format(r));
   }
 
@@ -71,11 +82,15 @@ export class TableModel {
     const token = data.qrToken || `qrt_${id.replace(/[^a-zA-Z0-9]/g, '')}_${crypto.randomBytes(8).toString('hex')}`;
     const capacity = Number(data.capacity ?? data.seats ?? 4);
     try { db.prepare('UPDATE tables_floor SET seats = capacity WHERE seats IS NULL').run(); } catch (e) {}
+    let hasBranch = false;
+    try {
+      hasBranch = db.prepare('PRAGMA table_info(tables_floor)').all().some((c) => c.name === 'branch_id');
+    } catch (e) {}
 
     db.prepare(`
       INSERT INTO tables_floor (
-        id, table_number, zone, capacity, seats, status, qr_token, qr_status, qr_created_at
-      ) VALUES (?, ?, ?, ?, ?, 'Available', ?, 'active', ?)
+        id, table_number, zone, capacity, seats, status, qr_token, qr_status, qr_created_at${hasBranch ? ', branch_id' : ''}
+      ) VALUES (?, ?, ?, ?, ?, 'Available', ?, 'active', ?${hasBranch ? ', ?' : ''})
     `).run(
       id,
       data.tableNumber.toUpperCase(),
@@ -83,7 +98,8 @@ export class TableModel {
       capacity,
       capacity,
       token,
-      now
+      now,
+      ...(hasBranch ? [data.branchId || 'br-main'] : [])
     );
 
     return this.findById(id);
@@ -150,7 +166,7 @@ export class TableModel {
   static getActiveOrders(tableId) {
     const rows = db.prepare(`
       SELECT * FROM orders 
-      WHERE table_id = ? AND LOWER(status) NOT IN ('completed', 'cancelled', 'refunded')
+      WHERE table_id = ? AND LOWER(status) NOT IN ('completed', 'delivered', 'cancelled', 'refunded')
       ORDER BY order_time ASC
     `).all(tableId);
 

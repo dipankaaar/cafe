@@ -51,6 +51,7 @@ export default function OrderOnlinePage({ onNavigate }) {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [deliveryLandmark, setDeliveryLandmark] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('COD');
   const [specialNotes, setSpecialNotes] = useState('');
 
@@ -209,6 +210,10 @@ export default function OrderOnlinePage({ onNavigate }) {
         grandTotal,
         paymentMethod,
         paymentStatus: 'Pending',
+        // Structured delivery leg (backend validates address for delivery orders)
+        deliveryAddress: orderType === 'delivery' ? deliveryAddress.trim() : '',
+        deliveryLandmark: orderType === 'delivery' ? deliveryLandmark.trim() : '',
+        deliveryInstructions: orderType === 'delivery' ? specialNotes.trim() : '',
         notes: specialNotes.trim() + (orderType === 'delivery' ? ` [Delivery: ${deliveryAddress.trim()}]` : ' [Takeaway Pickup]'),
         serverStaff: 'Online Storefront'
       };
@@ -775,6 +780,19 @@ export default function OrderOnlinePage({ onNavigate }) {
                       </div>
                     )}
 
+                    {orderType === 'delivery' && (
+                      <div>
+                        <label className="block text-gray-400 font-semibold mb-1">Landmark (helps the rider)</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Near Kangsabati Bridge"
+                          value={deliveryLandmark}
+                          onChange={(e) => setDeliveryLandmark(e.target.value)}
+                          className="w-full bg-[#121212] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:border-[#DD5903]"
+                        />
+                      </div>
+                    )}
+
                     {/* Payment Method */}
                     <div>
                       <label className="block text-gray-400 font-semibold mb-1.5">Payment Method</label>
@@ -937,6 +955,18 @@ export default function OrderOnlinePage({ onNavigate }) {
                       value={deliveryAddress}
                       onChange={(e) => setDeliveryAddress(e.target.value)}
                       className="w-full bg-[#121212] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:border-[#DD5903] resize-none"
+                    />
+                  </div>
+                )}
+                {orderType === 'delivery' && (
+                  <div>
+                    <label className="block text-gray-400 font-semibold mb-1">Landmark (helps the rider)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Near Kangsabati Bridge"
+                      value={deliveryLandmark}
+                      onChange={(e) => setDeliveryLandmark(e.target.value)}
+                      className="w-full bg-[#121212] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:border-[#DD5903]"
                     />
                   </div>
                 )}

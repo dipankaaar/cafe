@@ -4,23 +4,33 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const rawCorsOrigin = process.env.CORS_ORIGIN || '*';
+const defaultCorsOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174'
+];
 
-// Normalize: '*' stays wildcard (credentials MUST be false then);
-// otherwise parse comma-separated allowlist for origin reflection.
+// Normalize: default to allowed origins for storefront & admin with credentials support;
+// otherwise parse comma-separated allowlist.
 function parseCorsOrigin(raw) {
-  if (!raw || raw.trim() === '' || raw.trim() === '*') return '*';
-  return raw.split(',').map((o) => o.trim().replace(/\/$/, '')).filter(Boolean);
+  if (!raw || raw.trim() === '' || raw.trim() === '*') {
+    return defaultCorsOrigins;
+  }
+  const custom = raw.split(',').map((o) => o.trim().replace(/\/$/, '')).filter(Boolean);
+  return Array.from(new Set([...defaultCorsOrigins, ...custom]));
 }
 
 export const ENV = {
   NODE_ENV: process.env.NODE_ENV || 'development',
   PORT: Number(process.env.PORT) || 5000,
   HOST: process.env.HOST || '0.0.0.0',
-  CORS_ORIGIN: parseCorsOrigin(rawCorsOrigin),
-  CORS_ORIGIN_RAW: rawCorsOrigin,
+  CORS_ORIGIN: parseCorsOrigin(process.env.CORS_ORIGIN),
+  CORS_ORIGIN_RAW: process.env.CORS_ORIGIN || '',
   DB_PATH: process.env.DB_PATH || path.join(__dirname, '..', 'data', 'cafe.db'),
   STATIC_DIR: path.join(__dirname, '..', '..', 'frontend', 'dist'),
+  ADMIN_STATIC_DIR: process.env.ADMIN_STATIC_DIR || path.join(__dirname, '..', '..', 'admin', 'dist'),
   API_PREFIX: '/api',
   RATE_LIMIT_WINDOW_MS: Number(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
   RATE_LIMIT_MAX: Number(process.env.RATE_LIMIT_MAX) || 500,

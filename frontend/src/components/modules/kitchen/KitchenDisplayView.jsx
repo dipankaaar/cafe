@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useCafe } from '../../../context/CafeContext';
+import { normalizeOrderStatus, getStatusLabel, getStatusBadgeVariant, getNextStatusAction, ACTIVE_ORDER_STATUSES } from '../../../utils/orderStatus';
 import Card from '../../common/Card';
 import Badge from '../../common/Badge';
 import Button from '../../common/Button';
@@ -13,12 +14,13 @@ import {
   Bell,
   UtensilsCrossed,
   Volume2,
-  QrCode
+  QrCode,
+  Bike
 } from 'lucide-react';
 
 export default function KitchenDisplayView() {
   const { orders, updateOrderStatus, addToastNotification } = useCafe();
-  const [filter, setFilter] = useState('active'); // active, preparing, ready, completed
+  const [filter, setFilter] = useState('active'); // active, brewing, ready, completed
   const [checkedItems, setCheckedItems] = useState({});
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -28,11 +30,12 @@ export default function KitchenDisplayView() {
     return () => clearInterval(timer);
   }, []);
 
-  const activeOrders = orders.filter((o) =>
-    filter === 'active'
-      ? ['New', 'Accepted', 'Preparing', 'Ready'].includes(o.status)
-      : o.status.toLowerCase() === filter.toLowerCase()
-  );
+  // Status compare is normalization-safe: legacy + canonical rows both match
+  const activeOrders = orders.filter((o) => {
+    const norm = normalizeOrderStatus(o.status);
+    if (filter === 'active') return ACTIVE_ORDER_STATUSES.includes(norm);
+    return norm === filter;
+  });
 
   const toggleItemCheck = (orderId, itemIndex) => {
     const key = `${orderId}-${itemIndex}`;
@@ -68,7 +71,7 @@ export default function KitchenDisplayView() {
         <div className="flex items-center bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-xl p-1 text-xs">
           {[
             { id: 'active', label: 'All Active' },
-            { id: 'preparing', label: 'In Prep' },
+            { id: 'brewing', label: 'In Prep' },
             { id: 'ready', label: 'Ready to Serve' },
             { id: 'completed', label: 'Completed' }
           ].map((tab) => (
@@ -102,13 +105,16 @@ export default function KitchenDisplayView() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
           {activeOrders.map((order) => {
             const elapsedMins = calculateElapsedMinutes(order.orderTime);
-            const isUrgent = elapsedMins >= 10 && order.status !== 'Completed';
+            const norm = normalizeOrderStatus(order.status);
+            const isDelivery = String(order.orderType || '').toLowerCase() === 'delivery';
+            const next = getNextStatusAction(order.status, order.orderType);
+            const isUrgent = elapsedMins >= 10 && !['completed', 'delivered', 'cancelled', 'refunded'].includes(norm);
 
             return (
               <div
                 key={order.id}
                 className={`bg-white dark:bg-[#181818] rounded-2xl border transition-all shadow-xs flex flex-col justify-between overflow-hidden ${
-                  order.status === 'Ready'
+                  norm === 'ready' || norm === 'out_for_delivery'
                     ? 'border-emerald-500 dark:border-emerald-600 ring-2 ring-emerald-500/20'
                     : isUrgent
                     ? 'border-rose-500 dark:border-rose-600 ring-2 ring-rose-500/20'
@@ -118,7 +124,7 @@ export default function KitchenDisplayView() {
                 {/* Ticket Top Header */}
                 <div
                   className={`p-4 border-b flex items-center justify-between ${
-                    order.status === 'Ready'
+                    norm === 'ready' || norm === 'out_for_delivery'
                       ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/40'
                       : isUrgent
                       ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/40'
@@ -130,17 +136,8 @@ export default function KitchenDisplayView() {
                       <span className="text-base font-bold font-mono text-gray-900 dark:text-white">
                         {order.orderNumber}
                       </span>
-                      <Badge
-                        size="sm"
-                        variant={
-                          order.status === 'Ready'
-                            ? 'success'
-                            : order.status === 'Preparing'
-                            ? 'warning'
-                            : 'primary'
-                        }
-                      >
-                        {order.status}
+                      <Badge size="sm" variant={getStatusBadgeVariant(order.status)}>
+                        {getStatusLabel(order.status)}
                       </Badge>
                       {order.orderSource === 'QR_TABLE' && (
                         <span className="px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400 font-bold text-[10px] uppercase flex items-center gap-1 border border-purple-500/30">
@@ -148,9 +145,15 @@ export default function KitchenDisplayView() {
                           <span>QR Table</span>
                         </span>
                       )}
+                      {isDelivery && (
+                        <span className="px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-400 font-bold text-[10px] uppercase flex items-center gap-1 border border-sky-500/30">
+                          <Bike className="w-2.5 h-2.5" />
+                          <span>Delivery</span>
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 font-semibold">
-                      {order.orderType === 'dine-in' ? `Table ${order.tableNumber || 'Indoor'}` : order.orderType.toUpperCase()}
+                      {order.orderType === 'dine-in' ? `Table ${order.tableNumber || 'Indoor'}` : isDelivery ? (order.deliveryAddress ? String(order.deliveryAddress).slice(0, 42) : 'DELIVERY') : order.orderType.toUpperCase()}
                       {' • '}{order.customerName}
                     </p>
                   </div>
@@ -231,38 +234,20 @@ export default function KitchenDisplayView() {
 
                 {/* Bottom Action Workflow Buttons */}
                 <div className="p-3 bg-gray-50 dark:bg-[#141414] border-t border-gray-100 dark:border-gray-800">
-                  {order.status === 'New' || order.status === 'Accepted' ? (
+                  {next ? (
                     <Button
-                      onClick={() => updateOrderStatus(order.id, 'Preparing')}
+                      onClick={() => updateOrderStatus(order.id, next.action)}
                       fullWidth
                       size="sm"
-                      icon={Flame}
+                      variant={next.action === 'ready' ? 'success' : undefined}
+                      className={['completed', 'delivered'].includes(next.action) ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
+                      icon={next.action === 'brewing' ? Flame : next.action === 'ready' ? CheckCircle2 : next.action === 'out_for_delivery' ? Bike : Check}
                     >
-                      Start Cooking
-                    </Button>
-                  ) : order.status === 'Preparing' ? (
-                    <Button
-                      onClick={() => updateOrderStatus(order.id, 'Ready')}
-                      fullWidth
-                      size="sm"
-                      variant="success"
-                      icon={CheckCircle2}
-                    >
-                      Mark Ready to Serve
-                    </Button>
-                  ) : order.status === 'Ready' ? (
-                    <Button
-                      onClick={() => updateOrderStatus(order.id, 'Completed')}
-                      fullWidth
-                      size="sm"
-                      className="bg-emerald-600 hover:bg-emerald-700"
-                      icon={Check}
-                    >
-                      Complete & Clear
+                      {next.label}
                     </Button>
                   ) : (
                     <div className="text-center text-xs font-bold text-gray-500 py-1">
-                      Order Completed
+                      {['completed', 'delivered'].includes(norm) ? (isDelivery ? 'Delivered ✓' : 'Order Completed') : norm === 'cancelled' ? 'Order Cancelled' : 'Order Closed'}
                     </div>
                   )}
                 </div>

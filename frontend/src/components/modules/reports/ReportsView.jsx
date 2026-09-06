@@ -12,7 +12,8 @@ import {
   Printer,
   QrCode,
   Users,
-  RefreshCw
+  RefreshCw,
+  Bike
 } from 'lucide-react';
 import {
   BarChart,
@@ -49,7 +50,7 @@ function toCsvCell(v) {
  * Export CSV is built client-side from the live payload.
  */
 export default function ReportsView() {
-  const { orders: ctxOrders, expenses: ctxExpenses } = useCafe();
+  const { orders: ctxOrders, expenses: ctxExpenses, branches, activeBranchId, switchBranch } = useCafe();
   const [reportType, setReportType] = useState('sales');
   const [range, setRange] = useState('month');
   const [analytics, setAnalytics] = useState(null);
@@ -63,8 +64,8 @@ export default function ReportsView() {
     else setRefreshing(true);
     try {
       const [analyticsRes, ordersRes] = await Promise.all([
-        api.getAnalytics(range),
-        api.getOrders({ limit: 100 }).catch(() => null)
+        api.getAnalytics(range, activeBranchId),
+        api.getOrders({ limit: 100, ...(activeBranchId && activeBranchId !== 'all' ? { branchId: activeBranchId } : {}) }).catch(() => null)
       ]);
       const a = analyticsRes && analyticsRes.data !== undefined ? analyticsRes.data : analyticsRes;
       if (!a || typeof a !== 'object') throw new Error('Malformed analytics payload');
@@ -74,7 +75,7 @@ export default function ReportsView() {
       setUsingCache(false);
     } catch (err) {
       // Fallback: derive report figures from the offline context cache
-      const completed = (ctxOrders || []).filter((x) => String(x.status || '').toLowerCase() === 'completed');
+      const completed = (ctxOrders || []).filter((x) => ['completed', 'delivered'].includes(String(x.status || '').toLowerCase()));
       const revenue = completed.reduce((s, x) => s + Number(x.grandTotal || 0), 0);
       const expenses = (ctxExpenses || []).reduce((s, x) => s + Number(x.amount || 0), 0);
       const cogs = revenue * 0.32;
@@ -129,7 +130,7 @@ export default function ReportsView() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [range, ctxOrders, ctxExpenses]);
+  }, [range, activeBranchId, ctxOrders, ctxExpenses]);
 
   useEffect(() => {
     load(true);
@@ -168,6 +169,11 @@ export default function ReportsView() {
   const qrRevenue = Number(channel.QR_TABLE?.sales || 0);
   const qrCount = Number(channel.QR_TABLE?.orders || 0);
   const qrAov = Number(analytics?.qrAov || (qrCount ? qrRevenue / qrCount : 0));
+  const deliveryRevenue = Number(analytics?.deliverySales || 0);
+  const deliveryCount = Number(analytics?.deliveryOrdersCount || 0);
+  const deliveryAovVal = Number(analytics?.deliveryAov || 0);
+  const activeDeliveries = Number(analytics?.activeDeliveries || 0);
+  const deliveryByRider = Array.isArray(analytics?.deliveryByRider) ? analytics.deliveryByRider : [];
 
   const handleExportCSV = () => {
     const date = new Date().toISOString().split('T')[0];
@@ -220,6 +226,19 @@ export default function ReportsView() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          {branches.length > 0 && (
+            <select
+              value={activeBranchId}
+              onChange={(e) => switchBranch(e.target.value)}
+              title="Reports branch scope"
+              className="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg px-3 py-1.5 text-xs text-gray-900 dark:text-white outline-none"
+            >
+              <option value="all">All Branches</option>
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </select>
+          )}
           <div className="flex items-center bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-1 text-xs">
             {RANGE_OPTIONS.map((t) => (
               <button
@@ -259,6 +278,7 @@ export default function ReportsView() {
         {[
           { id: 'sales', label: 'Sales & Margins', icon: TrendingUp },
           { id: 'qr', label: 'QR Table Ordering', icon: QrCode },
+          { id: 'delivery', label: 'Delivery & Riders', icon: Bike },
           { id: 'products', label: 'Product Velocity', icon: Coffee },
           { id: 'pnl', label: 'Profit & Loss Statement', icon: DollarSign }
         ].map((tab) => {
@@ -377,6 +397,71 @@ export default function ReportsView() {
       )}
 
       {/* ================= SALES & MARGINS TAB ================= */}
+      {/* ================= DELIVERY & RIDER ANALYTICS ================= */}
+      {reportType === 'delivery' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+            {loading ? Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i} className="p-5"><SkeletonBlock className="h-12 w-full" /></Card>
+            )) : (
+              <>
+                <Card className="p-5">
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Delivery Revenue</span>
+                  <h3 className="text-2xl font-black text-gray-900 dark:text-white mt-1">₹{deliveryRevenue.toFixed(2)}</h3>
+                  <p className="text-xs text-emerald-600 font-semibold mt-1">Delivered orders in range</p>
+                </Card>
+                <Card className="p-5">
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Deliveries Done</span>
+                  <h3 className="text-2xl font-black text-gray-900 dark:text-white mt-1">{deliveryCount}</h3>
+                  <p className="text-xs text-gray-500 mt-1">Avg ₹{deliveryAovVal.toFixed(0)} per drop</p>
+                </Card>
+                <Card className="p-5">
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Active Right Now</span>
+                  <h3 className="text-2xl font-black text-sky-600 dark:text-sky-400 mt-1">{activeDeliveries}</h3>
+                  <p className="text-xs text-gray-500 mt-1">In kitchen or on the way</p>
+                </Card>
+                <Card className="p-5">
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Riders Active</span>
+                  <h3 className="text-2xl font-black text-gray-900 dark:text-white mt-1">{deliveryByRider.length}</h3>
+                  <p className="text-xs text-gray-500 mt-1">With completed drops</p>
+                </Card>
+              </>
+            )}
+          </div>
+
+          <Card title="Rider Leaderboard" subtitle="Completed delivery revenue per rider in this range">
+            {loading ? (
+              <SkeletonBlock className="h-24 w-full" />
+            ) : deliveryByRider.length === 0 ? (
+              <div className="py-12 text-center text-xs text-gray-500">No completed deliveries in this range yet.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="text-gray-400 uppercase tracking-wider text-[10px] border-b border-gray-200 dark:border-gray-800">
+                      <th className="py-2 pr-4">Rider</th>
+                      <th className="py-2 pr-4 text-right">Drops</th>
+                      <th className="py-2 text-right">Revenue</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {deliveryByRider.map((r) => (
+                      <tr key={r.rider}>
+                        <td className="py-2.5 pr-4 font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                          <Bike className="w-4 h-4 text-[#DD5903]" /> {r.rider}
+                        </td>
+                        <td className="py-2.5 pr-4 text-right font-mono">{r.orders}</td>
+                        <td className="py-2.5 text-right font-mono font-bold">₹{Number(r.revenue || 0).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
+
       {reportType === 'sales' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">

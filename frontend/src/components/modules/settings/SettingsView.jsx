@@ -3,6 +3,7 @@ import { useCafe } from '../../../context/CafeContext';
 import Card from '../../common/Card';
 import Badge from '../../common/Badge';
 import Button from '../../common/Button';
+import Modal from '../../common/Modal';
 import ConfirmDialog from '../../common/ConfirmDialog';
 import {
   Settings,
@@ -14,14 +15,31 @@ import {
   Award,
   ShieldCheck,
   AlertTriangle,
-  Download
+  Download,
+  Plus,
+  Pencil,
+  Trash2,
+  MapPin,
+  Phone,
+  CheckCircle2
 } from 'lucide-react';
 
+const inputCls = 'w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none';
+
 export default function SettingsView() {
-  const { settings, updateSettings, resetAllDataToDefault } = useCafe();
-  
+  const { settings, updateSettings, resetAllDataToDefault, branches, addBranch, updateBranch, deleteBranch, activeBranchId, switchBranch } = useCafe();
+
+  const [activeTab, setActiveTab] = useState('general'); // general | branches
   const [form, setForm] = useState({ ...settings });
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+
+  // Branch editor state
+  const [branchModalOpen, setBranchModalOpen] = useState(false);
+  const [editingBranch, setEditingBranch] = useState(null);
+  const [branchForm, setBranchForm] = useState({ name: '', code: '', address: '', phone: '', email: '', managerName: '', openingHours: '', isActive: true });
+  const [branchError, setBranchError] = useState('');
+  const [branchBusy, setBranchBusy] = useState(false);
+  const [branchToDelete, setBranchToDelete] = useState(null);
 
   const handleSave = (e) => {
     e.preventDefault();
@@ -45,9 +63,42 @@ export default function SettingsView() {
     downloadAnchor.remove();
   };
 
+  const openAddBranch = () => {
+    setEditingBranch(null);
+    setBranchForm({ name: '', code: '', address: '', phone: '', email: '', managerName: '', openingHours: '', isActive: true });
+    setBranchError('');
+    setBranchModalOpen(true);
+  };
+
+  const openEditBranch = (b) => {
+    setEditingBranch(b);
+    setBranchForm({ name: b.name || '', code: b.code || '', address: b.address || '', phone: b.phone || '', email: b.email || '', managerName: b.managerName || '', openingHours: b.openingHours || '', isActive: b.isActive !== false });
+    setBranchError('');
+    setBranchModalOpen(true);
+  };
+
+  const handleSaveBranch = async (e) => {
+    e.preventDefault();
+    if (!branchForm.name.trim()) { setBranchError('Branch name is required'); return; }
+    setBranchBusy(true);
+    setBranchError('');
+    try {
+      if (editingBranch) {
+        await updateBranch(editingBranch.id, { ...branchForm, name: branchForm.name.trim(), code: branchForm.code.trim() || undefined });
+      } else {
+        await addBranch({ ...branchForm, name: branchForm.name.trim(), code: branchForm.code.trim() || undefined });
+      }
+      setBranchModalOpen(false);
+    } catch (err) {
+      setBranchError(err.message || 'Could not save branch');
+    } finally {
+      setBranchBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-4xl">
-      
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -55,7 +106,7 @@ export default function SettingsView() {
             Cafe System Settings
           </h2>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            Configure cafe branding, GSTIN taxes, thermal receipt headers, and database backups.
+            Configure cafe branding, GSTIN taxes, outlets, thermal receipt headers, and database backups.
           </p>
         </div>
 
@@ -63,12 +114,150 @@ export default function SettingsView() {
           <Button onClick={handleExportJSON} size="sm" variant="outline" icon={Download}>
             Backup Data (JSON)
           </Button>
-          <Button onClick={handleSave} size="sm" icon={Save}>
-            Save All Settings
-          </Button>
+          {activeTab === 'general' && (
+            <Button onClick={handleSave} size="sm" icon={Save}>
+              Save All Settings
+            </Button>
+          )}
+          {activeTab === 'branches' && (
+            <Button onClick={openAddBranch} size="sm" icon={Plus}>
+              Add Branch
+            </Button>
+          )}
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex items-center gap-2">
+        {[
+          { id: 'general', label: 'General Settings' },
+          { id: 'branches', label: `Branches${branches.length > 0 ? ` (${branches.length})` : ''}` }
+        ].map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setActiveTab(t.id)}
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+              activeTab === t.id
+                ? 'bg-[#DD5903] text-white shadow-sm'
+                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-[#DD5903]'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'branches' ? (
+        <div className="space-y-4">
+          <Card title="Outlet Branches" subtitle="Each outlet gets its own tables, orders, and reports slice. Menu & inventory stay shared.">
+            {branches.length === 0 ? (
+              <p className="text-xs text-gray-500">No branches synced yet — start the backend API to load outlets, or add one below.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {branches.map((b) => (
+                  <div key={b.id} className={`p-4 rounded-xl border text-xs space-y-2 ${activeBranchId === b.id ? 'border-[#DD5903] bg-orange-50/50 dark:bg-orange-950/20' : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50'}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-bold text-sm text-gray-900 dark:text-white flex items-center gap-1.5">
+                          <Store className="w-4 h-4 text-[#DD5903]" /> {b.name}
+                        </p>
+                        <p className="font-mono text-[10px] text-gray-400">{b.code}</p>
+                      </div>
+                      <Badge variant={b.isActive !== false ? 'success' : 'error'}>{b.isActive !== false ? 'Active' : 'Closed'}</Badge>
+                    </div>
+                    {b.address && <p className="flex items-start gap-1.5 text-gray-500"><MapPin className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />{b.address}</p>}
+                    {b.phone && <p className="flex items-center gap-1.5 text-gray-500"><Phone className="w-3.5 h-3.5" />{b.phone}</p>}
+                    {b.stats && (
+                      <p className="text-gray-500">
+                        {b.stats.ordersCount} orders • ₹{Number(b.stats.revenue || 0).toFixed(0)} lifetime • {b.stats.tablesCount} tables ({b.stats.occupiedTables} occupied) • {b.stats.activeOrders} active
+                      </p>
+                    )}
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <Button size="sm" variant={activeBranchId === b.id ? 'secondary' : 'outline'} onClick={() => switchBranch(activeBranchId === b.id ? 'all' : b.id)}>
+                        {activeBranchId === b.id ? 'Viewing (click: All)' : 'View only this'}
+                      </Button>
+                      <button onClick={() => openEditBranch(b)} title="Edit branch" className="p-1.5 rounded-lg text-gray-500 hover:text-[#DD5903] hover:bg-gray-100 dark:hover:bg-gray-700">
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      {b.id !== 'br-main' && (
+                        <button onClick={() => setBranchToDelete(b)} title="Delete branch" className="p-1.5 rounded-lg text-gray-500 hover:text-rose-600 hover:bg-gray-100 dark:hover:bg-gray-700">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {/* Branch editor modal */}
+          {branchModalOpen && (
+            <Modal
+              isOpen={true}
+              onClose={() => setBranchModalOpen(false)}
+              title={editingBranch ? `Edit ${editingBranch.name}` : 'Open New Branch'}
+              subtitle="Outlets share one menu; tables, orders and reports stay per-branch"
+              size="md"
+              footer={
+                <>
+                  <Button variant="secondary" onClick={() => setBranchModalOpen(false)}>Cancel</Button>
+                  <Button icon={CheckCircle2} disabled={branchBusy} onClick={handleSaveBranch}>
+                    {branchBusy ? 'Saving…' : editingBranch ? 'Save Changes' : 'Open Branch'}
+                  </Button>
+                </>
+              }
+            >
+              <form onSubmit={handleSaveBranch} className="space-y-3 text-xs">
+                {branchError && <p className="p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 text-rose-600">{branchError}</p>}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Branch Name *</label>
+                    <input autoFocus value={branchForm.name} onChange={(e) => setBranchForm({ ...branchForm, name: e.target.value })} placeholder="Petuk Adda — Salt Lake" className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Code (auto if empty)</label>
+                    <input value={branchForm.code} onChange={(e) => setBranchForm({ ...branchForm, code: e.target.value.toUpperCase() })} placeholder="SALTLAKE" className={`${inputCls} font-mono uppercase`} />
+                  </div>
+                </div>
+                <div>
+                  <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Address</label>
+                  <input value={branchForm.address} onChange={(e) => setBranchForm({ ...branchForm, address: e.target.value })} className={inputCls} />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Phone</label>
+                    <input value={branchForm.phone} onChange={(e) => setBranchForm({ ...branchForm, phone: e.target.value })} className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Manager</label>
+                    <input value={branchForm.managerName} onChange={(e) => setBranchForm({ ...branchForm, managerName: e.target.value })} className={inputCls} />
+                  </div>
+                </div>
+                <div>
+                  <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Opening Hours</label>
+                  <input value={branchForm.openingHours} onChange={(e) => setBranchForm({ ...branchForm, openingHours: e.target.value })} placeholder="10:00 AM – 10:00 PM" className={inputCls} />
+                </div>
+                <label className="flex items-center gap-2 font-semibold text-gray-700 dark:text-gray-300">
+                  <input type="checkbox" checked={branchForm.isActive} onChange={(e) => setBranchForm({ ...branchForm, isActive: e.target.checked })} className="w-4 h-4 accent-[#DD5903]" />
+                  Branch is open for orders
+                </label>
+              </form>
+            </Modal>
+          )}
+
+          {branchToDelete && (
+            <ConfirmDialog
+              isOpen={true}
+              onClose={() => setBranchToDelete(null)}
+              title={`Close ${branchToDelete.name}?`}
+              message="The branch can only be closed when no tables, orders, reservations, expenses or staff are assigned to it. This cannot be undone."
+              confirmText="Yes, Close Branch"
+              onConfirm={async () => { try { await deleteBranch(branchToDelete.id); } catch (e) { alert(e.message); } setBranchToDelete(null); }}
+            />
+          )}
+        </div>
+      ) : (
       <form onSubmit={handleSave} className="space-y-6">
         
         {/* Card 1: Cafe Identity */}
@@ -244,6 +433,7 @@ export default function SettingsView() {
         </Card>
 
       </form>
+      )}
 
       {/* ================= RESET CONFIRMATION DIALOG ================= */}
       {isResetConfirmOpen && (

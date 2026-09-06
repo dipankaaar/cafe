@@ -11,6 +11,7 @@ import inventoryRoutes from './inventory.routes.js';
 import expenseRoutes from './expense.routes.js';
 import reportRoutes from './report.routes.js';
 import systemRoutes from './system.routes.js';
+import branchRoutes from './branch.routes.js';
 
 import * as authController from '../controllers/auth.controller.js';
 import * as customerController from '../controllers/customer.controller.js';
@@ -60,6 +61,7 @@ apiRouter.use('/coupons', couponRoutes);
 apiRouter.use('/inventory', inventoryRoutes);
 apiRouter.use('/expenses', expenseRoutes);
 apiRouter.use('/reports', reportRoutes);
+apiRouter.use('/branches', branchRoutes);
 apiRouter.use('/system', systemRoutes);
 apiRouter.use('/', systemRoutes); // Flat shortcuts for /events, /notifications, /settings
 

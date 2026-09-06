@@ -308,14 +308,12 @@ export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
 
   // ================= ACTIVE ORDER TRACKING TIMELINE SCREEN =================
   if (activeTrackingOrder) {
-    const statusSteps = ['Placed', 'Accepted', 'Preparing', 'Ready', 'Completed'];
-    const currentStatus = activeTrackingOrder.status || 'Placed';
-    let activeIdx = 0;
-    if (['New', 'Placed'].includes(currentStatus)) activeIdx = 0;
-    else if (currentStatus === 'Accepted') activeIdx = 1;
-    else if (['Preparing', 'Brewing'].includes(currentStatus)) activeIdx = 2;
-    else if (currentStatus === 'Ready') activeIdx = 3;
-    else if (currentStatus === 'Completed') activeIdx = 4;
+    const statusSteps = ['placed', 'accepted', 'brewing', 'ready', 'completed'];
+    // Normalization-safe: backend returns canonical lowercase, legacy caches may be capitalized
+    const currentStatus = String(activeTrackingOrder.status || 'placed').trim().toLowerCase();
+    const normStatus = currentStatus === 'new' ? 'placed' : currentStatus === 'preparing' ? 'brewing' : currentStatus;
+    const activeIdx = Math.max(0, statusSteps.indexOf(normStatus));
+    const statusLabels = { placed: 'Order Submitted', accepted: 'Kitchen Received', brewing: 'Brewing & Baking', ready: 'Ready to Serve', completed: 'Delivered & Completed' };
 
     return (
       <div className="min-h-screen bg-[#141414] text-white pb-20">
@@ -357,7 +355,7 @@ export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
             {/* Status Highlight */}
             <div className="mt-4 inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold text-sm">
               <ChefHat className="w-4 h-4 animate-bounce" />
-              <span>Status: {currentStatus}</span>
+              <span>Status: {normStatus.charAt(0).toUpperCase() + normStatus.slice(1)}</span>
             </div>
           </div>
 
@@ -382,7 +380,7 @@ export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
                     </div>
                     <div className="flex-1 flex items-center justify-between">
                       <span className={`text-xs font-bold ${isCurrent ? 'text-[#DD5903]' : isPassed ? 'text-white' : 'text-gray-500'}`}>
-                        {step === 'Placed' ? 'Order Submitted' : step === 'Accepted' ? 'Kitchen Received' : step === 'Preparing' ? 'Brewing & Baking' : step === 'Ready' ? 'Ready to Serve' : 'Delivered & Completed'}
+                        {statusLabels[step] || step}
                       </span>
                       {isCurrent && (
                         <span className="text-[10px] bg-orange-500/20 text-[#DD5903] px-2 py-0.5 rounded-full font-bold">In Progress</span>

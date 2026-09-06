@@ -2057,6 +2057,31 @@ export const initialProducts = [
   }
 ];
 
+export const initialBranches = [
+  {
+    id: "br-main",
+    name: "Petuk Adda — Flagship Store",
+    code: "FLAGSHIP",
+    address: "Salboni, Sakadihi-Ailakundi Road, Near Salboni High School, Salboni, West Bengal 722102",
+    phone: "+91 9932148058",
+    email: "petukaddacafe@gmail.com",
+    managerName: "Ananya Iyer",
+    openingHours: "09:00 AM – 10:30 PM (Open All Days)",
+    isActive: true
+  },
+  {
+    id: "br-riverside",
+    name: "Petuk Adda — Riverside",
+    code: "RIVERSIDE",
+    address: "River View Road, Near Kangsabati Bridge, Bankura, West Bengal 722101",
+    phone: "+91 6292314286",
+    email: "riverside@petukaddacafe.com",
+    managerName: "David Chen",
+    openingHours: "10:00 AM – 10:00 PM (Open All Days)",
+    isActive: true
+  }
+];
+
 export const initialTables = [
   { id: "tbl-1", tableNumber: "T-01", zone: "Indoor Cafe", capacity: 2, status: "Occupied", currentOrderId: "ord-101", customerName: "Rahul Sharma", x: 1, y: 1 },
   { id: "tbl-2", tableNumber: "T-02", zone: "Indoor Cafe", capacity: 4, status: "Available", currentOrderId: null, customerName: null, x: 2, y: 1 },

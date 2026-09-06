@@ -96,6 +96,15 @@ app.use(requestLogger);
 // Mount API Root
 app.use(ENV.API_PREFIX, apiRouter);
 
+// Serve Admin Panel Static Assets (Production SPA)
+app.use('/admin', express.static(ENV.ADMIN_STATIC_DIR));
+// Express 5 (path-to-regexp v8) rejects '/admin*' — regex keeps it version-agnostic
+app.get(/^\/admin(\/.*)?$/, (req, res, next) => {
+  res.sendFile(path.join(ENV.ADMIN_STATIC_DIR, 'index.html'), (err) => {
+    if (err) return next();
+  });
+});
+
 // Serve Frontend Static Assets (Production SPA Fallback)
 app.use(express.static(ENV.STATIC_DIR));
 

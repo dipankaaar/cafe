@@ -255,7 +255,7 @@ export default function QrCodeModal({ table, isOpen, onClose, onTableUpdated, ca
                       </div>
                       <div className="flex items-center gap-2">
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
-                          order.status === 'Ready' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                          order.status === 'ready' || order.status === 'Ready' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
                         }`}>
                           {order.status}
                         </span>

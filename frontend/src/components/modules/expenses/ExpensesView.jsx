@@ -51,7 +51,7 @@ export default function ExpensesView() {
 
   const totalExpenseSum = expenses.reduce((sum, e) => sum + e.amount, 0);
   const totalRevenue = orders
-    .filter((o) => o.status === 'Completed')
+    .filter((o) => ['completed', 'delivered'].includes(String(o.status || '').toLowerCase()))
     .reduce((sum, o) => sum + o.grandTotal, 0);
   const estimatedNetProfit = totalRevenue - totalExpenseSum;
 

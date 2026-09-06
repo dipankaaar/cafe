@@ -129,7 +129,13 @@ function MainApp() {
   }, []);
 
   const handleSwitchToAdmin = () => {
-    navigate('/admin');
+    if (typeof window !== 'undefined') {
+      if (window.location.hostname === 'localhost' && window.location.port !== '5000') {
+        window.location.href = 'http://localhost:5174';
+      } else {
+        navigate('/admin');
+      }
+    }
   };
 
   const handleSwitchToPublic = () => {
@@ -217,7 +223,19 @@ function MainApp() {
       );
     }
 
-    if (currentModule.startsWith('orders')) return <OrdersView />;
+    if (currentModule.startsWith('orders')) {
+      // Sidebar deep-links: orders-new | orders-preparing | orders-ready |
+      // orders-delivery | orders-completed | orders-all
+      const suffix = currentModule.split('-').slice(1).join('-');
+      const statusMap = { new: 'placed', preparing: 'brewing', ready: 'ready', completed: 'completed', all: 'all' };
+      return (
+        <OrdersView
+          key={currentModule}
+          initialStatus={statusMap[suffix] || 'all'}
+          initialBoard={suffix === 'delivery' ? 'delivery' : 'all'}
+        />
+      );
+    }
     if (currentModule.startsWith('menu')) return <MenuManagementView />;
     if (currentModule.startsWith('inventory')) return <InventoryView />;
 
@@ -254,6 +272,22 @@ function MainApp() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 lg:pl-64">
         
+        {/* Dedicated Admin Portal Banner */}
+        <div className="bg-gradient-to-r from-[#DD5903] to-amber-600 text-white text-xs px-4 py-2 flex flex-wrap items-center justify-between gap-2 shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="inline-block w-2 h-2 rounded-full bg-emerald-300 animate-pulse" />
+            <span className="font-semibold">Dedicated Standalone Admin Portal is active on port 5174</span>
+          </div>
+          <a
+            href="http://localhost:5174"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-2.5 py-1 bg-white text-gray-900 rounded font-bold text-[11px] hover:bg-gray-100 transition-colors shadow-sm cursor-pointer inline-flex items-center gap-1"
+          >
+            Launch Standalone Admin App ↗
+          </a>
+        </div>
+
         {/* Topbar with Public Storefront switcher */}
         <Topbar
           currentModule={currentModule}

@@ -41,10 +41,11 @@ export class ReportService {
    * Zero-shape returned when the DB is empty or aggregation fails.
    * Guarantees 200 with zeros instead of 500. Never throws.
    */
-  static emptyAnalytics(range = 'today') {
+  static emptyAnalytics(range = 'today', branchId = 'all') {
     const safeRange = VALID_RANGES.includes(range) ? range : 'today';
     return {
       range: safeRange,
+      branchId: branchId || 'all',
       totalRevenue: 0,
       totalOrders: 0,
       aov: 0,
@@ -77,6 +78,12 @@ export class ReportService {
       },
       qrOrdersByTable: [],
       topQrProducts: [],
+      // Delivery analytics
+      deliverySales: 0,
+      deliveryOrdersCount: 0,
+      deliveryAov: 0,
+      activeDeliveries: 0,
+      deliveryByRider: [],
       // Dashboard snapshots (range-independent)
       lowStock: [],
       tableOccupancy: {
@@ -97,21 +104,30 @@ export class ReportService {
    *
    * @param {{ range?: 'today'|'week'|'month' }} opts
    */
-  static getFinancialAnalytics({ range = 'today' } = {}) {
+  static getFinancialAnalytics({ range = 'today', branchId = 'all' } = {}) {
     const safeRange = VALID_RANGES.includes(range) ? range : 'today';
+    const branch = branchId && branchId !== 'all' ? branchId : null;
     try {
       const cutoff = resolveCutoff(safeRange);
       const cutoffMs = cutoff.getTime();
       const cutoffDateStr = toDateStr(cutoff);
 
-      // ---- Orders (completed, in range) ----
+      // ---- Orders (completed + delivered, in range, optionally branch-scoped) ----
+      // Delivered = the delivery leg's revenue terminal, counted alongside completed.
       let allCompleted = [];
       let allOrders = [];
       try {
-        allCompleted = OrderModel.findAll({ status: 'Completed', limit: 10000 }) || [];
+        const done = OrderModel.findAll({ status: 'Completed', branchId: branch || 'all', limit: 10000 }) || [];
+        const dlvd = OrderModel.findAll({ status: 'Delivered', branchId: branch || 'all', limit: 10000 }) || [];
+        const seen = new Set();
+        allCompleted = [...done, ...dlvd].filter((o) => {
+          if (!o || seen.has(o.id)) return false;
+          seen.add(o.id);
+          return true;
+        });
       } catch (e) { allCompleted = []; }
       try {
-        allOrders = OrderModel.findAll({ limit: 10000 }) || [];
+        allOrders = OrderModel.findAll({ branchId: branch || 'all', limit: 10000 }) || [];
       } catch (e) { allOrders = allCompleted; }
 
       const inRange = (orderTime) => {
@@ -125,7 +141,7 @@ export class ReportService {
 
       // ---- Status snapshot (current state, all time; case-insensitive — DB stores lowercase) ----
       const statusOf = (o) => String(o.status || '').toLowerCase();
-      const ACTIVE_STATUSES = ['new', 'accepted', 'preparing', 'ready'];
+      const ACTIVE_STATUSES = ['new', 'placed', 'accepted', 'preparing', 'brewing', 'ready', 'out_for_delivery'];
       const pendingCount = allOrders.filter((o) => ACTIVE_STATUSES.includes(statusOf(o))).length;
       const cancelledCount = allOrders.filter((o) => statusOf(o) === 'cancelled').length;
 
@@ -253,6 +269,27 @@ export class ReportService {
         .sort((a, b) => b.quantity - a.quantity)
         .slice(0, 10);
 
+      // ---- Delivery analytics (delivery order_type within completed set + active leg) ----
+      let deliverySales = 0; let deliveryOrdersCount = 0; let activeDeliveries = 0;
+      const riderMap = {};
+      completedOrders.forEach((o) => {
+        if (String(o.orderType || '').toLowerCase() !== 'delivery') return;
+        const val = Number(o.grandTotal || 0);
+        deliverySales += val; deliveryOrdersCount++;
+        const rider = o.riderName || 'Unassigned';
+        if (!riderMap[rider]) riderMap[rider] = { rider, orders: 0, revenue: 0 };
+        riderMap[rider].orders++;
+        riderMap[rider].revenue += val;
+      });
+      activeDeliveries = allOrders.filter((o) =>
+        String(o.orderType || '').toLowerCase() === 'delivery' &&
+        ['placed', 'accepted', 'brewing', 'ready', 'out_for_delivery'].includes(statusOf(o))
+      ).length;
+      const deliveryAov = deliveryOrdersCount > 0 ? deliverySales / deliveryOrdersCount : 0;
+      const deliveryByRider = Object.values(riderMap)
+        .map((r) => ({ rider: r.rider, orders: r.orders, revenue: roundCurrency(r.revenue) }))
+        .sort((a, b) => b.revenue - a.revenue);
+
       // ---- Global product velocity ----
       const productMap = {};
       completedOrders.forEach((o) => {
@@ -288,10 +325,10 @@ export class ReportService {
           }));
       } catch (e) { lowStock = []; }
 
-      // ---- Table occupancy snapshot (range-independent) ----
+      // ---- Table occupancy snapshot (range-independent, branch-scoped when filtered) ----
       let tableOccupancy = { total: 0, available: 0, occupied: 0, reserved: 0, other: 0, occupancyRate: 0 };
       try {
-        const tables = TableModel.findAll() || [];
+        const tables = TableModel.findAll(branch ? { branchId: branch } : undefined) || [];
         const total = tables.length;
         const occupied = tables.filter((t) => t.status === 'Occupied').length;
         const available = tables.filter((t) => t.status === 'Available').length;
@@ -307,14 +344,15 @@ export class ReportService {
         };
       } catch (e) { /* keep zeros */ }
 
-      // ---- Recent orders (latest 5, any status) ----
+      // ---- Recent orders (latest 5, any status, branch-scoped when filtered) ----
       let recentOrders = [];
       try {
-        recentOrders = OrderModel.findAll({ limit: 5 }) || [];
+        recentOrders = OrderModel.findAll({ branchId: branch || 'all', limit: 5 }) || [];
       } catch (e) { recentOrders = []; }
 
       return {
         range: safeRange,
+        branchId: branch || 'all',
         totalRevenue: roundCurrency(totalRevenue),
         totalOrders: completedOrders.length,
         aov: roundCurrency(aov),
@@ -345,6 +383,11 @@ export class ReportService {
         },
         qrOrdersByTable,
         topQrProducts,
+        deliverySales: roundCurrency(deliverySales),
+        deliveryOrdersCount,
+        deliveryAov: roundCurrency(deliveryAov),
+        activeDeliveries,
+        deliveryByRider,
         lowStock,
         tableOccupancy,
         recentOrders

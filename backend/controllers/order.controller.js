@@ -5,13 +5,15 @@ import { ApiError } from '../utils/ApiError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
 export const getOrders = asyncHandler(async (req, res) => {
-  const { status, type, source, search, date, limit, offset } = req.query;
+  const { status, type, source, search, date, branchId, deliveryStatus, limit, offset } = req.query;
   const orders = OrderModel.findAll({
     status,
     type,
     source,
     search,
     date,
+    branchId,
+    deliveryStatus,
     limit: limit ? Number(limit) : 100,
     offset: offset ? Number(offset) : 0
   });
@@ -29,6 +31,8 @@ export const trackOrder = asyncHandler(async (req, res) => {
   const { orderNumber } = req.params;
   const order = OrderModel.findByOrderNumber(orderNumber);
   if (!order) throw new ApiError(404, `Order "${orderNumber}" not found`);
+  const isDelivery = String(order.orderType || '').toLowerCase() === 'delivery';
+  const otpVisible = isDelivery && ['out_for_delivery', 'delivered'].includes(String(order.status || '').toLowerCase());
   return ApiResponse.success(res, {
     id: order.id,
     orderNumber: order.orderNumber,
@@ -36,6 +40,7 @@ export const trackOrder = asyncHandler(async (req, res) => {
     orderSource: order.orderSource,
     tableId: order.tableId,
     tableNumber: order.tableNumber,
+    branchId: order.branchId,
     status: order.status,
     orderTime: order.orderTime,
     customerName: order.customerName,
@@ -46,7 +51,17 @@ export const trackOrder = asyncHandler(async (req, res) => {
     grandTotal: order.grandTotal,
     kitchenAcceptedAt: order.kitchenAcceptedAt,
     kitchenReadyAt: order.kitchenReadyAt,
-    completedAt: order.completedAt
+    completedAt: order.completedAt,
+    // Delivery leg (address + rider always visible; OTP only after dispatch)
+    deliveryAddress: order.deliveryAddress || '',
+    deliveryLandmark: order.deliveryLandmark || '',
+    deliveryInstructions: order.deliveryInstructions || '',
+    deliveryStatus: order.deliveryStatus || null,
+    riderName: order.riderName || '',
+    riderPhone: order.riderPhone || '',
+    deliveryOtp: otpVisible ? order.deliveryOtp : null,
+    outForDeliveryAt: order.outForDeliveryAt || null,
+    deliveredAt: order.deliveredAt || null
   });
 });
 
@@ -68,4 +83,19 @@ export const refundOrder = asyncHandler(async (req, res) => {
   const { reason } = req.body || {};
   const updated = OrderService.refundOrder(id, reason || 'Refund via Orders dashboard', req.ip || '127.0.0.1');
   return ApiResponse.success(res, updated, `Order ${updated.orderNumber} refunded`);
+});
+
+export const assignRider = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { riderName, riderPhone, riderId } = req.body || {};
+  const updated = OrderService.assignRider(id, { riderName, riderPhone, riderId }, req.ip || '127.0.0.1');
+  return ApiResponse.success(res, updated, `Rider assigned to order ${updated.orderNumber}`);
+});
+
+export const verifyDelivery = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { otp } = req.body || {};
+  if (!otp) throw new ApiError(400, 'Handover OTP is required');
+  const updated = OrderService.verifyDeliveryOtp(id, otp, req.ip || '127.0.0.1');
+  return ApiResponse.success(res, updated, `Order ${updated.orderNumber} delivered`);
 });

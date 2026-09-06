@@ -78,6 +78,19 @@ export function CafeProvider({ children }) {
   const [orders, setOrders] = useState(() => dbService.get(DB_KEYS.ORDERS, initialOrders));
   const [auditLogs, setAuditLogs] = useState(() => dbService.get(DB_KEYS.AUDIT_LOGS, initialAuditLogs));
   const [notifications, setNotifications] = useState(() => dbService.get(DB_KEYS.NOTIFICATIONS, initialNotifications));
+  // Multi-branch: outlet registry + admin's active scope ('all' = every outlet)
+  const [branches, setBranches] = useState([]);
+  const [activeBranchId, setActiveBranchId] = useState(() => {
+    try {
+      return localStorage.getItem('petuk_active_branch_v1') || 'all';
+    } catch { return 'all'; }
+  });
+
+  const switchBranch = useCallback((branchId) => {
+    const next = branchId || 'all';
+    setActiveBranchId(next);
+    try { localStorage.setItem('petuk_active_branch_v1', next); } catch { /* private mode */ }
+  }, []);
 
   // Sync to database
   useEffect(() => { dbService.set(DB_KEYS.SETTINGS, settings); }, [settings]);
@@ -117,7 +130,8 @@ export function CafeProvider({ children }) {
           fetchedStaff,
           fetchedNotifs,
           fetchedLogs,
-          fetchedSettings
+          fetchedSettings,
+          fetchedBranches
         ] = await Promise.all([
           api.getProducts().catch(() => null),
           api.getCategories().catch(() => null),
@@ -134,7 +148,8 @@ export function CafeProvider({ children }) {
           api.getStaff().catch(() => null),
           api.getNotifications().catch(() => null),
           api.getAuditLogs().catch(() => null),
-          api.getSettings().catch(() => null)
+          api.getSettings().catch(() => null),
+          api.getBranches().catch(() => null)
         ]);
 
         if (fetchedProducts && fetchedProducts.length > 0) setProducts(fetchedProducts);
@@ -155,6 +170,7 @@ export function CafeProvider({ children }) {
         if (fetchedNotifs && fetchedNotifs.length > 0) setNotifications(fetchedNotifs);
         if (fetchedLogs && fetchedLogs.length > 0) setAuditLogs(fetchedLogs);
         if (fetchedSettings && Object.keys(fetchedSettings).length > 0) setSettings((prev) => ({ ...prev, ...fetchedSettings }));
+        if (fetchedBranches && fetchedBranches.length > 0) setBranches(fetchedBranches);
       } catch (err) {
         console.warn('Using cached offline data fallback:', err);
       }
@@ -195,6 +211,18 @@ export function CafeProvider({ children }) {
           if (prev.some((n) => n.id === event.data.id)) return prev;
           return [event.data, ...prev];
         });
+      } else if (event.type === 'RIDER_ASSIGNED' || event.type === 'DELIVERY_OUT') {
+        setOrders((prev) =>
+          prev.map((o) =>
+            o.id === event.data.id ? { ...o, ...event.data, status: normalizeOrderStatus(event.data.status || o.status) } : o
+          )
+        );
+      } else if (event.type === 'BRANCH_CREATED') {
+        setBranches((prev) => (prev.some((b) => b.id === event.data.id) ? prev : [...prev, event.data]));
+      } else if (event.type === 'BRANCH_UPDATED') {
+        setBranches((prev) => prev.map((b) => (b.id === event.data.id ? { ...b, ...event.data } : b)));
+      } else if (event.type === 'BRANCH_DELETED') {
+        setBranches((prev) => prev.filter((b) => b.id !== event.data.id));
       }
     });
 
@@ -240,6 +268,7 @@ export function CafeProvider({ children }) {
       id: `ord-${Date.now()}`,
       orderNumber: invoiceNum,
       orderType: orderData.orderType || 'dine-in',
+      branchId: orderData.branchId || (activeBranchId !== 'all' ? activeBranchId : 'br-main'),
       tableNumber: orderData.tableNumber || null,
       tableId: orderData.tableId || null,
       customerId: orderData.customerId || null,
@@ -251,6 +280,17 @@ export function CafeProvider({ children }) {
       brewingStartedAt: null,
       kitchenReadyAt: null,
       completedAt: null,
+      // Delivery leg (delivery orders only)
+      deliveryAddress: orderData.deliveryAddress || '',
+      deliveryLandmark: orderData.deliveryLandmark || '',
+      deliveryInstructions: orderData.deliveryInstructions || '',
+      riderId: orderData.riderId || null,
+      riderName: orderData.riderName || '',
+      riderPhone: orderData.riderPhone || '',
+      deliveryOtp: null,
+      deliveryStatus: (orderData.orderType || '').toLowerCase() === 'delivery' ? 'preparing' : null,
+      outForDeliveryAt: null,
+      deliveredAt: null,
       items: orderData.items || [],
       subtotal: Number((orderData.subtotal || 0).toFixed(2)),
       discountAmount: Number((orderData.discountAmount || 0).toFixed(2)),
@@ -310,11 +350,14 @@ export function CafeProvider({ children }) {
     }
 
     // 3. Notify Kitchen
+    const isDeliveryNew = (newOrder.orderType || '').toLowerCase() === 'delivery';
     addToastNotification(
-      'New Order Received',
-      `Order #${newOrder.orderNumber} (${newOrder.orderType.toUpperCase()}) placed by ${newOrder.customerName}`,
+      isDeliveryNew ? 'New Delivery Order' : 'New Order Received',
+      isDeliveryNew
+        ? `Delivery order #${newOrder.orderNumber} to ${(newOrder.deliveryAddress || '').slice(0, 60)}`
+        : `Order #${newOrder.orderNumber} (${newOrder.orderType.toUpperCase()}) placed by ${newOrder.customerName}`,
       'order',
-      '/kitchen'
+      isDeliveryNew ? '/orders' : '/kitchen'
     );
 
     // 4. Log Audit
@@ -325,7 +368,7 @@ export function CafeProvider({ children }) {
     );
 
     return newOrder;
-  }, [settings, currentUser, addToastNotification, addAuditLog]);
+  }, [settings, currentUser, activeBranchId, addToastNotification, addAuditLog]);
 
   const updateOrderStatus = useCallback((orderId, newStatus) => {
     const targetOrder = orders.find((o) => o.id === orderId);
@@ -348,8 +391,27 @@ export function CafeProvider({ children }) {
         'success',
         '/orders'
       );
-    } else if (normalized === 'completed') {
-      updatedOrder.completedAt = now;
+    } else if (normalized === 'out_for_delivery') {
+      updatedOrder.outForDeliveryAt = now;
+      updatedOrder.deliveryStatus = 'out_for_delivery';
+      addToastNotification(
+        'Order Out for Delivery',
+        `Order #${targetOrder.orderNumber} dispatched${targetOrder.riderName ? ` with ${targetOrder.riderName}` : ''}.`,
+        'info',
+        '/orders'
+      );
+      addAuditLog(
+        'OUT_FOR_DELIVERY',
+        'Orders',
+        `Order #${targetOrder.orderNumber} dispatched for delivery.`
+      );
+    } else if (normalized === 'completed' || normalized === 'delivered') {
+      if (normalized === 'delivered') {
+        updatedOrder.deliveredAt = now;
+        updatedOrder.deliveryStatus = 'delivered';
+      } else {
+        updatedOrder.completedAt = now;
+      }
       updatedOrder.paymentStatus = 'Paid';
 
       // Cross-module updates upon completion:
@@ -427,9 +489,11 @@ export function CafeProvider({ children }) {
       }
 
       addAuditLog(
-        'COMPLETE_ORDER',
+        normalized === 'delivered' ? 'DELIVER_ORDER' : 'COMPLETE_ORDER',
         'Orders',
-        `Completed order #${targetOrder.orderNumber}, recorded payment ₹${targetOrder.grandTotal}, deducted inventory, awarded loyalty.`
+        normalized === 'delivered'
+          ? `Delivered order #${targetOrder.orderNumber}, recorded payment ₹${targetOrder.grandTotal}, deducted inventory, awarded loyalty.`
+          : `Completed order #${targetOrder.orderNumber}, recorded payment ₹${targetOrder.grandTotal}, deducted inventory, awarded loyalty.`
       );
     }
 
@@ -481,6 +545,61 @@ export function CafeProvider({ children }) {
     addAuditLog('REFUND_ORDER', 'Orders', `Refunded order ID ${orderId}. Reason: ${reason}`);
     addToastNotification('Order Refunded', `Order #${orderId} has been refunded.`, 'warning', '/orders');
   }, [addAuditLog, addToastNotification]);
+
+  // -------------------------------------------------------------
+  // DELIVERY LEG (rider assignment + OTP handover)
+  // -------------------------------------------------------------
+  const assignRider = useCallback(async (orderId, { riderName, riderPhone, riderId } = {}) => {
+    const updated = await api.assignRider(orderId, { riderName, riderPhone, riderId });
+    const record = updated && (updated.data || updated);
+    if (record && record.id) {
+      setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...record, status: normalizeOrderStatus(record.status) } : o)));
+    } else {
+      setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, riderName, riderPhone } : o)));
+    }
+    addAuditLog('ASSIGN_RIDER', 'Orders', `Assigned rider ${riderName} to order ID ${orderId}`);
+    addToastNotification('Rider Assigned', `${riderName} will deliver order #${orderId}.`, 'info', '/orders');
+    return record || updated;
+  }, [addAuditLog, addToastNotification]);
+
+  const verifyDeliveryOtp = useCallback(async (orderId, otp) => {
+    const updated = await api.verifyDelivery(orderId, otp);
+    const record = updated && (updated.data || updated);
+    if (record && record.id) {
+      setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...record, status: normalizeOrderStatus(record.status) } : o)));
+    }
+    addAuditLog('DELIVER_ORDER', 'Orders', `OTP verified — delivered order ID ${orderId}`);
+    addToastNotification('Order Delivered', `Order #${orderId} delivered. OTP verified.`, 'success', '/orders');
+    return record || updated;
+  }, [addAuditLog, addToastNotification]);
+
+  // -------------------------------------------------------------
+  // BRANCHES (multi-outlet)
+  // -------------------------------------------------------------
+  const addBranch = useCallback(async (branchData) => {
+    const created = await api.createBranch(branchData);
+    const record = created && (created.data || created);
+    if (record && record.id) setBranches((prev) => [...prev, record]);
+    else await api.getBranches().then((list) => { if (Array.isArray(list)) setBranches(list); }).catch(() => {});
+    addAuditLog('CREATE_BRANCH', 'Branches', `Opened branch ${branchData.name}`);
+    addToastNotification('Branch Added', `${branchData.name} is now live.`, 'success', '/settings');
+    return record || created;
+  }, [addAuditLog, addToastNotification]);
+
+  const updateBranch = useCallback(async (branchId, patch) => {
+    const updated = await api.updateBranch(branchId, patch);
+    const record = updated && (updated.data || updated);
+    if (record && record.id) setBranches((prev) => prev.map((b) => (b.id === branchId ? { ...b, ...record } : b)));
+    addAuditLog('UPDATE_BRANCH', 'Branches', `Updated branch ID ${branchId}`);
+    return record || updated;
+  }, [addAuditLog]);
+
+  const deleteBranch = useCallback(async (branchId) => {
+    await api.deleteBranch(branchId);
+    setBranches((prev) => prev.filter((b) => b.id !== branchId));
+    if (activeBranchId === branchId) switchBranch('all');
+    addAuditLog('DELETE_BRANCH', 'Branches', `Closed branch ID ${branchId}`);
+  }, [addAuditLog, activeBranchId, switchBranch]);
 
   // -------------------------------------------------------------
   // MENU & PRODUCTS
@@ -1089,12 +1208,20 @@ export function CafeProvider({ children }) {
         orders,
         auditLogs,
         notifications,
+        branches,
+        activeBranchId,
 
         // Actions
         createOrder,
         updateOrderStatus,
         cancelOrder,
         refundOrder,
+        assignRider,
+        verifyDeliveryOtp,
+        addBranch,
+        updateBranch,
+        deleteBranch,
+        switchBranch,
         addProduct,
         updateProduct,
         deleteProduct,

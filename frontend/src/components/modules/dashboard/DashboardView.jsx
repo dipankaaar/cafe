@@ -67,7 +67,7 @@ function statusVariant(status) {
  * Fallback:       CafeContext offline cache when the API is unreachable.
  */
 export default function DashboardView({ onNavigate }) {
-  const { orders: ctxOrders, inventory: ctxInventory, tables: ctxTables, reservations } = useCafe();
+  const { orders: ctxOrders, inventory: ctxInventory, tables: ctxTables, reservations, branches, activeBranchId, switchBranch } = useCafe();
   const [range, setRange] = useState('today');
   const [analytics, setAnalytics] = useState(null);
   const [recentOrders, setRecentOrders] = useState([]);
@@ -90,7 +90,8 @@ export default function DashboardView({ onNavigate }) {
       const ms = new Date(t).getTime();
       return Number.isNaN(ms) ? true : ms >= cutoff.getTime();
     };
-    const completed = (ctxOrders || []).filter((o) => String(o.status || '').toLowerCase() === 'completed' && inRange(o.orderTime));
+    const completed = (ctxOrders || []).filter((o) => ['completed', 'delivered'].includes(String(o.status || '').toLowerCase()) &&
+inRange(o.orderTime));
     const revenue = completed.reduce((s, o) => s + Number(o.grandTotal || 0), 0);
     const buckets = {};
     completed.forEach((o) => {
@@ -134,7 +135,7 @@ export default function DashboardView({ onNavigate }) {
       aov: completed.length ? revenue / completed.length : 0,
       totalExpenses: 0,
       netProfit: revenue,
-      pendingCount: (ctxOrders || []).filter((o) => ['new', 'accepted', 'preparing', 'ready'].includes(String(o.status || '').toLowerCase())).length,
+      pendingCount: (ctxOrders || []).filter((o) => ['new', 'placed', 'accepted', 'preparing', 'brewing', 'ready', 'out_for_delivery'].includes(String(o.status || '').toLowerCase())).length,
       hourlySales: Object.values(buckets).map((b) => ({ ...b, revenue: Number(b.revenue.toFixed(2)) })),
       categorySplit: Object.values(catMap).sort((a, b) => b.value - a.value),
       topProducts: Object.values(prodMap).sort((a, b) => b.revenue - a.revenue),
@@ -155,8 +156,8 @@ export default function DashboardView({ onNavigate }) {
     else setRefreshing(true);
     try {
       const [analyticsRes, ordersRes] = await Promise.all([
-        api.getAnalytics(range),
-        api.getOrders({ limit: 5 }).catch(() => null)
+        api.getAnalytics(range, activeBranchId),
+        api.getOrders({ limit: 5, ...(activeBranchId && activeBranchId !== 'all' ? { branchId: activeBranchId } : {}) }).catch(() => null)
       ]);
       // ApiResponse.success returns the raw payload (no {data} envelope)
       const payload = analyticsRes && analyticsRes.data !== undefined ? analyticsRes.data : analyticsRes;
@@ -179,7 +180,7 @@ export default function DashboardView({ onNavigate }) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [range, buildFallback, ctxOrders]);
+  }, [range, activeBranchId, buildFallback, ctxOrders]);
 
   useEffect(() => {
     load(true);
@@ -289,6 +290,19 @@ export default function DashboardView({ onNavigate }) {
           <Button onClick={() => onNavigate('pos')} size="sm" icon={Plus} className="shadow-sm">
             Open POS
           </Button>
+          {branches.length > 0 && (
+            <select
+              value={activeBranchId}
+              onChange={(e) => switchBranch(e.target.value)}
+              title="Dashboard branch scope"
+              className="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg px-3 py-1.5 text-xs text-gray-900 dark:text-white outline-none"
+            >
+              <option value="all">All Branches</option>
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </select>
+          )}
           <div className="flex items-center bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-1 text-xs">
             {RANGE_OPTIONS.map((t) => (
               <button

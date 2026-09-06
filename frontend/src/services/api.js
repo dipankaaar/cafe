@@ -205,13 +205,29 @@ class ApiService {
     });
   }
 
+  // Delivery leg: rider assignment + OTP handover verification
+  assignRider(id, { riderName, riderPhone, riderId } = {}) {
+    return this.request(`/orders/${id}/assign-rider`, {
+      method: 'PATCH',
+      body: JSON.stringify({ riderName, riderPhone, riderId })
+    });
+  }
+
+  verifyDelivery(id, otp) {
+    return this.request(`/orders/${id}/verify-delivery`, {
+      method: 'POST',
+      body: JSON.stringify({ otp })
+    });
+  }
+
   trackOrder(orderNumber) {
     return this.request(`/orders/track/${encodeURIComponent(orderNumber)}`);
   }
 
   // --- Tables & Reservations ---
-  getTables() {
-    return this.request('/tables');
+  getTables(branchId = 'all') {
+    const q = branchId && branchId !== 'all' ? `?branchId=${encodeURIComponent(branchId)}` : '';
+    return this.request(`/tables${q}`);
   }
 
   updateTableStatus(id, status, customerName = null, currentOrderId = null) {
@@ -481,9 +497,10 @@ class ApiService {
     });
   }
 
-  getAnalytics(range = 'today') {
+  getAnalytics(range = 'today', branchId = 'all') {
     const safe = ['today', 'week', 'month'].includes(range) ? range : 'today';
-    return this.request(`/reports/analytics?range=${safe}`);
+    const branch = branchId && branchId !== 'all' ? `&branchId=${encodeURIComponent(branchId)}` : '';
+    return this.request(`/reports/analytics?range=${safe}${branch}`);
   }
 
   getRecentOrders(limit = 5) {
@@ -536,6 +553,35 @@ class ApiService {
     return this.request('/settings', {
       method: 'PUT',
       body: JSON.stringify(settingsData)
+    });
+  }
+
+  checkHealth() {
+    return this.request('/health');
+  }
+
+  // --- Branches (multi-outlet) ---
+  getBranches() {
+    return this.request('/branches');
+  }
+
+  createBranch(branchData) {
+    return this.request('/branches', {
+      method: 'POST',
+      body: JSON.stringify(branchData)
+    });
+  }
+
+  updateBranch(id, branchData) {
+    return this.request(`/branches/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(branchData)
+    });
+  }
+
+  deleteBranch(id) {
+    return this.request(`/branches/${id}`, {
+      method: 'DELETE'
     });
   }
 

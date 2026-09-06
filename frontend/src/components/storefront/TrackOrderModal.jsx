@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, CheckCircle2, X, AlertCircle, Loader2 } from 'lucide-react';
+import { Search, CheckCircle2, X, AlertCircle, Loader2, Bike, MapPin, KeyRound, Phone } from 'lucide-react';
 import { api } from '../../services/api';
 import Modal from '../common/Modal';
 import Badge from '../common/Badge';
 import Button from '../common/Button';
 import { formatINR } from '../../utils/formatters';
+import { normalizeOrderStatus, getStatusBadgeVariant } from '../../utils/orderStatus';
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -83,7 +84,7 @@ export default function TrackOrderModal({ isOpen, onClose }) {
       const current = trackedNumberRef.current;
       if (!current) return;
       const data = await fetchOrder(current, { silent: true });
-      if (data && ['Completed', 'Cancelled'].includes(data.status)) {
+      if (data && ['completed', 'delivered', 'cancelled', 'refunded'].includes(normalizeOrderStatus(data.status))) {
         stopLive();
         setLiveState('idle');
       }
@@ -100,7 +101,7 @@ export default function TrackOrderModal({ isOpen, onClose }) {
   }, [isOpen, stopLive]);
 
   useEffect(() => {
-    if (trackedOrder && ['Completed', 'Cancelled'].includes(trackedOrder.status)) {
+    if (trackedOrder && ['completed', 'delivered', 'cancelled', 'refunded'].includes(normalizeOrderStatus(trackedOrder.status))) {
       stopLive();
     }
   }, [trackedOrder, stopLive]);
@@ -119,28 +120,32 @@ export default function TrackOrderModal({ isOpen, onClose }) {
     onClose?.();
   };
 
-  const steps = [
-    { label: 'Order Placed', desc: 'Received at counter', statusKey: 'New' },
-    { label: 'Kitchen Accepted', desc: 'Order sent to chef', statusKey: 'Accepted' },
-    { label: 'Brewing / Cooking', desc: 'In active prep', statusKey: 'Preparing' },
-    { label: 'Ready to Serve', desc: 'Ready for table/pickup', statusKey: 'Ready' },
-    { label: 'Completed', desc: 'Order fulfilled', statusKey: 'Completed' }
-  ];
+  const normStatus = trackedOrder ? normalizeOrderStatus(trackedOrder.status) : 'placed';
+  const isDelivery = trackedOrder && String(trackedOrder.orderType || '').toLowerCase() === 'delivery';
 
-  const getStepIndex = (status) => {
-    switch (status) {
-      case 'New': return 0;
-      case 'Accepted': return 1;
-      case 'Preparing': return 2;
-      case 'Ready': return 3;
-      case 'Completed': return 4;
-      case 'Cancelled': return -1;
-      default: return 0;
-    }
-  };
+  // Canonical steps (fixes legacy-key mismatch) + delivery leg for delivery orders
+  const steps = isDelivery
+    ? [
+        { label: 'Order Placed', desc: 'Received at counter', statusKey: 'placed' },
+        { label: 'Kitchen Accepted', desc: 'Order sent to chef', statusKey: 'accepted' },
+        { label: 'Brewing / Cooking', desc: 'In active prep', statusKey: 'brewing' },
+        { label: 'Ready to Dispatch', desc: 'Packed for delivery', statusKey: 'ready' },
+        { label: 'Out for Delivery', desc: `${trackedOrder.riderName ? `Rider ${trackedOrder.riderName} is on the way` : 'Rider is on the way'}`, statusKey: 'out_for_delivery' },
+        { label: 'Delivered', desc: 'Enjoy your meal!', statusKey: 'delivered' }
+      ]
+    : [
+        { label: 'Order Placed', desc: 'Received at counter', statusKey: 'placed' },
+        { label: 'Kitchen Accepted', desc: 'Order sent to chef', statusKey: 'accepted' },
+        { label: 'Brewing / Cooking', desc: 'In active prep', statusKey: 'brewing' },
+        { label: 'Ready to Serve', desc: 'Ready for table/pickup', statusKey: 'ready' },
+        { label: 'Completed', desc: 'Order fulfilled', statusKey: 'completed' }
+      ];
+
+  const flowKeys = steps.map((s) => s.statusKey);
+  const getStepIndex = (status) => flowKeys.indexOf(normalizeOrderStatus(status));
 
   const currentStep = trackedOrder ? getStepIndex(trackedOrder.status) : 0;
-  const isTerminal = trackedOrder && ['Completed', 'Cancelled'].includes(trackedOrder.status);
+  const isTerminal = trackedOrder && ['completed', 'delivered', 'cancelled', 'refunded'].includes(normStatus);
 
   return (
     <Modal
@@ -220,26 +225,56 @@ export default function TrackOrderModal({ isOpen, onClose }) {
               </div>
               <Badge
                 size="lg"
-                variant={
-                  trackedOrder.status === 'Completed'
-                    ? 'success'
-                    : trackedOrder.status === 'Cancelled'
-                    ? 'error'
-                    : trackedOrder.status === 'Ready'
-                    ? 'primary'
-                    : trackedOrder.status === 'Preparing'
-                    ? 'warning'
-                    : 'info'
-                }
+                variant={getStatusBadgeVariant(trackedOrder.status)}
               >
-                {trackedOrder.status}
+                {normStatus === 'out_for_delivery' ? 'Out for Delivery' : normStatus.charAt(0).toUpperCase() + normStatus.slice(1)}
               </Badge>
             </div>
 
-            {trackedOrder.status === 'Cancelled' ? (
+            {/* Delivery leg card: address + rider + handover OTP */}
+            {isDelivery && normStatus !== 'cancelled' && normStatus !== 'refunded' && (
+              <div className="p-4 rounded-xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-900/50 space-y-2.5 text-xs">
+                <div className="flex items-start gap-2">
+                  <MapPin className="w-4 h-4 text-sky-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold text-gray-900 dark:text-white">Delivering to</p>
+                    <p className="text-gray-600 dark:text-gray-300">{trackedOrder.deliveryAddress || '—'}{trackedOrder.deliveryLandmark ? ` • ${trackedOrder.deliveryLandmark}` : ''}</p>
+                  </div>
+                </div>
+                {(trackedOrder.riderName || normStatus === 'out_for_delivery' || normStatus === 'delivered') && (
+                  <div className="flex items-start gap-2">
+                    <Bike className="w-4 h-4 text-sky-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-gray-900 dark:text-white">Your rider</p>
+                      <p className="text-gray-600 dark:text-gray-300 flex items-center gap-1.5">
+                        {trackedOrder.riderName || 'Assigning…'}
+                        {trackedOrder.riderPhone && (
+                          <span className="inline-flex items-center gap-1 text-sky-700 dark:text-sky-300 font-semibold">
+                            <Phone className="w-3 h-3" /> {trackedOrder.riderPhone}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {trackedOrder.deliveryOtp && (normStatus === 'out_for_delivery' || normStatus === 'delivered') && (
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-white dark:bg-gray-900 border border-dashed border-sky-300 dark:border-sky-700">
+                    <KeyRound className="w-4 h-4 text-[#DD5903] flex-shrink-0" />
+                    <p className="text-gray-700 dark:text-gray-200">
+                      Handover OTP: <span className="font-mono font-bold text-base tracking-[0.3em] text-[#DD5903]">{trackedOrder.deliveryOtp}</span>
+                    </p>
+                  </div>
+                )}
+                {normStatus === 'out_for_delivery' && (
+                  <p className="text-[11px] text-gray-500">Share this OTP with the rider at your doorstep — the order completes only after OTP verification.</p>
+                )}
+              </div>
+            )}
+
+            {['cancelled', 'refunded'].includes(normStatus) ? (
               <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-xs text-gray-600 dark:text-gray-300 flex items-start gap-2">
                 <X className="w-4 h-4 text-rose-500 flex-shrink-0 mt-0.5" />
-                <span>This order was cancelled. Please contact the cafe counter for assistance or place a fresh order.</span>
+                <span>This order was {normStatus}. Please contact the cafe counter for assistance or place a fresh order.</span>
               </div>
             ) : (
               <div className="py-2">
