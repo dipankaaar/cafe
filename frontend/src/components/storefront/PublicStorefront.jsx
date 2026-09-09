@@ -2,8 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Navbar from './Navbar';
 import HeroBanner from './HeroBanner';
 import InfoBar from './InfoBar';
-import AboutSection from './AboutSection';
-import TestimonialsSection from './TestimonialsSection';
 import GallerySection from './GallerySection';
 import Footer from './Footer';
 import CartDrawer from './CartDrawer';
@@ -193,10 +191,6 @@ export default function PublicStorefront({ onNavigate, onNavigateToAdmin, onNavi
           onOpenQrScanner={() => (onNavigate ? onNavigate('/scan-table') : setIsQrScannerOpen(true))}
         />
         <InfoBar />
-        <AboutSection
-          onOpenReservation={() => (onNavigate ? onNavigate('/find-table') : setIsReservationOpen(true))}
-        />
-        <TestimonialsSection />
         <GallerySection />
       </main>
 
