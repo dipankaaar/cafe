@@ -3,11 +3,15 @@ import {
   LayoutDashboard,
   ShoppingBag,
   CreditCard,
+  ChefHat,
   UtensilsCrossed,
   Grid,
   CalendarDays,
   Users,
+  Award,
   Tag,
+  Boxes,
+  Receipt,
   UserCog,
   BarChart3,
   Bell,
@@ -22,6 +26,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useCafe } from '../../context/CafeContext';
+import { normalizeOrderStatus } from '../../utils/orderStatus';
+import logoImg from '../../assets/logo.jpg';
 
 export default function Sidebar({
   currentModule,
@@ -30,24 +36,26 @@ export default function Sidebar({
   onCloseMobile
 }) {
   const { role, hasPermission, currentUser, logout } = useAuth();
-  const { orders, notifications, reservations } = useCafe();
+  const { orders, inventory, notifications, reservations } = useCafe();
 
   const [expandedMenus, setExpandedMenus] = useState({
     orders: true,
-    menu: false
+    menu: false,
+    inventory: false
   });
 
   const toggleExpand = (key) => {
     setExpandedMenus((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // Badge calculations (normalization-safe: legacy + canonical statuses both match)
-  const norm = (s) => String(s || '').trim().toLowerCase();
-  const normActive = (s) => {
-    const n = norm(s);
-    return n === 'placed' || n === 'new' ? 'placed' : n === 'preparing' ? 'brewing' : n;
-  };
-  const pendingOrdersCount = orders.filter((o) => ['placed', 'accepted', 'brewing', 'ready', 'out_for_delivery'].includes(normActive(o.status))).length;
+  // Badge calculations (normalization-safe)
+  const pendingOrdersCount = orders.filter((o) =>
+    ['placed', 'accepted', 'brewing'].includes(normalizeOrderStatus(o.status))
+  ).length;
+  const kitchenOrdersCount = orders.filter((o) =>
+    ['accepted', 'brewing'].includes(normalizeOrderStatus(o.status))
+  ).length;
+  const lowStockCount = inventory.filter((i) => i.status === 'Low Stock').length;
   const unreadNotifsCount = notifications.filter((n) => !n.isRead).length;
   const todayPendingReservations = reservations.filter((r) => r.status === 'Pending').length;
 
@@ -67,11 +75,10 @@ export default function Sidebar({
       badgeColor: 'bg-[#DD5903]',
       subItems: [
         { key: 'orders-all', label: 'All Orders', filter: 'all' },
-        { key: 'orders-new', label: 'New Orders', filter: 'placed' },
-        { key: 'orders-preparing', label: 'Brewing', filter: 'brewing' },
-        { key: 'orders-ready', label: 'Ready', filter: 'ready' },
-        { key: 'orders-delivery', label: 'Delivery', filter: 'delivery-type' },
-        { key: 'orders-completed', label: 'Completed', filter: 'completed' }
+        { key: 'orders-new', label: 'New Orders', filter: 'New' },
+        { key: 'orders-preparing', label: 'Preparing', filter: 'Preparing' },
+        { key: 'orders-ready', label: 'Ready', filter: 'Ready' },
+        { key: 'orders-completed', label: 'Completed', filter: 'Completed' }
       ]
     },
     {
@@ -83,11 +90,12 @@ export default function Sidebar({
     },
     {
       key: 'menu',
-      label: 'Menu',
+      label: 'Menu Management',
       icon: UtensilsCrossed,
       permission: 'menu',
       subItems: [
-        { key: 'menu-products', label: 'Products' },
+        { key: 'menu-table', label: 'Table Menu' },
+        { key: 'menu-online', label: 'Online Menu' },
         { key: 'menu-categories', label: 'Categories' },
         { key: 'menu-addons', label: 'Variants & Add-ons' }
       ]
@@ -186,14 +194,14 @@ export default function Sidebar({
         <div>
           <div className="h-16 px-5 border-b border-gray-800/80 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-[#DD5903] text-white flex items-center justify-center font-bold text-lg shadow-md shadow-orange-950/40">
-                <Coffee className="w-5 h-5" />
+              <div className="w-9 h-9 rounded-full bg-black text-white flex items-center justify-center overflow-hidden border-2 border-amber-500/40 shadow-md shadow-orange-950/40 flex-shrink-0">
+                <img src={logoImg} alt="Petuk Adda" className="w-full h-full object-cover" />
               </div>
               <div>
                 <h1 className="text-sm font-bold text-white tracking-tight flex items-center gap-1.5 font-[Inter,'Plus_Jakarta_Sans',sans-serif]">
-                  PETUK ADDA CAFE <span className="text-[10px] bg-[#DD5903]/20 text-[#DD5903] font-mono px-1.5 py-0.5 rounded border border-[#DD5903]/30">ADMIN</span>
+                  PETUK ADDA <span className="text-[10px] bg-[#DD5903]/20 text-[#DD5903] font-mono px-1.5 py-0.5 rounded border border-[#DD5903]/30">ADMIN</span>
                 </h1>
-                <p className="text-[10px] text-gray-400 font-medium">Cafe Management Suite</p>
+                <p className="text-[10px] text-gray-400 font-medium">Restaurant & Cafe Suite</p>
               </div>
             </div>
 

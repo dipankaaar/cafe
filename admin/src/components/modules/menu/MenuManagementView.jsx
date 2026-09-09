@@ -132,17 +132,17 @@ export default function MenuManagementView({ initialModule = 'menu' }) {
 
     return products
       .filter((p) => {
-        // Channel filter: strictly show items configured for this channel unless viewing inactive
+        // Channel filter: show all items by default so admin can manage/toggle, or filter by channel status
         if (activeTab === 'table') {
           if (statusFilter === 'channel_inactive') {
             if (isTableActive(p)) return false;
-          } else {
+          } else if (statusFilter === 'channel_active') {
             if (!isTableActive(p)) return false;
           }
         } else if (activeTab === 'online') {
           if (statusFilter === 'channel_inactive') {
             if (isOnlineActive(p)) return false;
-          } else {
+          } else if (statusFilter === 'channel_active') {
             if (!isOnlineActive(p)) return false;
           }
         }
@@ -531,7 +531,9 @@ export default function MenuManagementView({ initialModule = 'menu' }) {
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-gray-900 dark:text-white outline-none"
               >
-                <option value="all">All Status</option>
+                <option value="all">All Items (Active + Inactive)</option>
+                <option value="channel_active">{activeTab === 'table' ? 'Table Active Only' : 'Online Active Only'}</option>
+                <option value="channel_inactive">{activeTab === 'table' ? 'Table Inactive Only' : 'Online Inactive Only'}</option>
                 <option value="available">In Stock Only</option>
                 <option value="unavailable">Out of Stock Only</option>
               </select>
