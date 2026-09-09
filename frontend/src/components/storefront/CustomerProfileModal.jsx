@@ -107,8 +107,8 @@ export default function CustomerProfileModal({
     if (!custPhone) return;
     try {
       const cleanPhone = custPhone.replace(/\D/g, '').slice(-10);
-      const res = await api.lookupCustomer(cleanPhone);
-      if (res?.data || res?.id) {
+      const res = await api.lookupCustomer(cleanPhone).catch(() => null);
+      if (res && (res.data || res.id)) {
         const full = res.data || res;
         // Keep saved address if present in session
         const prevSession = (() => {
@@ -118,8 +118,8 @@ export default function CustomerProfileModal({
         setCustomer(merged);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
       }
-    } catch (e) {
-      console.warn('Could not refresh customer live profile:', e);
+    } catch {
+      // quiet fallback when customer not yet registered
     }
   }, []);
 

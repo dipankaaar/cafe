@@ -41,7 +41,9 @@ export const getCustomerByPhone = asyncHandler(async (req, res) => {
   const { phone } = req.query;
   if (!phone) throw new ApiError(400, 'Phone number is required');
   const customer = CustomerModel.findByPhone(phone);
-  if (!customer) throw new ApiError(404, 'Customer not found');
+  if (!customer) {
+    return ApiResponse.success(res, null, 'Customer not found');
+  }
   return ApiResponse.success(res, customer);
 });
 
