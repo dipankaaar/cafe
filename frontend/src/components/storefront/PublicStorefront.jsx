@@ -3,7 +3,6 @@ import Navbar from './Navbar';
 import HeroBanner from './HeroBanner';
 import InfoBar from './InfoBar';
 import AboutSection from './AboutSection';
-import CoffeeMenuSection from './CoffeeMenuSection';
 import TestimonialsSection from './TestimonialsSection';
 import GallerySection from './GallerySection';
 import Footer from './Footer';
