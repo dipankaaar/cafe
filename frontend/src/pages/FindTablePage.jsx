@@ -42,6 +42,7 @@ export default function FindTablePage({ onNavigate }) {
   // Confirmation state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmedBooking, setConfirmedBooking] = useState(null);
+  const [formError, setFormError] = useState('');
 
   // Filter Tables
   const filteredTables = useMemo(() => {
@@ -58,9 +59,10 @@ export default function FindTablePage({ onNavigate }) {
   // Handle Table Selection
   const handleSelectTable = (table) => {
     if (table.status === 'Occupied') {
-      alert(`Table ${table.tableNumber} is currently occupied by dining guests. Please select an Available table.`);
+      setFormError(`Table ${table.tableNumber} is currently occupied. Please select an Available table.`);
       return;
     }
+    setFormError('');
     setSelectedTable(table);
     setGuestCount(Math.min(table.capacity, Math.max(1, guestCount)));
   };
@@ -68,16 +70,17 @@ export default function FindTablePage({ onNavigate }) {
   // Submit Reservation
   const handleReservationSubmit = (e) => {
     e.preventDefault();
+    setFormError('');
     if (!selectedTable) {
-      alert('Please select an available dining table from the floor layout.');
+      setFormError('Please select an available dining table from the floor layout.');
       return;
     }
     if (!customerName.trim()) {
-      alert('Please enter your full name.');
+      setFormError('Please enter your full name.');
       return;
     }
-    if (!customerPhone.trim() || customerPhone.trim().length < 10) {
-      alert('Please enter a valid 10-digit mobile number.');
+    if (!customerPhone.trim() || customerPhone.replace(/\D/g, '').length < 10) {
+      setFormError('Please enter a valid 10-digit mobile number.');
       return;
     }
 
@@ -108,7 +111,7 @@ export default function FindTablePage({ onNavigate }) {
       });
 
     } catch (err) {
-      alert('Reservation could not be processed: ' + err.message);
+      setFormError('Reservation could not be processed: ' + (err.message || 'please try again.'));
     } finally {
       setIsSubmitting(false);
     }

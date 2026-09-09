@@ -841,7 +841,7 @@ export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
 
       {/* ================= STICKY BOTTOM CART BAR ================= */}
       {totalCartItemCount > 0 && (
-        <div className="fixed bottom-4 left-4 right-4 max-w-lg mx-auto z-40 animate-in slide-in-from-bottom duration-300">
+        <div className="fixed bottom-4 left-4 right-4 max-w-lg mx-auto z-40 mb-safe animate-in slide-in-from-bottom duration-300">
           <button
             onClick={() => setIsCartOpen(true)}
             className="w-full bg-gradient-to-r from-[#DD5903] to-[#e66c1f] hover:from-[#c44e02] hover:to-[#DD5903] text-white p-3.5 px-5 rounded-2xl shadow-2xl flex items-center justify-between font-bold text-sm transition-transform active:scale-98 cursor-pointer border border-white/20"

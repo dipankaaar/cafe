@@ -968,7 +968,7 @@ export default function OrderOnlinePage({ onNavigate }) {
 
       {/* ================= MOBILE STICKY BOTTOM CART BAR & SLIDE-UP DRAWER ================= */}
       {totalCartCount > 0 && !isMobileCartOpen && (
-        <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[#181818] border-t border-white/15 p-3.5 flex items-center justify-between shadow-2xl animate-slideUp">
+        <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[#181818] border-t border-white/15 p-3.5 pb-safe flex items-center justify-between shadow-2xl animate-slideUp">
           <div>
             <div className="flex items-center gap-2">
               <span className="px-2 py-0.5 bg-[#DD5903] text-white text-xs font-bold rounded-full">
