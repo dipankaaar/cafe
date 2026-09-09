@@ -374,6 +374,13 @@ export default function FindTablePage({ onNavigate }) {
             </div>
 
             <form onSubmit={handleReservationSubmit} className="space-y-4 text-xs">
+
+              {formError && (
+                <div role="alert" className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/40 text-rose-300 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <span>{formError}</span>
+                </div>
+              )}
               
               {/* Selected Table Summary Badge */}
               {selectedTable && (

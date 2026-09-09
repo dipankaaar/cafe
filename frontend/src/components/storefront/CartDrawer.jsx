@@ -164,8 +164,9 @@ export default function CartDrawer({
           customerPhone: customerPhone.trim(),
           deliveryAddress: orderType === 'delivery' ? deliveryAddress.trim() : null,
           paymentMethod,
-          couponCode: appliedCoupon ? appliedCoupon.code : null,
-          discountAmount,
+            couponCode: appliedCoupon ? appliedCoupon.code : null,
+            couponId: appliedCoupon ? (appliedCoupon.id || null) : null,
+            discountAmount,
           notes: orderNotes.trim() + (orderType === 'delivery' ? ` [Delivery to: ${deliveryAddress.trim()}]` : ' [Takeaway / Online Order]')
         });
       }

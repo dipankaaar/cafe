@@ -74,6 +74,7 @@ export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
   const [couponError, setCouponError] = useState('');
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const handleCheckInSubmit = (e) => {
     e.preventDefault();
@@ -286,7 +287,8 @@ export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
         })),
         subtotal: cartSubtotal,
         discountAmount: discountAmount,
-        couponCode: appliedCoupon ? appliedCoupon.couponCode : null,
+        couponCode: appliedCoupon ? (appliedCoupon.couponCode || appliedCoupon.coupon?.code || null) : null,
+        couponId: appliedCoupon ? (appliedCoupon.couponId || appliedCoupon.coupon?.id || null) : null,
         taxAmount: taxAmount,
         grandTotal: cartGrandTotal,
         paymentMethod: paymentMethod,
@@ -304,7 +306,7 @@ export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
       setAppliedCoupon(null);
       setCouponCode('');
     } catch (err) {
-      alert('Failed to place order: ' + err.message);
+      setSubmitError(err.message || 'Could not place order. Please try again.');
     } finally {
       setIsSubmittingOrder(false);
     }
@@ -1119,7 +1121,7 @@ export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
                 {couponError && <p className="text-[11px] text-red-400 mt-1">{couponError}</p>}
                 {appliedCoupon && (
                   <p className="text-[11px] text-emerald-400 mt-1 font-bold">
-                    ✓ Code {appliedCoupon.couponCode} applied! (-₹{appliedCoupon.discountAmount.toFixed(2)})
+                    ✓ Code {(appliedCoupon.couponCode || appliedCoupon.coupon?.code || '').toUpperCase()} applied! (-₹{appliedCoupon.discountAmount.toFixed(2)})
                   </p>
                 )}
               </div>
@@ -1195,9 +1197,16 @@ export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
                 🍽️ Your order will be sent directly to the kitchen for <strong>Table {tableInfo.tableNumber}</strong>.
               </div>
 
+              {submitError && (
+                <div role="alert" className="bg-rose-500/10 border border-rose-500/40 p-2.5 rounded-xl text-[11px] text-rose-300 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <span>{submitError}</span>
+                </div>
+              )}
+
               <button
                 type="button"
-                onClick={handlePlaceOrder}
+                onClick={() => { setSubmitError(''); handlePlaceOrder(); }}
                 disabled={isSubmittingOrder || cart.length === 0}
                 className="w-full py-3.5 bg-[#DD5903] hover:bg-[#c44e02] text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-xl transition-all cursor-pointer disabled:opacity-50"
               >
