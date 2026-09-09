@@ -84,11 +84,12 @@ export default function Sidebar({
     },
     {
       key: 'menu',
-      label: 'Menu',
+      label: 'Menu Management',
       icon: UtensilsCrossed,
       permission: 'menu',
       subItems: [
-        { key: 'menu-products', label: 'Products' },
+        { key: 'menu-table', label: 'Table Menu' },
+        { key: 'menu-online', label: 'Online Menu' },
         { key: 'menu-categories', label: 'Categories' },
         { key: 'menu-addons', label: 'Variants & Add-ons' }
       ]

@@ -27,7 +27,7 @@ import {
 import { useCafe } from '../../context/CafeContext';
 import { api } from '../../services/api';
 import { useSSE } from '../../hooks/useSSE';
-import { formatINR } from '../../utils/formatters';
+import { formatINR, getProductTablePrice, isProductTableEnabled } from '../../utils/formatters';
 
 export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
   const { products, categories, addons, cafeSettings, placeOrder } = useCafe();
@@ -165,7 +165,7 @@ export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
       const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                             (p.description && p.description.toLowerCase().includes(searchQuery.toLowerCase()));
       const matchesVeg = !vegOnly || p.isVeg;
-      return matchesCategory && matchesSearch && matchesVeg && p.isAvailable;
+      return matchesCategory && matchesSearch && matchesVeg && p.isAvailable && isProductTableEnabled(p);
     });
   }, [products, selectedCategory, searchQuery, vegOnly]);
 
@@ -194,7 +194,7 @@ export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
   const handleAddToCart = () => {
     if (!selectedProductForCustomization) return;
 
-    const basePrice = selectedProductForCustomization.sellingPrice || selectedProductForCustomization.price || 0;
+    const basePrice = getProductTablePrice(selectedProductForCustomization);
     const variantDelta = customVariant ? customVariant.priceDelta || 0 : 0;
     const addonsTotal = customAddons.reduce((sum, a) => sum + (a.price || 0), 0);
     const unitPrice = basePrice + variantDelta + addonsTotal;
@@ -776,7 +776,7 @@ export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {filteredProducts.map(product => {
-              const price = product.sellingPrice || product.price || 0;
+              const price = getProductTablePrice(product);
               const hasVariants = product.variants && product.variants.length > 1;
 
               return (
@@ -1012,7 +1012,7 @@ export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
                 <ShoppingBag className="w-4 h-4" />
                 <span>
                   Add to Table {tableInfo.tableNumber} (₹
-                  {(((selectedProductForCustomization.sellingPrice || 0) + (customVariant ? customVariant.priceDelta : 0) + customAddons.reduce((sum, a) => sum + (a.price || 0), 0)) * customQuantity).toFixed(2)}
+                  {(((getProductTablePrice(selectedProductForCustomization)) + (customVariant ? customVariant.priceDelta : 0) + customAddons.reduce((sum, a) => sum + (a.price || 0), 0)) * customQuantity).toFixed(2)}
                   )
                 </span>
               </button>

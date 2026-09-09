@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Plus, Search, Check, SlidersHorizontal, AlertCircle, Coffee } from 'lucide-react';
 import { useCafe } from '../../context/CafeContext';
 import ProductCustomizeModal from './ProductCustomizeModal';
-import { formatINR, getProductImage, getProductPrice, handleImageFallback } from '../../utils/formatters';
+import { formatINR, getProductImage, getProductPrice, isProductOnlineEnabled, handleImageFallback } from '../../utils/formatters';
 
 function MenuSkeleton() {
   return (
@@ -69,7 +69,7 @@ export default function CoffeeMenuSection({ onAddToCart, onOpenReservation }) {
       if (!products || products.length === 0) return [];
       const q = searchQuery.trim().toLowerCase();
       return products.filter((p) => {
-        if (p.isAvailable === false) return false;
+        if (p.isAvailable === false || !isProductOnlineEnabled(p)) return false;
         if (selectedCategory !== 'all') {
           const pid = resolveCategoryId(p);
           const target = categoryIdByName[String(selectedCategory).toLowerCase()] || selectedCategory;

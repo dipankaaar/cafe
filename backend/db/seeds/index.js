@@ -61,17 +61,28 @@ export function runDatabaseSeeds(force = false) {
     // 4. Products (IGNORE: REPLACE would DELETE+INSERT and churn the FK graph;
     // also preserves runtime price/availability edits)
     const prodStmt = db.prepare(`
-      INSERT OR IGNORE INTO products (id, name, category_id, description, cost_price, selling_price, is_veg, prep_time, is_available, is_featured, image_url, variants_json, addons_json, ingredients_json)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT OR IGNORE INTO products (
+        id, name, category_id, description, cost_price, selling_price,
+        is_veg, prep_time, is_available, is_featured, image_url,
+        variants_json, addons_json, ingredients_json,
+        table_enabled, online_enabled, table_price, online_price
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     initialProducts.forEach((p) => {
+      const basePrice = sanitize(p.sellingPrice ?? p.price, 0);
+      const tablePrice = p.tablePrice !== undefined && p.tablePrice !== null ? Number(p.tablePrice) : basePrice;
+      const onlinePrice = p.onlinePrice !== undefined && p.onlinePrice !== null ? Number(p.onlinePrice) : basePrice;
+      const tableEnabled = p.tableEnabled !== undefined ? (p.tableEnabled ? 1 : 0) : 1;
+      const onlineEnabled = p.onlineEnabled !== undefined ? (p.onlineEnabled ? 1 : 0) : 1;
+
       prodStmt.run(
         p.id,
         p.name,
         p.category,
         sanitize(p.description, ''),
         sanitize(p.costPrice, 0),
-        sanitize(p.sellingPrice, 0),
+        basePrice,
         p.isVeg ? 1 : 0,
         sanitize(p.prepTimeMinutes, 5),
         p.isAvailable ? 1 : 0,
@@ -79,7 +90,11 @@ export function runDatabaseSeeds(force = false) {
         sanitize(p.image, ''),
         JSON.stringify(p.variants || []),
         JSON.stringify(p.addons || []),
-        JSON.stringify(p.inventoryIngredients || [])
+        JSON.stringify(p.inventoryIngredients || []),
+        tableEnabled,
+        onlineEnabled,
+        tablePrice,
+        onlinePrice
       );
     });
 

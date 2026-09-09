@@ -17,6 +17,10 @@ export class ProductModel {
       description: pick('description'),
       costPrice: pick('costPrice', 'cost_price', 'cost'),
       sellingPrice: pick('sellingPrice', 'selling_price', 'price'),
+      tablePrice: pick('tablePrice', 'table_price'),
+      onlinePrice: pick('onlinePrice', 'online_price'),
+      tableEnabled: pick('tableEnabled', 'table_enabled'),
+      onlineEnabled: pick('onlineEnabled', 'online_enabled'),
       isVeg: pick('isVeg', 'is_veg', 'veg'),
       prepTimeMinutes: pick('prepTimeMinutes', 'prep_time', 'prepTime'),
       isAvailable: pick('isAvailable', 'is_available', 'available'),
@@ -30,7 +34,7 @@ export class ProductModel {
       ),
     };
   }
-  static findAll({ category, isAvailable, isFeatured, search } = {}) {
+  static findAll({ category, isAvailable, isFeatured, search, channel } = {}) {
     let sql = 'SELECT * FROM products WHERE 1=1';
     const params = [];
 
@@ -45,6 +49,11 @@ export class ProductModel {
     if (isFeatured !== undefined) {
       sql += ' AND is_featured = ?';
       params.push(isFeatured ? 1 : 0);
+    }
+    if (channel === 'table') {
+      sql += ' AND (table_enabled IS NULL OR table_enabled = 1)';
+    } else if (channel === 'online') {
+      sql += ' AND (online_enabled IS NULL OR online_enabled = 1)';
     }
     if (search && search.trim()) {
       sql += ' AND (LOWER(name) LIKE LOWER(?) OR LOWER(description) LIKE LOWER(?))';
@@ -66,12 +75,19 @@ export class ProductModel {
   static create(data) {
     const n = this.normalizeInput(data);
     const id = n.id || data.id || `prod-${Date.now()}`;
+    const baseSellingPrice = Number(n.sellingPrice ?? n.onlinePrice ?? n.tablePrice ?? 0);
+    const tablePrice = n.tablePrice !== undefined && n.tablePrice !== null && n.tablePrice !== '' ? Number(n.tablePrice) : baseSellingPrice;
+    const onlinePrice = n.onlinePrice !== undefined && n.onlinePrice !== null && n.onlinePrice !== '' ? Number(n.onlinePrice) : baseSellingPrice;
+    const tableEnabled = n.tableEnabled !== undefined ? (n.tableEnabled ? 1 : 0) : 1;
+    const onlineEnabled = n.onlineEnabled !== undefined ? (n.onlineEnabled ? 1 : 0) : 1;
+
     const stmt = db.prepare(`
       INSERT INTO products (
         id, name, category_id, description, cost_price, selling_price,
         is_veg, prep_time, is_available, is_featured, image_url,
-        variants_json, addons_json, ingredients_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        variants_json, addons_json, ingredients_json,
+        table_enabled, online_enabled, table_price, online_price
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
@@ -80,7 +96,7 @@ export class ProductModel {
       n.category ?? 'cat-1',
       sanitize(n.description ?? data.description, ''),
       Number(n.costPrice ?? 0),
-      Number(n.sellingPrice ?? 0),
+      baseSellingPrice,
       (n.isVeg ?? true) !== false ? 1 : 0,
       Number(n.prepTimeMinutes ?? 5),
       (n.isAvailable ?? true) !== false ? 1 : 0,
@@ -88,7 +104,11 @@ export class ProductModel {
       sanitize(typeof n.image === 'string' ? n.image : '', ''),
       JSON.stringify(n.variants || []),
       JSON.stringify(n.addons || []),
-      JSON.stringify(n.inventoryIngredients || [])
+      JSON.stringify(n.inventoryIngredients || []),
+      tableEnabled,
+      onlineEnabled,
+      tablePrice,
+      onlinePrice
     );
 
     return this.findById(id);
@@ -106,18 +126,24 @@ export class ProductModel {
     }
     // Include any non-alias extra keys verbatim (forward-compat)
     for (const [k, v] of Object.entries(data)) {
-      if (!(k in clean) && !['id', 'category_id', 'categoryId', 'selling_price', 'price', 'cost_price', 'cost', 'is_veg', 'veg', 'prep_time', 'prepTime', 'is_available', 'available', 'is_featured', 'featured', 'image_url', 'imageUrl', 'variants_json', 'addons_json', 'ingredients', 'ingredients_json', 'recipe', 'stockLink', 'inventory_ingredients'].includes(k)) {
+      if (!(k in clean) && !['id', 'category_id', 'categoryId', 'selling_price', 'price', 'cost_price', 'cost', 'is_veg', 'veg', 'prep_time', 'prepTime', 'is_available', 'available', 'is_featured', 'featured', 'image_url', 'imageUrl', 'variants_json', 'addons_json', 'ingredients', 'ingredients_json', 'recipe', 'stockLink', 'inventory_ingredients', 'table_price', 'online_price', 'table_enabled', 'online_enabled'].includes(k)) {
         clean[k] = v;
       }
     }
 
     const merged = { ...current, ...clean };
+    const baseSellingPrice = Number(merged.sellingPrice ?? merged.onlinePrice ?? merged.tablePrice ?? 0);
+    const tablePrice = merged.tablePrice !== undefined && merged.tablePrice !== null && merged.tablePrice !== '' ? Number(merged.tablePrice) : baseSellingPrice;
+    const onlinePrice = merged.onlinePrice !== undefined && merged.onlinePrice !== null && merged.onlinePrice !== '' ? Number(merged.onlinePrice) : baseSellingPrice;
+    const tableEnabled = merged.tableEnabled !== undefined ? (merged.tableEnabled ? 1 : 0) : 1;
+    const onlineEnabled = merged.onlineEnabled !== undefined ? (merged.onlineEnabled ? 1 : 0) : 1;
 
     const stmt = db.prepare(`
       UPDATE products SET
         name = ?, category_id = ?, description = ?, cost_price = ?, selling_price = ?,
         is_veg = ?, prep_time = ?, is_available = ?, is_featured = ?, image_url = ?,
-        variants_json = ?, addons_json = ?, ingredients_json = ?
+        variants_json = ?, addons_json = ?, ingredients_json = ?,
+        table_enabled = ?, online_enabled = ?, table_price = ?, online_price = ?
       WHERE id = ?
     `);
 
@@ -126,7 +152,7 @@ export class ProductModel {
       merged.category,
       sanitize(merged.description, ''),
       Number(merged.costPrice || 0),
-      Number(merged.sellingPrice || 0),
+      baseSellingPrice,
       merged.isVeg ? 1 : 0,
       Number(merged.prepTimeMinutes || 5),
       merged.isAvailable ? 1 : 0,
@@ -135,6 +161,10 @@ export class ProductModel {
       JSON.stringify(merged.variants || []),
       JSON.stringify(merged.addons || []),
       JSON.stringify(merged.inventoryIngredients || []),
+      tableEnabled,
+      onlineEnabled,
+      tablePrice,
+      onlinePrice,
       id
     );
 
@@ -147,6 +177,12 @@ export class ProductModel {
   }
 
   static format(row) {
+    const sellingPrice = row.selling_price;
+    const tablePrice = row.table_price !== null && row.table_price !== undefined ? row.table_price : sellingPrice;
+    const onlinePrice = row.online_price !== null && row.online_price !== undefined ? row.online_price : sellingPrice;
+    const tableEnabled = row.table_enabled === null || row.table_enabled === undefined ? true : row.table_enabled === 1;
+    const onlineEnabled = row.online_enabled === null || row.online_enabled === undefined ? true : row.online_enabled === 1;
+
     return {
       id: row.id,
       name: row.name,
@@ -154,6 +190,10 @@ export class ProductModel {
       description: row.description,
       costPrice: row.cost_price,
       sellingPrice: row.selling_price,
+      tablePrice: Number(tablePrice),
+      onlinePrice: Number(onlinePrice),
+      tableEnabled,
+      onlineEnabled,
       isVeg: row.is_veg === 1,
       prepTimeMinutes: row.prep_time,
       isAvailable: row.is_available === 1,

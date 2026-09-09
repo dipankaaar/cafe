@@ -21,6 +21,7 @@ import {
 import { useCafe } from '../../../context/CafeContext';
 import { validateAndCalculateCoupon } from '../../../services/couponValidator';
 import { printOrderReceipt } from '../../../services/receiptPrinter';
+import { getProductTablePrice, getProductOnlinePrice } from '../../../utils/formatters';
 import Card from '../../common/Card';
 import Badge from '../../common/Badge';
 import Button from '../../common/Button';
@@ -152,7 +153,8 @@ export default function POSView() {
 
     const variantPriceDelta = selectedVariant ? selectedVariant.priceDelta : 0;
     const addonsTotal = selectedAddons.reduce((sum, a) => sum + a.price, 0);
-    const unitPrice = customizingProduct.sellingPrice + variantPriceDelta + addonsTotal;
+    const baseProductPrice = orderType === 'dine-in' ? getProductTablePrice(customizingProduct) : getProductOnlinePrice(customizingProduct);
+    const unitPrice = baseProductPrice + variantPriceDelta + addonsTotal;
 
     const cartItem = {
       cartItemId: `c-item-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
@@ -389,8 +391,6 @@ export default function POSView() {
                   <img
                     src={product.image}
                     alt={product.name}
-                    loading="lazy"
-                    decoding="async"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                   <div className="absolute top-2 left-2">
@@ -417,9 +417,14 @@ export default function POSView() {
               </div>
 
               <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100 dark:border-gray-800/80">
-                <span className="text-sm font-bold text-[#DD5903] font-mono">
-                  ₹{product.sellingPrice}
-                </span>
+                <div>
+                  <span className="text-sm font-bold text-[#DD5903] font-mono">
+                    ₹{orderType === 'dine-in' ? getProductTablePrice(product) : getProductOnlinePrice(product)}
+                  </span>
+                  <span className="text-[10px] text-gray-400 ml-1">
+                    ({orderType === 'dine-in' ? 'Table' : 'Online'})
+                  </span>
+                </div>
                 <span className="w-6 h-6 rounded-full bg-orange-50 dark:bg-orange-950/40 text-[#DD5903] group-hover:bg-[#DD5903] group-hover:text-white flex items-center justify-center text-xs transition-colors">
                   <Plus className="w-3.5 h-3.5" />
                 </span>

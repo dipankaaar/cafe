@@ -5,12 +5,13 @@ import { ApiError } from '../utils/ApiError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
 export const getProducts = asyncHandler(async (req, res) => {
-  const { category, available_only, featured_only, search } = req.query;
+  const { category, available_only, featured_only, search, channel, menu_type } = req.query;
   const products = ProductModel.findAll({
     category,
     isAvailable: available_only === 'true' ? true : undefined,
     isFeatured: featured_only === 'true' ? true : undefined,
-    search
+    search,
+    channel: channel || menu_type
   });
   return ApiResponse.success(res, products);
 });
@@ -25,9 +26,9 @@ export const getProductById = asyncHandler(async (req, res) => {
 export const createProduct = asyncHandler(async (req, res) => {
   const b = req.body || {};
   const name = b.name;
-  const price = b.sellingPrice ?? b.selling_price ?? b.price;
+  const price = b.sellingPrice ?? b.selling_price ?? b.price ?? b.onlinePrice ?? b.online_price ?? b.tablePrice ?? b.table_price;
   if (!name || price === undefined) {
-    throw new ApiError(400, 'Product name and selling price (sellingPrice/price) are required');
+    throw new ApiError(400, 'Product name and at least one price (tablePrice/onlinePrice/sellingPrice) are required');
   }
   // Accept base64 data-URL or http(s) URL for image; stored as-is (10mb JSON limit in app.js)
   if (b.image !== undefined || b.image_url !== undefined || b.imageUrl !== undefined) {

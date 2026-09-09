@@ -15,6 +15,7 @@ import Toast from './Toast';
 import WebsiteQrScannerModal from './WebsiteQrScannerModal';
 import { api } from '../../services/api';
 import confetti from 'canvas-confetti';
+import { getProductOnlinePrice } from '../../utils/formatters';
 
 const CART_STORAGE_KEY = 'petuk_storefront_cart_v1';
 
@@ -57,7 +58,7 @@ export default function PublicStorefront({ onNavigate, onNavigateToAdmin, onNavi
     const variantKey = typeof variant === 'object' ? JSON.stringify(variant) : String(variant || 'Standard');
     const addonsKey = (addons || []).map((a) => a.id || a.name).join('|');
     const unitPrice = Number(
-      unitPriceOverride ?? product.sellingPrice ?? product.price ?? product.unitPrice ?? 150
+      unitPriceOverride ?? getProductOnlinePrice(product) ?? 150
     );
 
     const existingIndex = cartItems.findIndex(

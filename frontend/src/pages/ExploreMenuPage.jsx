@@ -24,7 +24,7 @@ import { useCafe } from '../context/CafeContext';
 import BrandLogo from '../components/common/BrandLogo';
 import CartDrawer from '../components/storefront/CartDrawer';
 import { api } from '../services/api';
-import { formatINR, getProductImage, getProductPrice, handleImageFallback } from '../utils/formatters';
+import { formatINR, getProductImage, getProductPrice, getProductOnlinePrice, isProductOnlineEnabled, handleImageFallback } from '../utils/formatters';
 
 const CART_STORAGE_KEY = 'petuk_storefront_cart_v1';
 
@@ -75,7 +75,7 @@ export default function ExploreMenuPage({ onNavigate }) {
 
   // Add to Cart
   const handleAddToCart = (product, quantity = 1) => {
-    const unitPrice = Number(product.sellingPrice ?? product.price ?? product.unitPrice ?? 150);
+    const unitPrice = getProductOnlinePrice(product);
     const existingIndex = cartItems.findIndex((item) => (item.productId || item.id) === product.id);
 
     if (existingIndex > -1) {
@@ -185,14 +185,14 @@ export default function ExploreMenuPage({ onNavigate }) {
   // Only show categories that have items in product catalog
   const availableCategories = useMemo(() => {
     return categories.filter(cat => 
-      products.some(p => (p.category === cat.id || p.categoryId === cat.id) && p.isAvailable !== false)
+      products.some(p => (p.category === cat.id || p.categoryId === cat.id) && p.isAvailable !== false && isProductOnlineEnabled(p))
     );
   }, [categories, products]);
 
   // Filtered Products
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
-      if (p.isAvailable === false) return false;
+      if (p.isAvailable === false || !isProductOnlineEnabled(p)) return false;
       const matchesCat = activeCategory === 'all' || p.category === activeCategory || p.categoryId === activeCategory;
       const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                             (p.description && p.description.toLowerCase().includes(searchQuery.toLowerCase()));

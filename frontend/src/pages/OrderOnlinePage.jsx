@@ -33,7 +33,7 @@ import BrandLogo from '../components/common/BrandLogo';
 import CustomerProfileModal from '../components/storefront/CustomerProfileModal';
 import { api } from '../services/api';
 import { validateCouponLive } from '../services/couponValidator';
-import { formatINR, getProductImage, handleImageFallback, isValidIndianPhone } from '../utils/formatters';
+import { formatINR, getProductImage, handleImageFallback, isValidIndianPhone, getProductOnlinePrice, isProductOnlineEnabled } from '../utils/formatters';
 
 export default function OrderOnlinePage({ onNavigate }) {
   const { products, categories } = useCafe();
@@ -118,7 +118,7 @@ export default function OrderOnlinePage({ onNavigate }) {
   // Filter Products
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
-      if (!p.isAvailable) return false;
+      if (!p.isAvailable || !isProductOnlineEnabled(p)) return false;
       const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory || p.categoryId === selectedCategory;
       const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                             (p.description && p.description.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -131,6 +131,7 @@ export default function OrderOnlinePage({ onNavigate }) {
 
   // Cart Management
   const handleAddToCart = (product) => {
+    const itemPrice = getProductOnlinePrice(product);
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
@@ -139,13 +140,13 @@ export default function OrderOnlinePage({ onNavigate }) {
       return [...prev, {
         id: product.id,
         name: product.name,
-        price: product.sellingPrice || product.price,
-        unitPrice: product.sellingPrice || product.price,
+        price: itemPrice,
+        unitPrice: itemPrice,
         image: product.image,
         isVeg: product.isVeg,
         category: product.category,
         quantity: 1,
-        totalPrice: product.sellingPrice || product.price
+        totalPrice: itemPrice
       }];
     });
   };
@@ -635,7 +636,7 @@ export default function OrderOnlinePage({ onNavigate }) {
                   {filteredProducts.map((prod) => {
                     const inCartItem = cart.find(i => i.id === prod.id);
                     const inCartQty = inCartItem ? inCartItem.quantity : 0;
-                    const price = prod.sellingPrice || prod.price;
+                    const price = getProductOnlinePrice(prod);
 
                     return (
                       <div

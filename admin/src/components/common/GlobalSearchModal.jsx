@@ -193,7 +193,7 @@ export default function GlobalSearchModal({ isOpen, onClose, onNavigate }) {
                             <Coffee className="w-4 h-4 text-amber-500" />
                             <div>
                               <p className="text-sm font-bold text-gray-900 dark:text-white">{p.name}</p>
-                              <p className="text-xs text-gray-500">{formatINR(p.sellingPrice)} • {p.isVeg ? 'Veg' : 'Non-Veg'}</p>
+                              <p className="text-xs text-gray-500">Table: {formatINR(p.tablePrice ?? p.sellingPrice)} • Online: {formatINR(p.onlinePrice ?? p.sellingPrice)} • {p.isVeg ? 'Veg' : 'Non-Veg'}</p>
                             </div>
                           </div>
                           <ArrowRight className="w-4 h-4 text-gray-400" />

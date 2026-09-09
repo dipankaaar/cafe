@@ -24,6 +24,32 @@ import { normalizeOrderStatus, generateOrderNumber } from '../utils/orderStatus'
 import { useAuth } from './AuthContext';
 import { playNewOrderChime } from '../services/soundService';
 
+export function normalizeProduct(p) {
+  if (!p) return p;
+  const sellingPrice = Number(p.sellingPrice ?? p.price ?? 0);
+  const tablePrice = p.tablePrice !== undefined && p.tablePrice !== null && p.tablePrice !== ''
+    ? Number(p.tablePrice)
+    : sellingPrice;
+  const onlinePrice = p.onlinePrice !== undefined && p.onlinePrice !== null && p.onlinePrice !== ''
+    ? Number(p.onlinePrice)
+    : sellingPrice;
+  const tableEnabled = p.tableEnabled !== undefined
+    ? Boolean(p.tableEnabled)
+    : (p.table_enabled !== undefined ? Boolean(p.table_enabled) : true);
+  const onlineEnabled = p.onlineEnabled !== undefined
+    ? Boolean(p.onlineEnabled)
+    : (p.online_enabled !== undefined ? Boolean(p.online_enabled) : true);
+
+  return {
+    ...p,
+    sellingPrice,
+    tablePrice,
+    onlinePrice,
+    tableEnabled,
+    onlineEnabled
+  };
+}
+
 const CafeContext = createContext();
 
 export function CafeProvider({ children }) {
@@ -62,10 +88,11 @@ export function CafeProvider({ children }) {
   const [products, setProducts] = useState(() => {
     const cached = dbService.get(DB_KEYS.PRODUCTS, initialProducts);
     if (!cached || !cached.length || cached.some(p => p.id === 'prod-1' || p.name === 'Classic Latte' || p.id === 'prod-12')) {
-      dbService.set(DB_KEYS.PRODUCTS, initialProducts);
-      return initialProducts;
+      const normalized = initialProducts.map(normalizeProduct);
+      dbService.set(DB_KEYS.PRODUCTS, normalized);
+      return normalized;
     }
-    return cached;
+    return cached.map(normalizeProduct);
   });
   const [tables, setTables] = useState(() => dbService.get(DB_KEYS.TABLES, initialTables));
   const [customers, setCustomers] = useState(() => dbService.get(DB_KEYS.CUSTOMERS, initialCustomers));
@@ -168,7 +195,7 @@ export function CafeProvider({ children }) {
           api.getBranches().catch(() => null)
         ]);
 
-        if (fetchedProducts && fetchedProducts.length > 0) setProducts(fetchedProducts);
+        if (fetchedProducts && fetchedProducts.length > 0) setProducts(fetchedProducts.map(normalizeProduct));
         if (fetchedCategories && fetchedCategories.length > 0) setCategories(fetchedCategories);
         if (fetchedAddons && fetchedAddons.length > 0) setAddons(fetchedAddons);
         if (fetchedOrders && fetchedOrders.length > 0) {
@@ -629,11 +656,25 @@ export function CafeProvider({ children }) {
   // MENU & PRODUCTS
   // -------------------------------------------------------------
   const addProduct = useCallback((newProduct) => {
+    const tablePrice = newProduct.tablePrice !== undefined && newProduct.tablePrice !== null && newProduct.tablePrice !== ''
+      ? Number(newProduct.tablePrice)
+      : Number(newProduct.sellingPrice || newProduct.price || 0);
+    const onlinePrice = newProduct.onlinePrice !== undefined && newProduct.onlinePrice !== null && newProduct.onlinePrice !== ''
+      ? Number(newProduct.onlinePrice)
+      : Number(newProduct.sellingPrice || newProduct.price || 0);
+    const tableEnabled = newProduct.tableEnabled !== undefined ? Boolean(newProduct.tableEnabled) : true;
+    const onlineEnabled = newProduct.onlineEnabled !== undefined ? Boolean(newProduct.onlineEnabled) : true;
+    const sellingPrice = Number(newProduct.sellingPrice ?? onlinePrice ?? tablePrice ?? 0);
+
     const product = {
       id: `prod-${Date.now()}`,
       ...newProduct,
       costPrice: Number(newProduct.costPrice || 0),
-      sellingPrice: Number(newProduct.sellingPrice || 0),
+      sellingPrice,
+      tablePrice,
+      onlinePrice,
+      tableEnabled,
+      onlineEnabled,
       prepTimeMinutes: Number(newProduct.prepTimeMinutes || 5)
     };
     setProducts((prev) => [product, ...prev]);
@@ -645,7 +686,26 @@ export function CafeProvider({ children }) {
 
   const updateProduct = useCallback((productId, updatedData) => {
     setProducts((prev) =>
-      prev.map((p) => (p.id === productId ? { ...p, ...updatedData } : p))
+      prev.map((p) => {
+        if (p.id !== productId) return p;
+        const merged = { ...p, ...updatedData };
+        if (updatedData.tablePrice !== undefined && updatedData.tablePrice !== '') {
+          merged.tablePrice = Number(updatedData.tablePrice);
+        }
+        if (updatedData.onlinePrice !== undefined && updatedData.onlinePrice !== '') {
+          merged.onlinePrice = Number(updatedData.onlinePrice);
+        }
+        if (updatedData.tableEnabled !== undefined) {
+          merged.tableEnabled = Boolean(updatedData.tableEnabled);
+        }
+        if (updatedData.onlineEnabled !== undefined) {
+          merged.onlineEnabled = Boolean(updatedData.onlineEnabled);
+        }
+        if (updatedData.sellingPrice === undefined && (updatedData.onlinePrice !== undefined || updatedData.tablePrice !== undefined)) {
+          merged.sellingPrice = merged.onlinePrice ?? merged.tablePrice ?? merged.sellingPrice;
+        }
+        return merged;
+      })
     );
     api.updateProduct(productId, updatedData).catch(() => {});
     addAuditLog('UPDATE_PRODUCT', 'Menu', `Updated details for product ID ${productId}`);
@@ -667,6 +727,10 @@ export function CafeProvider({ children }) {
       ...prod,
       id: `prod-${Date.now()}`,
       name: `${prod.name} (Copy)`,
+      tablePrice: prod.tablePrice ?? prod.sellingPrice,
+      onlinePrice: prod.onlinePrice ?? prod.sellingPrice,
+      tableEnabled: prod.tableEnabled ?? true,
+      onlineEnabled: prod.onlineEnabled ?? true,
       isFeatured: false
     };
     setProducts((prev) => [duplicated, ...prev]);

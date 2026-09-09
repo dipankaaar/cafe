@@ -44,6 +44,10 @@ export function initDatabaseSchema() {
       variants_json TEXT,
       addons_json TEXT,
       ingredients_json TEXT,
+      table_enabled INTEGER DEFAULT 1,
+      online_enabled INTEGER DEFAULT 1,
+      table_price REAL,
+      online_price REAL,
       FOREIGN KEY(category_id) REFERENCES categories(id) ON DELETE SET NULL
     );
 
@@ -275,6 +279,14 @@ export function initDatabaseSchema() {
   try { db.exec(`ALTER TABLE orders ADD COLUMN payment_status TEXT DEFAULT 'Pending';`); } catch (e) {}
   try { db.exec(`ALTER TABLE orders ADD COLUMN payment_method TEXT DEFAULT 'Cash';`); } catch (e) {}
   try { db.exec(`ALTER TABLE tables_floor ADD COLUMN qr_token TEXT;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE products ADD COLUMN table_enabled INTEGER DEFAULT 1;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE products ADD COLUMN online_enabled INTEGER DEFAULT 1;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE products ADD COLUMN table_price REAL;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE products ADD COLUMN online_price REAL;`); } catch (e) {}
+  try { db.exec(`UPDATE products SET table_enabled = 1 WHERE table_enabled IS NULL;`); } catch (e) {}
+  try { db.exec(`UPDATE products SET online_enabled = 1 WHERE online_enabled IS NULL;`); } catch (e) {}
+  try { db.exec(`UPDATE products SET table_price = selling_price WHERE table_price IS NULL;`); } catch (e) {}
+  try { db.exec(`UPDATE products SET online_price = selling_price WHERE online_price IS NULL;`); } catch (e) {}
   // Backfill NULLs on legacy rows so service-layer expectations hold
   try { db.exec(`UPDATE orders SET order_type = 'dine-in' WHERE order_type IS NULL;`); } catch (e) {}
   try { db.exec(`UPDATE orders SET payment_status = 'Pending' WHERE payment_status IS NULL;`); } catch (e) {}

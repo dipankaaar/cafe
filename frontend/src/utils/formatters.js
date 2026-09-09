@@ -105,8 +105,45 @@ export function formatDateTime(dateString) {
 export const FALLBACK_PRODUCT_IMAGE =
   'https://reactheme.com/products/wordpress/dinenos/wp-content/uploads/2023/03/latte.jpg';
 
-export function getProductPrice(product) {
-  return Number(product?.sellingPrice ?? product?.price ?? product?.unitPrice ?? 0);
+export function getProductPrice(product, mode = 'online') {
+  if (!product) return 0;
+  if (mode === 'table' && product.tablePrice !== undefined && product.tablePrice !== null && product.tablePrice !== '') {
+    return Number(product.tablePrice);
+  }
+  if (mode === 'online' && product.onlinePrice !== undefined && product.onlinePrice !== null && product.onlinePrice !== '') {
+    return Number(product.onlinePrice);
+  }
+  return Number(product.sellingPrice ?? product.price ?? product.unitPrice ?? 0);
+}
+
+export function getProductTablePrice(product) {
+  if (!product) return 0;
+  if (product.tablePrice !== undefined && product.tablePrice !== null && product.tablePrice !== '') {
+    return Number(product.tablePrice);
+  }
+  return Number(product.sellingPrice ?? product.price ?? product.unitPrice ?? 0);
+}
+
+export function getProductOnlinePrice(product) {
+  if (!product) return 0;
+  if (product.onlinePrice !== undefined && product.onlinePrice !== null && product.onlinePrice !== '') {
+    return Number(product.onlinePrice);
+  }
+  return Number(product.sellingPrice ?? product.price ?? product.unitPrice ?? 0);
+}
+
+export function isProductTableEnabled(product) {
+  if (!product) return false;
+  if (product.tableEnabled !== undefined) return Boolean(product.tableEnabled);
+  if (product.table_enabled !== undefined) return Boolean(product.table_enabled);
+  return true;
+}
+
+export function isProductOnlineEnabled(product) {
+  if (!product) return false;
+  if (product.onlineEnabled !== undefined) return Boolean(product.onlineEnabled);
+  if (product.online_enabled !== undefined) return Boolean(product.online_enabled);
+  return true;
 }
 
 export function getProductImage(product) {
