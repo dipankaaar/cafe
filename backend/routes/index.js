@@ -12,6 +12,8 @@ import expenseRoutes from './expense.routes.js';
 import reportRoutes from './report.routes.js';
 import systemRoutes from './system.routes.js';
 import branchRoutes from './branch.routes.js';
+import otpRoutes from './otp.routes.js';
+import whatsappRoutes from './whatsapp.routes.js';
 
 import * as authController from '../controllers/auth.controller.js';
 import * as customerController from '../controllers/customer.controller.js';
@@ -62,6 +64,8 @@ apiRouter.use('/inventory', inventoryRoutes);
 apiRouter.use('/expenses', expenseRoutes);
 apiRouter.use('/reports', reportRoutes);
 apiRouter.use('/branches', branchRoutes);
+apiRouter.use('/otp', otpRoutes);
+apiRouter.use('/whatsapp', whatsappRoutes);
 apiRouter.use('/system', systemRoutes);
 apiRouter.use('/', systemRoutes); // Flat shortcuts for /events, /notifications, /settings
 

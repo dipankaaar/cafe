@@ -18,6 +18,10 @@ export class OrderService {
       throw new ApiError(400, 'Order cart cannot be empty');
     }
 
+    // Normalize orderType & tableNumber aliases
+    orderData.orderType = orderData.orderType || orderData.type || 'dine-in';
+    if (orderData.tableNo && !orderData.tableNumber) orderData.tableNumber = orderData.tableNo;
+
     // Delivery orders must carry a drop address (Swiggy/Zomato-style contract)
     if (String(orderData.orderType || '').toLowerCase() === 'delivery') {
       if (!orderData.deliveryAddress || !String(orderData.deliveryAddress).trim()) {
@@ -220,7 +224,8 @@ export class OrderService {
       // A. Automatic Recipe-Based Inventory Deduction
       if (Array.isArray(currentOrder.items)) {
         currentOrder.items.forEach((item) => {
-          const deducted = InventoryModel.deductIngredients(item.productId, item.quantity || 1);
+          const productId = item.productId || item.id;
+          const deducted = InventoryModel.deductIngredients(productId, item.quantity || 1);
           // Low-stock alert per depleted ingredient
           (deducted || []).forEach((ing) => {
             if (ing.status === 'Low Stock') {

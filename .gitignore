@@ -28,6 +28,11 @@ yarn-error.log*
 # IDE & OS Files
 .DS_Store
 Thumbs.db
-.vscode/
-.idea/
 .agents/
+.vercel/
+backend/data/*.db-wal
+backend/data/*.db-shm
+auth_info.baileys/
+backend/auth_info.baileys/
+
+

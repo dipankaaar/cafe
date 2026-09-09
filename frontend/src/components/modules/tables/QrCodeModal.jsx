@@ -211,7 +211,7 @@ export default function QrCodeModal({ table, isOpen, onClose, onTableUpdated, ca
             <div className="bg-gray-50 dark:bg-[#161616] p-3 rounded-xl border border-gray-200 dark:border-gray-800 text-xs space-y-1.5">
               <div className="flex justify-between">
                 <span className="text-gray-500">Secure Token:</span>
-                <span className="font-mono text-gray-800 dark:text-gray-200 font-bold">{table.qrToken.substring(0, 16)}...</span>
+                <span className="font-mono text-gray-800 dark:text-gray-200 font-bold">{table?.qrToken ? table.qrToken.substring(0, 16) + '...' : 'Generated on demand'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Created:</span>

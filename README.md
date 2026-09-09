@@ -1,4 +1,4 @@
-# ☕ Dinenos Coffee House — Enterprise Fullstack Cafe Management Platform
+# ☕ Petuk Adda Cafe — Enterprise Fullstack Cafe Management Platform
 
 A high-performance fullstack application combining a **Luxury Customer Storefront** with an **Enterprise Operations Suite & Kitchen Display System (KDS)**.
 
@@ -8,73 +8,83 @@ A high-performance fullstack application combining a **Luxury Customer Storefron
 
 ```
 cafe/
-├── 📁 frontend/                         # 🎨 React 19 Frontend Application
-│   ├── 📁 public/                       # Favicon & brand assets
-│   └── 📁 src/
-│       ├── 📁 components/
-│       │   ├── 📁 common/               # UI Primitives (Button, Modal, Card, Table, Badge, Tabs)
-│       │   ├── 📁 layout/               # Admin Shell (Sidebar, Topbar, NotificationDropdown)
-│       │   ├── 📁 modules/              # 20 Enterprise Admin Modules (POS, KDS, Inventory, etc.)
-│       │   └── 📁 storefront/           # Public Customer Storefront (Hero, Menu, Cart, Booking, Tracker)
-│       ├── 📁 context/                  # State Providers (AuthContext, ThemeContext, CafeContext)
-│       ├── 📁 hooks/                    # Custom Hooks (useSSE, useDebounce, useLocalStorage)
-│       ├── 📁 services/                 # api.js (HTTP Client), receiptPrinter.js, couponValidator.js
-│       ├── 📁 utils/                    # formatters.js, constants.js
-│       ├── App.jsx                      # Dual-Mode Root App Router
-│       ├── main.jsx                     # React DOM Entry
-│       └── index.css                    # Tailwind CSS
+├── 📁 frontend/                         # 🎨 React 19 Customer Storefront (Port 5173)
+│   ├── 📁 src/
+│   │   ├── 📁 components/storefront/   # Hero, Menu, Cart, Table Booking, Tracker
+│   │   ├── 📁 pages/                   # OrderOnline, ExploreMenu, ScanTable, FindTable
+│   │   ├── 📁 context/                 # Auth, Theme, Cafe State
+│   │   └── App.jsx                     # Customer Storefront App
+│   ├── package.json
+│   └── vite.config.js                   # Vite dev server on :5173
 │
-├── 📁 backend/                          # 🛡️ Express & SQLite Relational Backend
-│   ├── 📁 config/                       # env.js, constants.js
+├── 📁 admin/                            # 💼 Dedicated Standalone Admin & POS Suite (Port 5174)
+│   ├── 📁 src/
+│   │   ├── 📁 components/modules/       # 17 Enterprise Admin Modules (POS, KDS, Inventory, etc.)
+│   │   ├── 📁 components/layout/        # Admin Sidebar, Topbar, NotificationDropdown
+│   │   ├── 📁 pages/                    # LoginPage (Credentials, PIN, Quick Roles)
+│   │   ├── 📁 context/                  # AuthContext, ThemeContext, CafeContext
+│   │   ├── 📁 services/                 # api.js, receiptPrinter, qrPrintService
+│   │   └── App.jsx                      # Dedicated Admin App
+│   ├── package.json
+│   └── vite.config.js                   # Vite dev server on :5174 (strictPort, API proxy)
+│
+├── 📁 backend/                          # 🛡️ Express & SQLite Relational Backend (Port 5000)
+│   ├── 📁 config/                       # env.js (CORS allows 5173 & 5174)
 │   ├── 📁 controllers/                  # 11 Modular HTTP Controllers
 │   ├── 📁 db/                           # SQLite WAL Engine, schema.js, seeds/
-│   ├── 📁 middlewares/                  # error.middleware.js, logger.middleware.js, auth.middleware.js
+│   ├── 📁 middlewares/                  # error, logger, auth
 │   ├── 📁 models/                       # Data Access Layer Repositories
 │   ├── 📁 routes/                       # 11 Express Routers & index.js
-│   ├── 📁 services/                     # Business Logic (Order workflow, Coupon engine, P&L aggregation)
-│   ├── 📁 utils/                        # ApiError.js, ApiResponse.js, asyncHandler.js
+│   ├── 📁 services/                     # Business Logic (Order workflow, Coupons, P&L)
 │   ├── 📁 data/                         # cafe.db (SQLite Database file)
-│   ├── app.js                           # Express App Configuration
-│   └── index.js                         # Server Bootstrap & Graceful Shutdown
+│   ├── app.js                           # Express App (serves frontend & /admin static)
+│   └── index.js                         # Server Bootstrap
 │
-├── index.html                           # Root HTML
-├── package.json                         # Unified Scripts: dev, server, build, preview
-└── vite.config.js                       # Vite Configuration with API proxy
+├── package.json                         # Monorepo Workspaces: ["frontend", "backend", "admin"]
+└── README.md
 ```
 
 ---
 
 ## 🌟 Key Features
 
-### 1. Customer Storefront (`/`)
+### 1. Customer Storefront (`http://localhost:5173`)
 - **Brand Experience**: Full-screen hero banner, history, roastery metrics, testimonials, and gallery.
 - **Interactive Food & Beverage Menu**: Filter by Coffee, Cold Brews, Teas, and Bakery with dietary tags.
 - **Online Cart & Customizations**: Variant sizes, milk alternatives, and custom syrups with online checkout.
 - **Live Order Status Tracker**: Real-time preparation progression (*Placed ➔ Accepted ➔ Brewing ➔ Ready ➔ Completed*).
 - **Table Reservations**: Online table booking with date, time, party size, and special requests.
 
-### 2. Enterprise Admin & POS Suite (`#admin`)
-- **POS / Billing Engine**: Fast search, custom modifiers, multi-tier tax calculations, split tender, and 80mm thermal receipt printing.
+### 2. Standalone Admin & POS Suite (`http://localhost:5174`)
+- **Dedicated Staff Portal**: Separate application with Email login, 4-digit PIN access, and 1-click test role switcher.
+- **Live Backend Heartbeat**: Real-time health check & SSE event stream from backend port 5000.
+- **POS / Billing Engine**: Fast search, custom modifiers, multi-tier tax calculations, split tender, and thermal receipt printing.
 - **Kitchen Display System (KDS)**: Real-time ticket boards with prep overdue timers and single-tap workflow progression.
-- **Recipe-Based Auto-Inventory Deduction**: Automatically calculates and deducts raw coffee beans, dairy, and syrups upon order completion.
-- **Strict Coupon Engine**: Backend validation enforcing date ranges, spend limits, category restrictions, and usage limits.
-- **20 Complete Modules**: Dashboard, POS, Kitchen, Orders, Menu, Tables, Reservations, Customers, Loyalty, Coupons, Inventory, Suppliers, Purchases, Expenses, Staff, Reports, Notifications, Audit Logs, Settings.
+- **Recipe-Based Auto-Inventory**: Automatically calculates and deducts raw coffee beans, dairy, and syrups upon order completion.
+- **17 Complete Modules**: Dashboard, POS, Kitchen, Orders, Menu, Tables, Reservations, Customers, Loyalty, Coupons, Inventory, Expenses, Staff, Reports, Notifications, Audit Logs, Settings.
 
 ---
 
 ## 🚀 How to Run Locally
 
-### 1. Start Both Frontend & Backend Concurrently:
+### 1. Start All 3 Services Concurrently (Backend + Storefront + Admin):
 ```bash
 npm run dev
 ```
 
-### 2. Start Backend API Server Only (Port 5000):
+### 2. Start Services Individually:
 ```bash
-npm run server
+# Start Separate Admin Panel only (Port 5174)
+npm run dev:admin
+
+# Start Customer Storefront only (Port 5173)
+npm run dev:frontend
+
+# Start Backend API only (Port 5000)
+npm run dev:backend
 ```
 
-### 3. Create a Production Build:
+### 3. Production Build (Both Frontend & Admin):
 ```bash
 npm run build
 ```

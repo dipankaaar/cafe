@@ -1,0 +1,327 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ── Premium cafe theme tokens (Tailwind v4 @theme) ──────────────── */
+@theme {
+  --color-espresso: #3C2415;
+  --color-espresso-deep: #2A190E;
+  --color-espresso-soft: #5C3D28;
+  --color-cream: #FFF8F0;
+  --color-cream-dark: #F5EBDD;
+  --color-amber-glow: #F5A623;
+  --color-brand: #DD5903;
+  --color-brand-hover: #c44e02;
+
+  --font-display: "Playfair Display", "Arapey", Georgia, serif;
+  --font-sans: "Inter", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Playfair Display", "Arapey", Georgia, serif;
+  --font-body: "Inter", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  :root {
+    --font-heading: 'Playfair Display', 'Arapey', Georgia, serif;
+    --font-body: 'Inter', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    --color-primary: #DD5903;
+    --color-primary-hover: #c44e02;
+    --color-espresso: #3C2415;
+    --color-cream: #FFF8F0;
+    --color-amber-accent: #F5A623;
+    --color-dark: #111111;
+    --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  *, *::before, *::after {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 84px;
+    font-family: var(--font-body);
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    touch-action: manipulation;
+  }
+
+  body {
+    overflow-x: hidden;
+    overflow-y: auto;
+    background-color: #0b0c0e;
+    color: #e5e5e5;
+  }
+
+  body.light, :root:not(.dark) body {
+    background-color: var(--color-cream);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    letter-spacing: -0.01em;
+  }
+
+  img {
+    content-visibility: auto;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+
+  /* Consistent accessible focus ring */
+  :focus-visible {
+    outline: 2px solid #DD5903;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background: #DD5903;
+    color: #fff;
+  }
+}
+
+/* Luxury Diamond divider */
+.diamond-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 16px auto;
+}
+
+.diamond-divider::before,
+.diamond-divider::after {
+  content: '';
+  display: block;
+  width: 48px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(221, 89, 3, 0.6), transparent);
+}
+
+.diamond-shape {
+  width: 8px;
+  height: 8px;
+  background-color: #DD5903;
+  transform: rotate(45deg);
+  box-shadow: 0 0 8px rgba(221, 89, 3, 0.4);
+}
+
+/* Smooth Dinenos Primary Button */
+.dinenos-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #DD5903;
+  color: #ffffff;
+  font-family: 'Inter', 'Plus Jakarta Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 13px 30px;
+  border-radius: 9999px;
+  transition: all 0.3s var(--ease-smooth);
+  position: relative;
+  overflow: hidden;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(221, 89, 3, 0.25);
+  will-change: transform, box-shadow;
+  transform: translate3d(0, 0, 0);
+}
+
+.dinenos-btn:hover {
+  background-color: #c44e02;
+  color: #ffffff;
+  transform: translate3d(0, -2px, 0);
+  box-shadow: 0 8px 24px rgba(221, 89, 3, 0.38);
+}
+
+.dinenos-btn:active {
+  transform: translate3d(0, 0px, 0) scale(0.98);
+  box-shadow: 0 2px 8px rgba(221, 89, 3, 0.2);
+}
+
+.dinenos-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Smooth Dinenos Outline Button */
+.dinenos-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  font-family: 'Inter', 'Plus Jakarta Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 12px 28px;
+  border-radius: 9999px;
+  transition: all 0.3s var(--ease-smooth);
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  will-change: transform, background-color, border-color;
+  transform: translate3d(0, 0, 0);
+}
+
+.dinenos-btn-outline:hover {
+  background-color: #DD5903;
+  border-color: #DD5903;
+  color: #ffffff;
+  transform: translate3d(0, -2px, 0);
+  box-shadow: 0 8px 20px rgba(221, 89, 3, 0.25);
+}
+
+.dinenos-btn-outline:active {
+  transform: translate3d(0, 0px, 0) scale(0.98);
+}
+
+/* GPU Hardware-Accelerated Floating animations */
+@keyframes float-gpu {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  50% { transform: translate3d(0, -10px, 0) rotate(3deg); }
+  100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+}
+
+.animate-float {
+  animation: float-gpu 6s ease-in-out infinite;
+  will-change: transform;
+}
+
+.animate-float-slow {
+  animation: float-gpu 9s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Soft pulse */
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.02); }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-soft 3.5s ease-in-out infinite;
+}
+
+/* Hide scrollbar utility for smooth touch scroll */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Custom thin scrollbar for tab / filter rails */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #2a2c33 transparent;
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #2a2c33;
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #DD5903;
+}
+
+/* Modern clean scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0f1012;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2c33;
+  border-radius: 9999px;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #DD5903;
+}
+
+/* Fade in smoothly on load */
+@keyframes fadeInSmooth {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeInSmooth 0.35s var(--ease-smooth) forwards;
+}
+
+/* Toast slide-up (used by ToastContainer + mobile cart bars) */
+@keyframes slideUpSmooth {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.animate-slideUp {
+  animation: slideUpSmooth 0.3s var(--ease-smooth) forwards;
+}
+
+/* Minimal animate-in fallbacks (no tailwindcss-animate plugin installed) */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-in {
+  animation-duration: 200ms;
+  animation-timing-function: var(--ease-smooth);
+  animation-fill-mode: both;
+}
+
+.fade-in {
+  animation-name: fade-in;
+}
+
+.duration-200 {
+  animation-duration: 200ms;
+}
+
+/* Respect reduced motion for premium feel without vestibular strain */
+@media (prefers-reduced-motion: reduce) {
+  .animate-float,
+  .animate-float-slow,
+  .animate-pulse-subtle,
+  .animate-fadeIn,
+  .animate-slideUp,
+  .animate-in {
+    animation: none;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}

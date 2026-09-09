@@ -24,12 +24,11 @@ import {
 
 const STATUS_TABS = [
   { id: 'all', label: 'All Orders' },
-  { id: 'placed', label: 'New' },
-  { id: 'accepted', label: 'Accepted' },
-  { id: 'brewing', label: 'Brewing' },
-  { id: 'ready', label: 'Ready' },
-  { id: 'out_for_delivery', label: 'On the Way' },
+  { id: 'new', label: 'New Order' },
+  { id: 'preparing', label: 'Preparing' },
+  { id: 'out_for_delivery', label: 'Out for Delivery' },
   { id: 'delivered', label: 'Delivered' },
+  { id: 'ready', label: 'Ready' },
   { id: 'completed', label: 'Completed' },
   { id: 'cancelled', label: 'Cancelled' }
 ];
@@ -82,8 +81,16 @@ export default function OrdersView({ initialStatus = 'all', initialBoard = 'all'
   // Filtered Orders (status compare is normalization-safe: legacy + canonical both match)
   const filteredOrders = orders.filter((order) => {
     const norm = normalizeOrderStatus(order.status);
-    if (boardTab === 'delivery' && String(order.orderType || '').toLowerCase() !== 'delivery') return false;
-    const matchStatus = statusFilter === 'all' || norm === statusFilter;
+    const matchStatus = statusFilter === 'all' || (() => {
+      if (statusFilter === 'new') return norm === 'placed' || norm === 'accepted';
+      if (statusFilter === 'preparing') return norm === 'brewing';
+      if (statusFilter === 'out_for_delivery') return norm === 'out_for_delivery';
+      if (statusFilter === 'delivered') return norm === 'delivered';
+      if (statusFilter === 'ready') return norm === 'ready';
+      if (statusFilter === 'completed') return norm === 'completed';
+      if (statusFilter === 'cancelled') return norm === 'cancelled' || norm === 'refunded';
+      return norm === statusFilter;
+    })();
     const matchType =
       typeFilter === 'all' || String(order.orderType || '').toLowerCase() === typeFilter.toLowerCase();
     const matchBranch = branchFilter === 'all' || (order.branchId || 'br-main') === branchFilter;

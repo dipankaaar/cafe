@@ -93,6 +93,7 @@ export class InventoryModel {
   }
 
   static deductIngredients(productId, itemQuantity = 1) {
+    if (!productId) return [];
     const prod = db.prepare('SELECT ingredients_json FROM products WHERE id = ?').get(productId);
     if (!prod || !prod.ingredients_json) return [];
 

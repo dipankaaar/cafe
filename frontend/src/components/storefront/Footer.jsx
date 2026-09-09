@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import BrandLogo from '../common/BrandLogo';
 
-export default function Footer({ onNavigate }) {
+export default function Footer({ onNavigate, onNavigateToAdmin }) {
   const googleMapsUrl = "https://www.google.com/maps/search/?api=1&query=Salboni,+Sakadihi-Ailakundi+Road+Near+Salboni+High+School+Salboni+West+Bengal+722102";
 
   const handleNav = (path) => {
@@ -282,7 +282,7 @@ export default function Footer({ onNavigate }) {
                 {/* Map placeholder: swap with a real <iframe> embed when API key is available */}
                 <div
                   role="img"
-                  aria-label="Map placeholder — Dinenos Coffee House, Salboni. Open Google Maps for directions."
+                  aria-label="Map placeholder — Petuk Adda Cafe, Salboni. Open Google Maps for directions."
                   className="h-28 rounded-xl border border-white/10 bg-[#181818] bg-[linear-gradient(135deg,rgba(221,89,3,0.12),transparent_55%),repeating-linear-gradient(0deg,transparent_0_14px,rgba(255,255,255,0.04)_14px_15px),repeating-linear-gradient(90deg,transparent_0_14px,rgba(255,255,255,0.04)_14px_15px)] flex items-center justify-center text-center p-3"
                 >
                   <span className="text-[11px] text-gray-400 leading-relaxed">
@@ -359,10 +359,13 @@ export default function Footer({ onNavigate }) {
 
         </div>
 
-        {/* Bottom section: Thin divider line and centered copyright text */}
-        <div className="border-t border-white/10 pt-8 text-center">
+        {/* Bottom section: Thin divider line & copyright text */}
+        <div className="border-t border-white/10 pt-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
           <p className="text-xs text-gray-400 font-medium">
-            © 2025 Petuk Adda Cafe. All rights reserved.
+            © 2025 Petuk Adda Cafe. All rights reserved. • Salboni, Bankura
+          </p>
+          <p className="text-xs text-gray-500 font-medium">
+            Handcrafted Coffee & Multi-Cuisine Diner
           </p>
         </div>
 

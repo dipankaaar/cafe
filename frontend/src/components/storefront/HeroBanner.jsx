@@ -5,7 +5,6 @@ const HERO_IMAGE = 'https://reactheme.com/products/wordpress/dinenos/wp-content/
 const HERO_FALLBACK = 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=1600&auto=format&fit=crop&q=80';
 
 export default function HeroBanner({ onNavigate, onOpenReservation, onOpenCart, onOpenMenu, onOpenQrScanner }) {
-  const [tableCode, setTableCode] = useState('');
   const go = (path) => {
     if (onNavigate) onNavigate(path);
     else window.location.hash = path.replace('/', '');
@@ -27,7 +26,7 @@ export default function HeroBanner({ onNavigate, onOpenReservation, onOpenCart, 
     else go('/find-table');
   };
   return (
-    <section aria-label="Welcome to Dinenos Coffee House" className="relative min-h-[100svh] lg:min-h-screen flex items-center justify-center bg-[#3C2415] overflow-hidden">
+    <section aria-label="Welcome to Petuk Adda Cafe" className="relative min-h-[100svh] lg:min-h-screen flex items-center justify-center bg-[#3C2415] overflow-hidden">
       
       {/* Background Image with Dark Vignette Overlay */}
       <div className="absolute inset-0 z-0">
@@ -70,7 +69,7 @@ export default function HeroBanner({ onNavigate, onOpenReservation, onOpenCart, 
         {/* Arapey Heading */}
         <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-[82px] text-white font-[Playfair_Display,Arapey,serif] font-normal leading-[1.1] tracking-tight mb-6 max-w-4xl mx-auto">
           Welcome To <br className="hidden sm:inline" />
-          <span className="italic text-[#F5A623]">Dinenos Coffee House</span>
+          <span className="italic text-[#F5A623]">Petuk Adda Cafe</span>
         </h1>
 
         {/* Subtitle description */}
@@ -121,36 +120,7 @@ export default function HeroBanner({ onNavigate, onOpenReservation, onOpenCart, 
           </button>
         </div>
 
-        {/* Manual table code entry — already seated, no QR scan needed */}
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!tableCode.trim()) { go('/scan-table'); return; }
-            let token = tableCode.trim();
-            if (token.includes('#order/')) token = token.split('#order/')[1];
-            else if (token.includes('/order/')) token = token.split('/order/')[1];
-            go(`/order/${token}`);
-          }}
-          className="mt-5 max-w-md mx-auto flex gap-2"
-        >
-          <label htmlFor="hero-table-code" className="sr-only">Enter your table code</label>
-          <input
-            id="hero-table-code"
-            type="text"
-            value={tableCode}
-            onChange={(e) => setTableCode(e.target.value.toUpperCase())}
-            placeholder="Already seated? Enter table code (e.g. T-02)"
-            className="flex-1 bg-black/50 border border-white/20 rounded-full px-5 py-3 text-xs text-white placeholder-gray-400 outline-none focus:border-[#F5A623] font-mono font-bold backdrop-blur-sm"
-          />
-          <button
-            type="submit"
-            aria-label="Start ordering from table code"
-            className="px-5 py-3 bg-[#DD5903] hover:bg-[#c44e02] text-white rounded-full text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1.5 flex-shrink-0"
-          >
-            <span>Start</span>
-            <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
-          </button>
-        </form>
+
 
       </div>
 

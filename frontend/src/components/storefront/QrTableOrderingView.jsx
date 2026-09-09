@@ -22,6 +22,7 @@ import {
   Phone,
   Bell,
   User,
+  Utensils
 } from 'lucide-react';
 import { useCafe } from '../../context/CafeContext';
 import { api } from '../../services/api';
@@ -51,14 +52,47 @@ export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
   // Cart State (Specific to this Table)
   const [cart, setCart] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerName, setCustomerName] = useState(() => {
+    try {
+      return localStorage.getItem('petuk_customer_name') || localStorage.getItem('dinenos_customer_name') || '';
+    } catch (e) {
+      return '';
+    }
+  });
+  const [customerPhone, setCustomerPhone] = useState(() => {
+    try {
+      return localStorage.getItem('petuk_customer_phone') || localStorage.getItem('dinenos_customer_phone') || '';
+    } catch (e) {
+      return '';
+    }
+  });
+  const [hasCheckedIn, setHasCheckedIn] = useState(false);
+  const [checkInError, setCheckInError] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Pay at Counter');
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponError, setCouponError] = useState('');
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+
+  const handleCheckInSubmit = (e) => {
+    e.preventDefault();
+    setCheckInError('');
+    if (!customerName.trim()) {
+      setCheckInError('Please enter your full name.');
+      return;
+    }
+    const cleanPhone = customerPhone.trim().replace(/\D/g, '');
+    if (cleanPhone.length < 10) {
+      setCheckInError('Please enter a valid 10-digit mobile phone number.');
+      return;
+    }
+    try {
+      localStorage.setItem('petuk_customer_name', customerName.trim());
+      localStorage.setItem('petuk_customer_phone', cleanPhone);
+    } catch (err) {}
+    setHasCheckedIn(true);
+  };
 
   // Placed Order / Tracking State
   const [activeTrackingOrder, setActiveTrackingOrder] = useState(null);
@@ -306,6 +340,137 @@ export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
     );
   }
 
+  // ================= TABLE PRE-FILLED DETAILS & GUEST CHECK-IN SCREEN =================
+  if (!hasCheckedIn && !activeTrackingOrder) {
+    return (
+      <div className="min-h-screen bg-[#0d0d0d] text-white flex flex-col justify-center items-center px-4 py-10 relative overflow-hidden font-['Plus_Jakarta_Sans',sans-serif]">
+        {/* Amber Ambient Background Glow */}
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#DD5903]/15 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="w-full max-w-md bg-[#161616] border border-white/15 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 relative z-10">
+          
+          {/* Header */}
+          <div className="text-center space-y-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>QR Scanned & Table Verified</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-bold font-['Arapey',serif] text-white">
+              Petuk Adda Cafe
+            </h2>
+            <p className="text-xs text-gray-300">
+              Welcome! Please enter your name and phone number to open the menu.
+            </p>
+          </div>
+
+          {/* Pre-filled Table Details (Auto-detected from QR) */}
+          <div className="bg-[#1f1f1f] border border-white/10 rounded-2xl p-4 space-y-3">
+            <div className="flex items-center justify-between text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+              <span>📍 Table Details (Auto-Filled)</span>
+              <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Active
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="bg-[#121212] p-3 rounded-xl border border-white/5">
+                <span className="text-[10px] text-gray-400 block uppercase font-semibold">Table Number</span>
+                <span className="text-xl font-extrabold text-[#DD5903] block mt-0.5">
+                  Table {tableInfo.tableNumber}
+                </span>
+              </div>
+
+              <div className="bg-[#121212] p-3 rounded-xl border border-white/5">
+                <span className="text-[10px] text-gray-400 block uppercase font-semibold">Zone / Location</span>
+                <span className="text-sm font-bold text-white block mt-1 truncate">
+                  {tableInfo.zone || 'Indoor Lounge'}
+                </span>
+              </div>
+
+              <div className="bg-[#121212] p-3 rounded-xl border border-white/5">
+                <span className="text-[10px] text-gray-400 block uppercase font-semibold">Seating Capacity</span>
+                <span className="text-sm font-bold text-gray-200 block mt-1">
+                  {tableInfo.capacity ? `${tableInfo.capacity} Persons` : 'Standard'}
+                </span>
+              </div>
+
+              <div className="bg-[#121212] p-3 rounded-xl border border-white/5">
+                <span className="text-[10px] text-gray-400 block uppercase font-semibold">Service Mode</span>
+                <span className="text-sm font-bold text-emerald-400 block mt-1">
+                  Dine-In Self-Order
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Guest Input Form: Name & Number only */}
+          <form onSubmit={handleCheckInSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs uppercase tracking-wider text-gray-300 font-semibold mb-1.5">
+                Your Full Name *
+              </label>
+              <div className="relative">
+                <User className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Sourav Mukherjee"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  className="w-full bg-[#101010] border border-white/15 rounded-xl py-3 pl-10 pr-3 text-sm text-white placeholder-gray-500 outline-none focus:border-[#DD5903] font-medium"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs uppercase tracking-wider text-gray-300 font-semibold mb-1.5">
+                Mobile Number * (For order updates & bill)
+              </label>
+              <div className="relative">
+                <Phone className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="tel"
+                  required
+                  placeholder="10-digit mobile number"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  className="w-full bg-[#101010] border border-white/15 rounded-xl py-3 pl-10 pr-3 text-sm text-white placeholder-gray-500 outline-none focus:border-[#DD5903] font-medium"
+                />
+              </div>
+            </div>
+
+            {checkInError && (
+              <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{checkInError}</span>
+              </div>
+            )}
+
+            {/* Big CTA button to open menu */}
+            <button
+              type="submit"
+              className="w-full dinenos-btn !py-3.5 text-sm uppercase font-bold tracking-wider cursor-pointer flex items-center justify-center gap-2 shadow-xl"
+            >
+              <Utensils className="w-4 h-4" />
+              <span>Open Menu & Start Ordering</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+
+            <button
+              type="button"
+              onClick={onBackToStorefront}
+              className="w-full py-1 text-xs text-gray-400 hover:text-white transition-colors cursor-pointer"
+            >
+              Cancel & Return Home
+            </button>
+          </form>
+
+        </div>
+      </div>
+    );
+  }
+
   // ================= ACTIVE ORDER TRACKING TIMELINE SCREEN =================
   if (activeTrackingOrder) {
     const statusSteps = ['placed', 'accepted', 'brewing', 'ready', 'completed'];
@@ -510,13 +675,31 @@ export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
         </div>
       </header>
 
-      {/* Table identity banner */}
+      {/* Table & Guest identity banner */}
       <div className="bg-gradient-to-r from-[#DD5903]/20 via-[#DD5903]/10 to-transparent border-b border-[#DD5903]/20">
-        <div className="max-w-4xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
-          <p className="text-xs sm:text-sm font-bold text-white">
-            You are ordering from <span className="text-[#DD5903]">Table {tableInfo.tableNumber}</span>
-            <span className="text-gray-400 font-medium"> • {tableInfo.zone}{tableInfo.capacity ? ` • Seats ${tableInfo.capacity}` : ''}</span>
-          </p>
+        <div className="max-w-4xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap text-xs sm:text-sm">
+            <span className="font-bold text-white">
+              Ordering for <span className="text-[#DD5903]">Table {tableInfo.tableNumber}</span>
+            </span>
+            <span className="text-gray-400 font-medium">
+              • {tableInfo.zone}
+            </span>
+            {customerName && (
+              <span className="inline-flex items-center gap-1.5 bg-black/40 px-2 py-0.5 rounded-md border border-white/10 text-gray-300 font-semibold text-[11px]">
+                <User className="w-3 h-3 text-[#DD5903]" />
+                <span>{customerName}</span>
+                {customerPhone && <span className="text-gray-400 font-normal">({customerPhone})</span>}
+                <button
+                  onClick={() => setHasCheckedIn(false)}
+                  className="text-[10px] text-[#DD5903] hover:underline ml-1 cursor-pointer font-bold"
+                  title="Change guest details"
+                >
+                  Edit
+                </button>
+              </span>
+            )}
+          </div>
           {waiterCallMessage && (
             <p className="text-[11px] text-amber-300 font-semibold text-right max-w-[45%]">{waiterCallMessage}</p>
           )}

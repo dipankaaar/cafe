@@ -234,14 +234,20 @@ export default function ReservationModal({ isOpen, onClose, onSuccess, onShowToa
                 </div>
 
                 <div>
-                  <label className="block text-xs uppercase tracking-wider text-gray-300 font-semibold mb-1">Special Occasion / Requests</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs uppercase tracking-wider text-gray-300 font-semibold">Special Occasion / Requests</label>
+                    <span className="text-[10px] text-[#DD5903] font-medium">Birthday setup: ₹150 charges</span>
+                  </div>
                   <textarea
                     rows={2}
-                    placeholder="E.g., birthday celebration, oat milk preferences, high chair..."
+                    placeholder="E.g., birthday celebration (₹150 charges), oat milk preferences, high chair..."
                     value={formData.specialNotes}
                     onChange={set('specialNotes')}
                     className="w-full bg-[#242424] border border-white/10 rounded-md px-3.5 py-2 text-white placeholder-gray-500 focus:border-[#DD5903] outline-none resize-none"
                   />
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    * Birthday & celebration setup includes ₹150 additional charges.
+                  </p>
                 </div>
 
                 <button

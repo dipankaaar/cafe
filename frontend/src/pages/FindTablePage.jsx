@@ -482,14 +482,20 @@ export default function FindTablePage({ onNavigate }) {
                 </div>
 
                 <div>
-                  <label className="block text-gray-300 font-semibold mb-1">Special Requests (Optional)</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-gray-300 font-semibold">Special Requests (Optional)</label>
+                    <span className="text-[10px] text-[#DD5903] font-medium">Birthday setup: ₹150 charges</span>
+                  </div>
                   <input
                     type="text"
-                    placeholder="e.g. Birthday celebration, window seat preference..."
+                    placeholder="e.g. Birthday celebration (₹150 charges), window seat preference..."
                     value={specialRequests}
                     onChange={(e) => setSpecialRequests(e.target.value)}
                     className="w-full bg-[#111111] border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-[#DD5903]"
                   />
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    * Special occasion/birthday decoration setups incur an additional ₹150 charge at the cafe.
+                  </p>
                 </div>
               </div>
 

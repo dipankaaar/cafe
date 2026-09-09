@@ -314,23 +314,6 @@ export default function ExploreMenuPage({ onNavigate }) {
               <span>Order from Table</span>
             </button>
           </div>
-
-          {/* Manual table code entry — already seated, no QR scan needed */}
-          <form onSubmit={handleTableCodeSubmit} className="pt-2 max-w-md mx-auto flex gap-2">
-            <input
-              type="text"
-              value={tableCode}
-              onChange={(e) => setTableCode(e.target.value.toUpperCase())}
-              placeholder="Already seated? Enter table code (e.g. T-02)"
-              className="flex-1 bg-[#111111] border border-white/15 rounded-xl px-4 py-2.5 text-xs text-white placeholder-gray-500 outline-none focus:border-[#DD5903] font-mono font-bold"
-            />
-            <button
-              type="submit"
-              className="px-5 py-2.5 bg-[#DD5903] hover:bg-[#c44e02] text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
-            >
-              Start
-            </button>
-          </form>
         </div>
       </main>
 

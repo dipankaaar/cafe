@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
-import { X, MapPin, Phone, Mail, Clock, ChevronRight, ShoppingBag, Utensils, QrCode, Armchair } from 'lucide-react';
+import { X, MapPin, Phone, Mail, Clock, ChevronRight, ShoppingBag, Utensils, QrCode, Armchair, Shield, User } from 'lucide-react';
 import BrandLogo from '../common/BrandLogo';
 
-export default function OffcanvasDrawer({ isOpen, onClose, onNavigate, onOpenTrackOrder, onNavigateToAdmin }) {
+export default function OffcanvasDrawer({ isOpen, onClose, onNavigate, onOpenTrackOrder, onOpenCustomerProfile, onNavigateToAdmin }) {
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e) => {
@@ -104,6 +104,22 @@ export default function OffcanvasDrawer({ isOpen, onClose, onNavigate, onOpenTra
                   </span>
                   <ChevronRight className="w-4 h-4 text-gray-500" />
                 </button>
+
+                {onOpenCustomerProfile && (
+                  <button
+                    onClick={() => {
+                      onClose();
+                      onOpenCustomerProfile();
+                    }}
+                    className="w-full flex items-center justify-between text-base font-semibold text-white hover:text-[#DD5903] py-1 transition-colors text-left cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <User className="w-4 h-4 text-[#DD5903]" />
+                      <span>My Profile & Orders</span>
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-gray-500" />
+                  </button>
+                )}
 
                 {onOpenTrackOrder && (
                   <button

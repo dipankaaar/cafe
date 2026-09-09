@@ -335,6 +335,28 @@ export default function TrackOrderModal({ isOpen, onClose }) {
                 <span className="font-mono text-[#DD5903]">{formatINR(trackedOrder.grandTotal)}</span>
               </div>
             </div>
+
+            {/* Help & Support Card */}
+            <div className="p-3 bg-[#DD5903]/10 border border-[#DD5903]/25 rounded-xl flex items-center justify-between gap-3 text-left">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#DD5903] text-white flex items-center justify-center flex-shrink-0">
+                  <Phone className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">For Any Query & Help</p>
+                  <p className="text-xs font-bold text-gray-900 dark:text-white mt-0.5">
+                    Call Cafe: <a href="tel:+919932148058" className="text-[#DD5903] hover:underline font-mono">+91 9932148058</a>
+                  </p>
+                </div>
+              </div>
+              <a
+                href="tel:+919932148058"
+                className="px-3 py-1.5 rounded-lg bg-[#DD5903] hover:bg-[#c44e02] text-white text-xs font-bold transition-all flex items-center gap-1 flex-shrink-0"
+              >
+                <Phone className="w-3 h-3" />
+                <span>Call Now</span>
+              </a>
+            </div>
           </div>
         )}
       </div>

@@ -10,12 +10,13 @@ export class CouponService {
    * min_spend/max, %/flat + max_discount cap, categories, order types,
    * customer eligibility, per-customer limit.
    */
-  static validateCoupon({ couponCode, subtotal, cartItems = [], orderType = 'dine-in', customerId, customerPhone, customer }) {
-    if (!couponCode || !couponCode.trim()) {
+  static validateCoupon({ couponCode, code, subtotal, cartItems = [], orderType = 'dine-in', customerId, customerPhone, customer }) {
+    const rawCode = couponCode || code;
+    if (!rawCode || !String(rawCode).trim()) {
       throw new ApiError(400, 'Coupon code cannot be empty');
     }
 
-    const cleanCode = couponCode.trim().toUpperCase();
+    const cleanCode = String(rawCode).trim().toUpperCase();
     const coupon = CouponModel.findByCode(cleanCode);
 
     if (!coupon) {

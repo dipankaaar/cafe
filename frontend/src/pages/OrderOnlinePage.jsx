@@ -30,6 +30,7 @@ import {
 import confetti from 'canvas-confetti';
 import { useCafe } from '../context/CafeContext';
 import BrandLogo from '../components/common/BrandLogo';
+import CustomerProfileModal from '../components/storefront/CustomerProfileModal';
 import { api } from '../services/api';
 import { validateCouponLive } from '../services/couponValidator';
 import { formatINR, getProductImage, handleImageFallback, isValidIndianPhone } from '../utils/formatters';
@@ -46,11 +47,27 @@ export default function OrderOnlinePage({ onNavigate }) {
   // Cart State: { [productId]: { product, quantity, variant, notes } }
   const [cart, setCart] = useState([]);
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
+  const [isCustomerProfileOpen, setIsCustomerProfileOpen] = useState(false);
 
-  // Checkout Form State
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [deliveryAddress, setDeliveryAddress] = useState('');
+  // Checkout Form State — prefilled from customer session if available
+  const [customerName, setCustomerName] = useState(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem('dinenos_customer_session'));
+      return s?.name || '';
+    } catch { return ''; }
+  });
+  const [customerPhone, setCustomerPhone] = useState(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem('dinenos_customer_session'));
+      return s?.phone || '';
+    } catch { return ''; }
+  });
+  const [deliveryAddress, setDeliveryAddress] = useState(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem('dinenos_customer_session'));
+      return s?.defaultAddress || '';
+    } catch { return ''; }
+  });
   const [deliveryLandmark, setDeliveryLandmark] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('COD');
   const [specialNotes, setSpecialNotes] = useState('');
@@ -232,6 +249,18 @@ export default function OrderOnlinePage({ onNavigate }) {
       setAppliedCoupon(null);
       setCouponCode('');
       setIsMobileCartOpen(false);
+
+      // Save / update customer session in localStorage for seamless profile & reorders
+      try {
+        const sessionPayload = {
+          name: customerName.trim(),
+          phone: customerPhone.trim(),
+          defaultAddress: orderType === 'delivery' ? deliveryAddress.trim() : deliveryAddress
+        };
+        localStorage.setItem('dinenos_customer_session', JSON.stringify(sessionPayload));
+      } catch (e) {
+        /* storage unavailable */
+      }
     } catch (err) {
       setOrderError(err?.message ? `Could not place order: ${err.message}` : 'Could not place order. Please try again.');
     } finally {
@@ -280,6 +309,17 @@ export default function OrderOnlinePage({ onNavigate }) {
               <span>Takeaway</span>
             </button>
           </div>
+
+          {/* User Profile / Orders Button */}
+          <button
+            onClick={() => setIsCustomerProfileOpen(true)}
+            aria-label="My Profile and Orders"
+            className="flex items-center gap-1.5 py-1.5 px-3 rounded-full bg-white/5 border border-white/10 text-white hover:text-[#DD5903] hover:border-orange-500/30 transition-all cursor-pointer"
+            title="My Profile, Orders & Rewards"
+          >
+            <User className="w-4 h-4 text-[#DD5903]" />
+            <span className="text-xs font-semibold hidden sm:inline">My Profile</span>
+          </button>
 
           {/* Cart Icon trigger on mobile */}
           <button
@@ -348,6 +388,30 @@ export default function OrderOnlinePage({ onNavigate }) {
                 )}
                 <p><strong>Payment:</strong> {placedOrder.paymentMethod} (Confirmed)</p>
               </div>
+            </div>
+
+            {/* Cafe Query & Help Support Card */}
+            <div className="bg-[#1e1e1e] border border-orange-500/25 rounded-2xl p-3.5 flex items-center justify-between gap-3 text-left shadow-lg">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#DD5903]/20 border border-[#DD5903]/40 text-[#DD5903] flex items-center justify-center flex-shrink-0">
+                  <Phone className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">For Any Query & Help</p>
+                  <p className="text-xs font-bold text-white mt-0.5">
+                    Call: <a href="tel:+919932148058" className="text-[#DD5903] hover:underline font-mono">+91 9932148058</a>
+                    <span className="text-gray-500 mx-1.5">•</span>
+                    <a href="tel:+916292314286" className="text-gray-300 hover:underline font-mono">+91 6292314286</a>
+                  </p>
+                </div>
+              </div>
+              <a
+                href="tel:+919932148058"
+                className="px-3.5 py-2 rounded-xl bg-[#DD5903] hover:bg-[#c44e02] text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md flex-shrink-0 cursor-pointer"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                <span>Call Now</span>
+              </a>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 pt-2">
@@ -1010,6 +1074,39 @@ export default function OrderOnlinePage({ onNavigate }) {
           </div>
         </div>
       )}
+
+      {/* Customer Profile & Past Orders Modal */}
+      <CustomerProfileModal
+        isOpen={isCustomerProfileOpen}
+        onClose={() => setIsCustomerProfileOpen(false)}
+        onOpenTrackOrder={(orderNum) => {
+          setIsCustomerProfileOpen(false);
+          // Redirect to track modal or home track
+          if (onNavigate) onNavigate('/#track');
+        }}
+        onReorder={(reorderItems) => {
+          setIsCustomerProfileOpen(false);
+          if (Array.isArray(reorderItems)) {
+            reorderItems.forEach((it) => {
+              const prod = products.find((p) => p.id === (it.productId || it.id)) || {
+                id: it.productId || it.id,
+                name: it.name,
+                sellingPrice: it.unitPrice || it.price,
+                price: it.unitPrice || it.price,
+                isVeg: true
+              };
+              handleAddToCart(prod);
+            });
+          }
+        }}
+        onOpenReservation={() => {
+          setIsCustomerProfileOpen(false);
+          if (onNavigate) onNavigate('/find-table');
+        }}
+        onNavigateToMenu={() => {
+          setIsCustomerProfileOpen(false);
+        }}
+      />
 
     </div>
   );

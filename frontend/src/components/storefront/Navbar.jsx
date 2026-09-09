@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, Search, Shield, Clock, QrCode, Utensils, Armchair } from 'lucide-react';
+import { ShoppingBag, Search, Shield, Clock, QrCode, Utensils, Armchair, User } from 'lucide-react';
 import BrandLogo from '../common/BrandLogo';
 
 export default function Navbar({
@@ -10,6 +10,7 @@ export default function Navbar({
   onOpenReservation,
   onOpenTrackOrder,
   onOpenQrScanner,
+  onOpenCustomerProfile,
   onNavigateToAdmin,
   cartCount
 }) {
@@ -56,25 +57,18 @@ export default function Navbar({
           {/* Logo */}
           <button 
             onClick={() => handleNav('/')}
-            aria-label="Dinenos Coffee House — home"
-            className="flex-shrink-0 flex items-center group cursor-pointer text-left"
+            aria-label="Petuk Adda Cafe — home"
+            className="flex-shrink-0 flex items-center group cursor-pointer text-left mr-4 lg:mr-8"
           >
             <BrandLogo size="default" light={true} />
           </button>
 
           {/* Desktop Navigation Links */}
-          <nav aria-label="Primary" className="hidden lg:flex items-center space-x-6">
-            <button
-              onClick={() => handleNav('/')}
-              className="text-[13px] uppercase tracking-wider font-bold text-white hover:text-[#DD5903] transition-colors cursor-pointer"
-            >
-              Home
-            </button>
-
+          <nav aria-label="Primary" className="hidden lg:flex items-center gap-6 xl:gap-8">
             {/* 1. Order Online */}
             <button
               onClick={() => handleNav('/order-online')}
-              className="flex items-center gap-1.5 text-[13px] uppercase tracking-wider font-bold text-[#DD5903] hover:text-[#DD5903] transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 text-[13px] uppercase tracking-wider font-bold text-[#DD5903] hover:text-amber-400 transition-colors cursor-pointer"
             >
               <ShoppingBag className="w-3.5 h-3.5" />
               <span>Order Online</span>
@@ -111,27 +105,26 @@ export default function Navbar({
             {/* Track Order Link */}
             <button
               onClick={onOpenTrackOrder}
-              className="flex items-center gap-1.5 text-[13px] uppercase tracking-wider font-bold text-gray-400 hover:text-[#DD5903] transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 text-[13px] uppercase tracking-wider font-bold text-gray-300 hover:text-[#DD5903] transition-colors cursor-pointer"
             >
               <Clock className="w-3.5 h-3.5" />
               <span>Track</span>
-            </button>
-
-            {/* Admin Portal Direct Toggle */}
-            <button
-              onClick={onNavigateToAdmin}
-              aria-label="Open admin portal"
-              className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-500/10 text-[#DD5903] hover:bg-[#DD5903] hover:text-white border border-[#DD5903]/30 text-xs font-bold transition-all cursor-pointer shadow-sm"
-              title="Switch to Admin & POS Operations Portal"
-            >
-              <Shield className="w-3.5 h-3.5" />
-              <span>Admin</span>
             </button>
           </nav>
 
           {/* Right Header Actions */}
           <div className="flex items-center space-x-2 sm:space-x-3">
             
+            {/* Customer Profile & Orders Button */}
+            <button
+              onClick={onOpenCustomerProfile}
+              aria-label="My Profile and Orders"
+              className="flex items-center gap-1.5 text-white hover:text-[#DD5903] transition-colors p-2 rounded-full hover:bg-white/5 cursor-pointer group"
+              title="My Customer Profile, Orders & Rewards"
+            >
+              <User className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" aria-hidden="true" />
+            </button>
+
             {/* Search Icon */}
             <button
               onClick={onOpenSearch}

@@ -97,6 +97,11 @@ export function formatTime(timeString) {
   }
 }
 
+export function formatDateTime(dateString) {
+  if (!dateString) return 'N/A';
+  return `${formatDate(dateString)}, ${formatTime(dateString)}`;
+}
+
 export const FALLBACK_PRODUCT_IMAGE =
   'https://reactheme.com/products/wordpress/dinenos/wp-content/uploads/2023/03/latte.jpg';
 

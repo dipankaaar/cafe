@@ -2,16 +2,9 @@
  * Fullstack API Client for Dinenos Cafe Management System
  */
 
-// Production hardening: explicit base URL via VITE_API_URL (see frontend/.env.example).
-// Fallback preserves old behaviour — same-origin /api in production, localhost:5000
-// proxy target when running `vite dev` on :5173.
-const ENV_API_URL = typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL
-  ? import.meta.env.VITE_API_URL
-  : null;
-const API_BASE_URL = ENV_API_URL
-  || (typeof window !== 'undefined' && window.location.hostname === 'localhost' && window.location.port !== '5000'
-    ? 'http://localhost:5000/api'
-    : '/api');
+const API_BASE_URL = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ? 'http://localhost:5000/api'
+  : '/api';
 
 class ApiService {
   async request(endpoint, options = {}) {
@@ -324,6 +317,21 @@ class ApiService {
     });
   }
 
+  lookupCustomer(phone) {
+    return this.request(`/customers/lookup?phone=${encodeURIComponent(phone)}`);
+  }
+
+  getCustomerOrders(idOrPhone) {
+    return this.request(`/customers/${encodeURIComponent(idOrPhone)}/orders`);
+  }
+
+  updateCustomer(id, data) {
+    return this.request(`/customers/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  }
+
   adjustLoyalty(customerId, delta, reason) {
     return this.request('/customers/adjust-loyalty', {
       method: 'POST',
@@ -582,6 +590,36 @@ class ApiService {
   deleteBranch(id) {
     return this.request(`/branches/${id}`, {
       method: 'DELETE'
+    });
+  }
+
+  // --- Mobile OTP Verification (WhatsApp Baileys) ---
+  sendOtp(phone, context = 'Customer Login') {
+    return this.request('/otp/send', {
+      method: 'POST',
+      body: JSON.stringify({ phone, context })
+    });
+  }
+
+  verifyOtp({ phone, otp, name, email, address }) {
+    return this.request('/otp/verify', {
+      method: 'POST',
+      body: JSON.stringify({ phone, otp, name, email, address })
+    });
+  }
+
+  getWhatsAppStatus() {
+    return this.request('/whatsapp/status');
+  }
+
+  getWhatsAppQr() {
+    return this.request('/whatsapp/qr');
+  }
+
+  requestWhatsAppPairing(phone) {
+    return this.request('/whatsapp/pair', {
+      method: 'POST',
+      body: JSON.stringify({ phone })
     });
   }
 

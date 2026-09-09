@@ -4,7 +4,6 @@ import HeroBanner from './HeroBanner';
 import InfoBar from './InfoBar';
 import AboutSection from './AboutSection';
 import CoffeeMenuSection from './CoffeeMenuSection';
-import VideoBanner from './VideoBanner';
 import TestimonialsSection from './TestimonialsSection';
 import GallerySection from './GallerySection';
 import Footer from './Footer';
@@ -13,6 +12,7 @@ import ReservationModal from './ReservationModal';
 import SearchModal from './SearchModal';
 import TrackOrderModal from './TrackOrderModal';
 import OffcanvasDrawer from './OffcanvasDrawer';
+import CustomerProfileModal from './CustomerProfileModal';
 import ScrollToTop from './ScrollToTop';
 import Toast from './Toast';
 import WebsiteQrScannerModal from './WebsiteQrScannerModal';
@@ -36,6 +36,7 @@ export default function PublicStorefront({ onNavigate, onNavigateToAdmin, onNavi
   const [isReservationOpen, setIsReservationOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isTrackOrderOpen, setIsTrackOrderOpen] = useState(false);
+  const [isCustomerProfileOpen, setIsCustomerProfileOpen] = useState(false);
   const [isOffcanvasOpen, setIsOffcanvasOpen] = useState(false);
   const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
 
@@ -178,6 +179,7 @@ export default function PublicStorefront({ onNavigate, onNavigateToAdmin, onNavi
         onOpenSearch={() => setIsSearchOpen(true)}
         onOpenOffcanvas={() => setIsOffcanvasOpen(true)}
         onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
+        onOpenCustomerProfile={() => setIsCustomerProfileOpen(true)}
         onOpenQrScanner={() => (onNavigate ? onNavigate('/scan-table') : setIsQrScannerOpen(true))}
         onNavigateToAdmin={onNavigateToAdmin}
       />
@@ -197,9 +199,6 @@ export default function PublicStorefront({ onNavigate, onNavigateToAdmin, onNavi
         />
         <CoffeeMenuSection
           onAddToCart={handleAddToCart}
-          onOpenReservation={() => (onNavigate ? onNavigate('/find-table') : setIsReservationOpen(true))}
-        />
-        <VideoBanner
           onOpenReservation={() => (onNavigate ? onNavigate('/find-table') : setIsReservationOpen(true))}
         />
         <TestimonialsSection />
@@ -263,7 +262,45 @@ export default function PublicStorefront({ onNavigate, onNavigateToAdmin, onNavi
           setIsOffcanvasOpen(false);
           setIsTrackOrderOpen(true);
         }}
+        onOpenCustomerProfile={() => {
+          setIsOffcanvasOpen(false);
+          setIsCustomerProfileOpen(true);
+        }}
         onNavigateToAdmin={onNavigateToAdmin}
+      />
+
+      <CustomerProfileModal
+        isOpen={isCustomerProfileOpen}
+        onClose={() => setIsCustomerProfileOpen(false)}
+        onOpenTrackOrder={(orderNum) => {
+          setIsCustomerProfileOpen(false);
+          setIsTrackOrderOpen(true);
+        }}
+        onReorder={(items) => {
+          setIsCustomerProfileOpen(false);
+          if (Array.isArray(items)) {
+            items.forEach((it) => {
+              handleAddToCart({
+                id: it.productId || it.id,
+                name: it.name,
+                price: it.unitPrice || it.price,
+                sellingPrice: it.unitPrice || it.price,
+                isVeg: it.isVeg ?? true
+              }, it.quantity || 1);
+            });
+          }
+          if (onNavigate) onNavigate('/order-online');
+          else setIsCartOpen(true);
+        }}
+        onOpenReservation={() => {
+          setIsCustomerProfileOpen(false);
+          if (onNavigate) onNavigate('/find-table');
+          else setIsReservationOpen(true);
+        }}
+        onNavigateToMenu={() => {
+          setIsCustomerProfileOpen(false);
+          if (onNavigate) onNavigate('/order-online');
+        }}
       />
 
       <ScrollToTop />

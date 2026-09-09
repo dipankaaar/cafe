@@ -37,8 +37,16 @@ const corsOptions =
           // Allow non-browser clients (curl, EventSource without Origin, health checks)
           if (!origin) return callback(null, true);
           const normalized = origin.replace(/\/$/, '');
-          if (ENV.CORS_ORIGIN.includes(normalized)) return callback(null, true);
-          return callback(new ApiError(403, `CORS origin "${origin}" is not allowed`));
+          if (
+            ENV.CORS_ORIGIN.includes(normalized) ||
+            /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(normalized) ||
+            /\.vercel\.app$/.test(normalized) ||
+            /\.railway\.app$/.test(normalized) ||
+            /\.trycloudflare\.com$/.test(normalized)
+          ) {
+            return callback(null, true);
+          }
+          return callback(null, false);
         },
         credentials: true
       };

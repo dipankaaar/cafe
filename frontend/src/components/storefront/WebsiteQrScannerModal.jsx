@@ -17,6 +17,57 @@ export default function WebsiteQrScannerModal({ isOpen, onClose, onScanSuccess }
     return () => stopCamera();
   }, [isOpen]);
 
+  // Barcode / QR Detection Loop from Camera Feed
+  useEffect(() => {
+    if (!isScanning || !videoRef.current || !isOpen) return;
+
+    let animId;
+    let detector = null;
+    if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
+      try {
+        detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+      } catch (e) {
+        console.warn('BarcodeDetector init error:', e);
+      }
+    }
+
+    const scanFrame = async () => {
+      if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
+        if (detector) {
+          try {
+            const codes = await detector.detect(videoRef.current);
+            if (codes && codes.length > 0) {
+              const raw = codes[0].rawValue || '';
+              let token = raw;
+              if (token.includes('#order/')) token = token.split('#order/')[1];
+              else if (token.includes('/order/')) token = token.split('/order/')[1];
+              else if (token.includes('table=')) {
+                const match = token.match(/table=([^&#]+)/);
+                if (match) token = match[1];
+              }
+              if (token && token.trim()) {
+                stopCamera();
+                onClose();
+                if (onScanSuccess) {
+                  onScanSuccess(token.trim());
+                }
+                return;
+              }
+            }
+          } catch (err) {
+            // frame error, continue loop
+          }
+        }
+      }
+      animId = requestAnimationFrame(scanFrame);
+    };
+
+    animId = requestAnimationFrame(scanFrame);
+    return () => {
+      if (animId) cancelAnimationFrame(animId);
+    };
+  }, [isScanning, isOpen]);
+
   const startCamera = async () => {
     setCameraError('');
     setIsScanning(true);
