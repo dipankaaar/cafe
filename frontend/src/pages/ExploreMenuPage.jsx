@@ -14,7 +14,8 @@ import {
   ArrowRight,
   Filter,
   Star,
-  Check
+  Check,
+  ChevronRight
 } from 'lucide-react';
 import { useCafe } from '../context/CafeContext';
 import BrandLogo from '../components/common/BrandLogo';

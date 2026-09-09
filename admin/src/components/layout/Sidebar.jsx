@@ -83,14 +83,6 @@ export default function Sidebar({
       highlight: true
     },
     {
-      key: 'kitchen',
-      label: 'Kitchen KDS',
-      icon: ChefHat,
-      permission: 'kitchen',
-      badge: kitchenOrdersCount > 0 ? kitchenOrdersCount : null,
-      badgeColor: 'bg-rose-500'
-    },
-    {
       key: 'menu',
       label: 'Menu',
       icon: UtensilsCrossed,
@@ -122,35 +114,10 @@ export default function Sidebar({
       permission: 'customers'
     },
     {
-      key: 'loyalty',
-      label: 'Loyalty Program',
-      icon: Award,
-      permission: 'loyalty'
-    },
-    {
       key: 'coupons',
       label: 'Coupons & Promos',
       icon: Tag,
       permission: 'coupons'
-    },
-    {
-      key: 'inventory',
-      label: 'Inventory',
-      icon: Boxes,
-      permission: 'inventory',
-      badge: lowStockCount > 0 ? `${lowStockCount} Low` : null,
-      badgeColor: 'bg-amber-500',
-      subItems: [
-        { key: 'inventory-stock', label: 'Stock Levels' },
-        { key: 'inventory-suppliers', label: 'Suppliers' },
-        { key: 'inventory-purchases', label: 'Purchases' }
-      ]
-    },
-    {
-      key: 'expenses',
-      label: 'Expenses',
-      icon: Receipt,
-      permission: 'expenses'
     },
     {
       key: 'staff',
