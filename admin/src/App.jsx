@@ -7,7 +7,6 @@ import { CafeProvider } from './context/CafeContext';
 import Sidebar from './components/layout/Sidebar';
 import Topbar from './components/layout/Topbar';
 import GlobalSearchModal from './components/common/GlobalSearchModal';
-import ToastContainer from './components/common/ToastContainer';
 import Button from './components/common/Button';
 import NewOrderAlertModal from './components/common/NewOrderAlertModal';
 import { useCafe } from './context/CafeContext';
@@ -204,9 +203,6 @@ function AdminContent() {
         onAcceptOrder={(orderId) => updateOrderStatus(orderId, 'accepted')}
         onNavigateToOrders={(module) => setCurrentModule(module || 'orders')}
       />
-
-      {/* Floating Live Toast Notifications */}
-      <ToastContainer />
     </div>
   );
 }
