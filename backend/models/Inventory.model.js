@@ -94,6 +94,9 @@ export class InventoryModel {
 
   static deductIngredients(productId, itemQuantity = 1) {
     if (!productId) return [];
+    // Defense in depth: never let a non-positive quantity inflate stock
+    const qty = Number(itemQuantity);
+    if (!Number.isFinite(qty) || qty <= 0) return [];
     const prod = db.prepare('SELECT ingredients_json FROM products WHERE id = ?').get(productId);
     if (!prod || !prod.ingredients_json) return [];
 

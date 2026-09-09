@@ -311,9 +311,16 @@
   animation-duration: 200ms;
 }
 
+/* iPhone safe-area: keep fixed bottom bars above the home indicator */
+.pb-safe {
+  padding-bottom: calc(0.875rem + env(safe-area-inset-bottom, 0px));
+}
+.mb-safe {
+  margin-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 /* Respect reduced motion for premium feel without vestibular strain */
-@media (prefers-reduced-motion: reduce) {
-  .animate-float,
+@media (prefers-reduced-motion: reduce) {  .animate-float,
   .animate-float-slow,
   .animate-pulse-subtle,
   .animate-fadeIn,

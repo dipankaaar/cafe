@@ -44,20 +44,41 @@ export default function CartDrawer({
   const [paymentMethod, setPaymentMethod] = useState('UPI'); // 'UPI' | 'COD' | 'Card'
   const [orderNotes, setOrderNotes] = useState('');
   
-  // Auto-prefill customer details from session if available
+  // Auto-prefill customer details from session if available & listen to live updates
   useEffect(() => {
+    const syncCustomerData = (s) => {
+      if (!s) return;
+      if (s.name && !customerName) setCustomerName(s.name);
+      if (s.phone && !customerPhone) setCustomerPhone(s.phone);
+      const addr = s.address || s.defaultAddress || s.notes || '';
+      if (addr && !deliveryAddress) setDeliveryAddress(addr);
+    };
+
     if (isOpen) {
       try {
         const saved = localStorage.getItem('dinenos_customer_session');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed?.name && !customerName) setCustomerName(parsed.name);
-          if (parsed?.phone && !customerPhone) setCustomerPhone(parsed.phone);
-          if (parsed?.defaultAddress && !deliveryAddress) setDeliveryAddress(parsed.defaultAddress);
-          else if (parsed?.notes && !deliveryAddress) setDeliveryAddress(parsed.notes);
-        }
+        if (saved) syncCustomerData(JSON.parse(saved));
       } catch (e) {}
     }
+
+    const handleSessionUpdate = (e) => {
+      const s = e?.detail !== undefined ? e.detail : (() => {
+        try { return JSON.parse(localStorage.getItem('dinenos_customer_session')); } catch { return null; }
+      })();
+      if (s) {
+        if (s.name) setCustomerName(s.name);
+        if (s.phone) setCustomerPhone(s.phone);
+        const addr = s.address || s.defaultAddress || s.notes || '';
+        if (addr) setDeliveryAddress(addr);
+      }
+    };
+
+    window.addEventListener('customer_session_updated', handleSessionUpdate);
+    window.addEventListener('storage', handleSessionUpdate);
+    return () => {
+      window.removeEventListener('customer_session_updated', handleSessionUpdate);
+      window.removeEventListener('storage', handleSessionUpdate);
+    };
   }, [isOpen]);
 
   // Coupon State

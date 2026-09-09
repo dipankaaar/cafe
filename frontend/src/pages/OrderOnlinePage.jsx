@@ -65,12 +65,44 @@ export default function OrderOnlinePage({ onNavigate }) {
   const [deliveryAddress, setDeliveryAddress] = useState(() => {
     try {
       const s = JSON.parse(localStorage.getItem('dinenos_customer_session'));
-      return s?.defaultAddress || '';
+      return s?.address || s?.defaultAddress || '';
     } catch { return ''; }
   });
-  const [deliveryLandmark, setDeliveryLandmark] = useState('');
+  const [deliveryLandmark, setDeliveryLandmark] = useState(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem('dinenos_customer_session'));
+      return s?.landmark || '';
+    } catch { return ''; }
+  });
   const [paymentMethod, setPaymentMethod] = useState('COD');
   const [specialNotes, setSpecialNotes] = useState('');
+
+  // Synchronize customer profile info when login/session updates
+  useEffect(() => {
+    const handleSessionUpdate = (e) => {
+      const s = e?.detail !== undefined ? e.detail : (() => {
+        try { return JSON.parse(localStorage.getItem('dinenos_customer_session')); } catch { return null; }
+      })();
+      if (s) {
+        if (s.name !== undefined) setCustomerName(s.name || '');
+        if (s.phone !== undefined) setCustomerPhone(s.phone || '');
+        if (s.address !== undefined) setDeliveryAddress(s.address || '');
+        else if (s.defaultAddress !== undefined) setDeliveryAddress(s.defaultAddress || '');
+        if (s.landmark !== undefined) setDeliveryLandmark(s.landmark || '');
+      } else if (s === null) {
+        setCustomerName('');
+        setCustomerPhone('');
+        setDeliveryAddress('');
+        setDeliveryLandmark('');
+      }
+    };
+    window.addEventListener('customer_session_updated', handleSessionUpdate);
+    window.addEventListener('storage', handleSessionUpdate);
+    return () => {
+      window.removeEventListener('customer_session_updated', handleSessionUpdate);
+      window.removeEventListener('storage', handleSessionUpdate);
+    };
+  }, []);
 
   // Coupon State
   const [couponCode, setCouponCode] = useState('');
@@ -252,12 +284,24 @@ export default function OrderOnlinePage({ onNavigate }) {
 
       // Save / update customer session in localStorage for seamless profile & reorders
       try {
+        const prevSession = (() => {
+          try { return JSON.parse(localStorage.getItem('dinenos_customer_session')) || {}; } catch { return {}; }
+        })();
+        const fullAddressStr = [
+          deliveryAddress.trim(),
+          deliveryLandmark.trim() ? `(Landmark: ${deliveryLandmark.trim()})` : ''
+        ].filter(Boolean).join(' ');
+
         const sessionPayload = {
+          ...prevSession,
           name: customerName.trim(),
           phone: customerPhone.trim(),
-          defaultAddress: orderType === 'delivery' ? deliveryAddress.trim() : deliveryAddress
+          address: orderType === 'delivery' ? deliveryAddress.trim() : prevSession?.address,
+          landmark: orderType === 'delivery' ? deliveryLandmark.trim() : prevSession?.landmark,
+          defaultAddress: orderType === 'delivery' ? fullAddressStr : prevSession?.defaultAddress
         };
         localStorage.setItem('dinenos_customer_session', JSON.stringify(sessionPayload));
+        window.dispatchEvent(new CustomEvent('customer_session_updated', { detail: sessionPayload }));
       } catch (e) {
         /* storage unavailable */
       }

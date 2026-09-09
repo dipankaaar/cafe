@@ -103,6 +103,8 @@ export default function AboutSection({ onOpenReservation }) {
               <img
                 src="https://reactheme.com/products/wordpress/dinenos/wp-content/uploads/2023/03/barista-preparing-beverage.webp"
                 alt="Barista preparing specialty coffee"
+                loading="lazy"
+                decoding="async"
                 className="w-full h-[420px] sm:h-[480px] object-cover transition-transform duration-700 group-hover:scale-105"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />

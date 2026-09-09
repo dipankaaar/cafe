@@ -29,14 +29,6 @@ import { formatCurrency, formatDateTime } from '../../utils/formatters';
 
 const STORAGE_KEY = 'dinenos_customer_session';
 
-// Demo quick-login presets for fast testing
-const QUICK_DEMO_USERS = [
-  { name: 'Rahul Sharma', phone: '9845011223', tier: 'Platinum' },
-  { name: 'Ananya Iyer', phone: '9741233445', tier: 'Gold' },
-  { name: 'Vikram Malhotra', phone: '9916055667', tier: 'Silver' },
-  { name: 'Priya Nair', phone: '9886077889', tier: 'Bronze' }
-];
-
 export default function CustomerProfileModal({
   isOpen,
   onClose,
@@ -55,24 +47,26 @@ export default function CustomerProfileModal({
     }
   });
 
-  // Login form state
+  // Auth flow step: 'phone' -> 'otp' -> (if new) 'profile_setup'
+  const [authStep, setAuthStep] = useState('phone');
   const [phoneInput, setPhoneInput] = useState('');
+  const [otpInput, setOtpInput] = useState('');
   const [nameInput, setNameInput] = useState('');
   const [addressInput, setAddressInput] = useState('');
   const [landmarkInput, setLandmarkInput] = useState('');
   const [emailInput, setEmailInput] = useState('');
-  const [authMode, setAuthMode] = useState('lookup'); // 'lookup' | 'register' | 'otp_verify'
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [authError, setAuthError] = useState('');
-
-  // WhatsApp OTP state
-  const [otpInput, setOtpInput] = useState('');
-  const [isOtpSent, setIsOtpSent] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
-  const [otpTimer, setOtpTimer] = useState(0);
-  const [debugOtpNotice, setDebugOtpNotice] = useState('');
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [isSubmittingProfile, setIsSubmittingProfile] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [inlineErrors, setInlineErrors] = useState({});
+  const [isExistingCustomer, setIsExistingCustomer] = useState(false);
+  const [customerPreview, setCustomerPreview] = useState(null);
 
-  // OTP Countdown timer
+  // WhatsApp OTP Countdown timer
+  const [otpTimer, setOtpTimer] = useState(0);
+
+  // OTP Countdown timer effect
   useEffect(() => {
     let interval = null;
     if (otpTimer > 0) {
@@ -81,11 +75,12 @@ export default function CustomerProfileModal({
     return () => clearInterval(interval);
   }, [otpTimer]);
 
-  // Profile edit state
+  // Profile edit state (when logged in)
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editAddress, setEditAddress] = useState('');
+  const [editLandmark, setEditLandmark] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileSuccessMsg, setProfileSuccessMsg] = useState('');
 
@@ -111,13 +106,22 @@ export default function CustomerProfileModal({
       const res = await api.lookupCustomer(cleanPhone).catch(() => null);
       if (res && (res.data || res.id)) {
         const full = res.data || res;
-        // Keep saved address if present in session
         const prevSession = (() => {
           try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch { return {}; }
         })();
-        const merged = { ...full, defaultAddress: prevSession?.defaultAddress || full.notes || '' };
+        const merged = {
+          ...prevSession,
+          ...full,
+          address: full.address || prevSession?.address || '',
+          landmark: full.landmark || prevSession?.landmark || '',
+          defaultAddress: full.defaultAddress || prevSession?.defaultAddress || full.notes || ''
+        };
         setCustomer(merged);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+        setEditName(merged.name || '');
+        setEditEmail(merged.email || '');
+        setEditAddress(merged.address || merged.defaultAddress || '');
+        setEditLandmark(merged.landmark || '');
       }
     } catch {
       // quiet fallback when customer not yet registered
@@ -187,14 +191,15 @@ export default function CustomerProfileModal({
         loadReservations(customer.phone);
         setEditName(customer.name || '');
         setEditEmail(customer.email || '');
-        setEditAddress(customer.defaultAddress || '');
+        setEditAddress(customer.address || customer.defaultAddress || '');
+        setEditLandmark(customer.landmark || '');
       }
     }
   }, [isOpen, customer?.phone, customer?.id, refreshCustomerData, loadOrders, loadReservations, loadCoupons]);
 
   // Handle Send OTP via WhatsApp Baileys
-  const handleSendOtp = async (phoneToUse) => {
-    const raw = phoneToUse || phoneInput;
+  const handleSendOtp = async (overridePhone) => {
+    const raw = overridePhone || phoneInput;
     const clean = raw.replace(/\D/g, '').slice(-10);
     if (clean.length < 10) {
       setAuthError('Please enter a valid 10-digit mobile number.');
@@ -203,36 +208,18 @@ export default function CustomerProfileModal({
 
     setIsSendingOtp(true);
     setAuthError('');
-    setDebugOtpNotice('');
+    setInlineErrors({});
     try {
-      // Lookup if customer profile already exists to prefill details
-      api.lookupCustomer(clean).then((res) => {
-        const custData = res?.data || res;
-        if (custData && custData.name) {
-          setNameInput(custData.name || '');
-          setEmailInput(custData.email || '');
-          const rawNotes = custData.defaultAddress || custData.notes || '';
-          if (rawNotes.includes('(Landmark:')) {
-            const parts = rawNotes.split('(Landmark:');
-            setAddressInput(parts[0].trim());
-            setLandmarkInput(parts[1].replace(')', '').trim());
-          } else {
-            setAddressInput(rawNotes);
-          }
-        }
-      }).catch(() => {});
-
       const res = await api.sendOtp(clean, 'Customer Profile Login');
       const data = res.data || res;
-      setIsOtpSent(true);
-      setAuthMode('otp_verify');
       setPhoneInput(clean);
+      setIsExistingCustomer(Boolean(data?.isExistingCustomer));
+      setCustomerPreview(data?.customerPreview || null);
+      setAuthStep('otp');
+      setOtpInput('');
       setOtpTimer(60); // 60s cooldown for resend
-      if (data?.debugOtp) {
-        setDebugOtpNotice(`(Demo/Test OTP: ${data.debugOtp})`);
-      }
     } catch (err) {
-      setAuthError(err?.message || 'Could not send WhatsApp OTP. Please try again.');
+      setAuthError(err?.message || 'Could not send WhatsApp OTP. Please check the number and try again.');
     } finally {
       setIsSendingOtp(false);
     }
@@ -243,175 +230,136 @@ export default function CustomerProfileModal({
     if (e) e.preventDefault();
     const clean = phoneInput.replace(/\D/g, '').slice(-10);
     if (!otpInput || otpInput.trim().length < 4) {
-      setAuthError('Please enter the 6-digit OTP code received on WhatsApp.');
+      setAuthError('Please enter the 6-digit verification code received on WhatsApp.');
       return;
     }
 
-    if (!nameInput.trim()) {
-      setAuthError('Full Name is mandatory. Please enter your name.');
-      return;
-    }
-
-    if (!emailInput.trim()) {
-      setAuthError('Gmail / Email address is mandatory. Please enter your email.');
-      return;
-    }
-
-    if (!emailInput.includes('@') || !emailInput.includes('.')) {
-      setAuthError('Please enter a valid Gmail / Email address (e.g. yourname@gmail.com).');
-      return;
-    }
-
-    if (!addressInput.trim()) {
-      setAuthError('Delivery / Full Address is mandatory. Please enter your address.');
-      return;
-    }
-
-    if (!landmarkInput.trim()) {
-      setAuthError('Nearby Location / Landmark is mandatory. Please enter a landmark.');
-      return;
-    }
-
-    setIsLoggingIn(true);
+    setIsVerifyingOtp(true);
     setAuthError('');
     try {
       const res = await api.verifyOtp({
         phone: clean,
-        otp: otpInput.trim(),
-        name: nameInput.trim(),
-        email: emailInput.trim(),
-        address: addressInput.trim(),
-        landmark: landmarkInput.trim()
+        otp: otpInput.trim()
+      });
+      const data = res.data || res;
+
+      // Existing Customer Direct Login
+      if (data?.isExistingCustomer || (data?.customer && !data?.isNewCustomer)) {
+        const cust = data.customer;
+        setCustomer(cust);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(cust));
+        window.dispatchEvent(new CustomEvent('customer_session_updated', { detail: cust }));
+
+        setEditName(cust.name || '');
+        setEditEmail(cust.email || '');
+        setEditAddress(cust.address || cust.defaultAddress || '');
+        setEditLandmark(cust.landmark || '');
+
+        loadOrders(cust.id, cust.phone);
+        loadReservations(cust.phone);
+
+        setAuthStep('phone');
+        setOtpInput('');
+        setAuthError('');
+      } else if (data?.isNewCustomer) {
+        // New customer -> Mandatory Profile Setup Step
+        setAuthStep('profile_setup');
+        setNameInput('');
+        setAddressInput('');
+        setLandmarkInput('');
+        setEmailInput('');
+        setInlineErrors({});
+        setAuthError('');
+      } else if (data?.customer) {
+        const cust = data.customer;
+        setCustomer(cust);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(cust));
+        window.dispatchEvent(new CustomEvent('customer_session_updated', { detail: cust }));
+        setAuthStep('phone');
+        setOtpInput('');
+      }
+    } catch (err) {
+      setAuthError(err?.message || 'Invalid or expired OTP code. Please check and try again.');
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
+
+  // Handle Complete Mandatory Customer Profile (For New Customers)
+  const handleCompleteProfile = async (e) => {
+    if (e) e.preventDefault();
+    const clean = phoneInput.replace(/\D/g, '').slice(-10);
+    const errors = {};
+
+    const trimmedName = nameInput.trim();
+    const trimmedAddress = addressInput.trim();
+    const trimmedLandmark = landmarkInput.trim();
+    const trimmedEmail = emailInput.trim();
+
+    if (!trimmedName || trimmedName.length < 2) {
+      errors.name = 'Full Name is mandatory (minimum 2 characters).';
+    }
+    if (!trimmedAddress || trimmedAddress.length < 3) {
+      errors.address = 'Full Address is mandatory (House/Flat No, Street, Area).';
+    }
+    if (!trimmedLandmark || trimmedLandmark.length < 2) {
+      errors.landmark = 'Landmark is mandatory (e.g. Near City Mall / Opp. Metro).';
+    }
+    if (trimmedEmail && (!trimmedEmail.includes('@') || !trimmedEmail.includes('.'))) {
+      errors.email = 'Please enter a valid email address.';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setInlineErrors(errors);
+      setAuthError('Please complete all mandatory fields marked with * to continue.');
+      return;
+    }
+
+    setIsSubmittingProfile(true);
+    setInlineErrors({});
+    setAuthError('');
+
+    try {
+      const res = await api.completeProfile({
+        phone: clean,
+        name: trimmedName,
+        address: trimmedAddress,
+        landmark: trimmedLandmark,
+        email: trimmedEmail
       });
       const data = res.data || res;
       const cust = data.customer || data;
       if (cust) {
-        const fullAddressStr = [
-          addressInput.trim(),
-          landmarkInput.trim() ? `(Landmark: ${landmarkInput.trim()})` : ''
-        ].filter(Boolean).join(' ');
+        setCustomer(cust);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(cust));
+        window.dispatchEvent(new CustomEvent('customer_session_updated', { detail: cust }));
 
-        const enrichedCust = {
-          ...cust,
-          name: nameInput.trim() || cust.name,
-          email: emailInput.trim() || cust.email,
-          defaultAddress: fullAddressStr || cust.notes || ''
-        };
+        setEditName(cust.name || trimmedName);
+        setEditEmail(cust.email || trimmedEmail);
+        setEditAddress(cust.address || trimmedAddress);
+        setEditLandmark(cust.landmark || trimmedLandmark);
 
-        setCustomer(enrichedCust);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(enrichedCust));
-        setEditName(enrichedCust.name || '');
-        setEditEmail(enrichedCust.email || '');
-        setEditAddress(enrichedCust.defaultAddress || '');
-        loadOrders(enrichedCust.id, enrichedCust.phone);
-        loadReservations(enrichedCust.phone);
-        setIsOtpSent(false);
+        loadOrders(cust.id, cust.phone);
+        loadReservations(cust.phone);
+
+        setAuthStep('phone');
         setOtpInput('');
-        setAuthMode('lookup');
+        setNameInput('');
+        setAddressInput('');
+        setLandmarkInput('');
+        setEmailInput('');
+        setAuthError('');
       }
     } catch (err) {
-      setAuthError(err?.message || 'Invalid OTP code. Please check and try again.');
+      setAuthError(err?.message || 'Could not complete profile. Please try again.');
     } finally {
-      setIsLoggingIn(false);
-    }
-  };
-
-  // Handle Login / Phone Lookup (Quick mode)
-  const handleLoginByPhone = async (phoneToUse) => {
-    const raw = phoneToUse || phoneInput;
-    const clean = raw.replace(/\D/g, '').slice(-10);
-    if (clean.length < 10) {
-      setAuthError('Please enter a valid 10-digit mobile number.');
-      return;
-    }
-
-    setIsLoggingIn(true);
-    setAuthError('');
-    try {
-      const res = await api.lookupCustomer(clean);
-      const custData = res.data || res;
-      if (custData && custData.name) {
-        setCustomer(custData);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(custData));
-        setEditName(custData.name || '');
-        setEditEmail(custData.email || '');
-        setEditAddress(custData.defaultAddress || custData.notes || '');
-        loadOrders(custData.id, custData.phone);
-        loadReservations(custData.phone);
-      } else {
-        // Customer not found, switch to register mode
-        setAuthMode('register');
-        setPhoneInput(clean);
-      }
-    } catch (err) {
-      // If 404, prompt to create profile
-      setAuthMode('register');
-      setPhoneInput(clean);
-      setAuthError('No profile found for this number. Please enter your details below.');
-    } finally {
-      setIsLoggingIn(false);
-    }
-  };
-
-  // Handle Register New Customer
-  const handleRegisterCustomer = async (e) => {
-    e.preventDefault();
-    const clean = phoneInput.replace(/\D/g, '').slice(-10);
-    if (clean.length < 10) {
-      setAuthError('Please enter a valid 10-digit mobile number.');
-      return;
-    }
-    if (!nameInput.trim()) {
-      setAuthError('Full Name is mandatory. Please enter your name.');
-      return;
-    }
-    if (!emailInput.trim() || !emailInput.includes('@') || !emailInput.includes('.')) {
-      setAuthError('Valid Gmail / Email address is mandatory.');
-      return;
-    }
-    if (!addressInput.trim()) {
-      setAuthError('Delivery Address is mandatory.');
-      return;
-    }
-    if (!landmarkInput.trim()) {
-      setAuthError('Nearby Location / Landmark is mandatory.');
-      return;
-    }
-
-    setIsLoggingIn(true);
-    setAuthError('');
-    try {
-      const fullAddressStr = [
-        addressInput.trim(),
-        landmarkInput.trim() ? `(Landmark: ${landmarkInput.trim()})` : ''
-      ].filter(Boolean).join(' ');
-
-      const payload = {
-        name: nameInput.trim(),
-        phone: clean,
-        email: emailInput.trim(),
-        notes: fullAddressStr
-      };
-      const res = await api.createCustomer(payload);
-      const created = res.data || res;
-      const full = { ...created, defaultAddress: fullAddressStr };
-      setCustomer(full);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(full));
-      setEditName(full.name);
-      setEditEmail(full.email || '');
-      setEditAddress(fullAddressStr);
-      loadOrders(full.id, full.phone);
-      loadReservations(full.phone);
-    } catch (err) {
-      setAuthError(err?.message || 'Could not create profile. Please try again.');
-    } finally {
-      setIsLoggingIn(false);
+      setIsSubmittingProfile(false);
     }
   };
 
   // Save Profile Changes
   const handleSaveProfile = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     if (!customer) return;
     setIsSavingProfile(true);
     setProfileSuccessMsg('');
@@ -419,22 +367,29 @@ export default function CustomerProfileModal({
       const updateData = {
         name: editName.trim(),
         email: editEmail.trim(),
-        notes: editAddress.trim()
+        address: editAddress.trim(),
+        landmark: editLandmark.trim(),
+        notes: [editAddress.trim(), editLandmark.trim() ? `(Landmark: ${editLandmark.trim()})` : ''].filter(Boolean).join(' ')
       };
-      await api.updateCustomer(customer.id, updateData);
-      const updated = {
+      const res = await api.updateCustomer(customer.id, updateData);
+      const updatedCustomer = res.data || res;
+      const merged = {
         ...customer,
+        ...updatedCustomer,
         name: editName.trim(),
         email: editEmail.trim(),
-        defaultAddress: editAddress.trim()
+        address: editAddress.trim(),
+        landmark: editLandmark.trim(),
+        defaultAddress: [editAddress.trim(), editLandmark.trim() ? `(Landmark: ${editLandmark.trim()})` : ''].filter(Boolean).join(' ')
       };
-      setCustomer(updated);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      setCustomer(merged);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      window.dispatchEvent(new CustomEvent('customer_session_updated', { detail: merged }));
       setIsEditingProfile(false);
       setProfileSuccessMsg('Profile details updated successfully!');
       setTimeout(() => setProfileSuccessMsg(''), 3000);
     } catch (err) {
-      setAuthError('Could not save changes.');
+      setAuthError('Could not save changes. Please try again.');
     } finally {
       setIsSavingProfile(false);
     }
@@ -443,16 +398,21 @@ export default function CustomerProfileModal({
   // Logout
   const handleLogout = () => {
     localStorage.removeItem(STORAGE_KEY);
+    window.dispatchEvent(new CustomEvent('customer_session_updated', { detail: null }));
     setCustomer(null);
     setOrders([]);
     setReservations([]);
-    setAuthMode('lookup');
+    setAuthStep('phone');
     setPhoneInput('');
+    setOtpInput('');
     setNameInput('');
     setEmailInput('');
     setAddressInput('');
     setLandmarkInput('');
+    setInlineErrors({});
     setAuthError('');
+    setIsExistingCustomer(false);
+    setCustomerPreview(null);
   };
 
   // Copy coupon code
@@ -591,25 +551,88 @@ export default function CustomerProfileModal({
                 </div>
               )}
 
-              {/* Case A: OTP Verify Mode */}
-              {authMode === 'otp_verify' ? (
+              {/* Step 1: Enter Mobile Number */}
+              {authStep === 'phone' && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-300 mb-1.5 uppercase tracking-wider">
+                      WhatsApp Mobile Number <span className="text-red-500 font-bold">*</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">
+                        +91
+                      </span>
+                      <input
+                        type="tel"
+                        maxLength="10"
+                        autoFocus
+                        value={phoneInput}
+                        onChange={(e) => setPhoneInput(e.target.value.replace(/\D/g, ''))}
+                        placeholder="98765 43210"
+                        className="w-full bg-black/40 border border-white/10 rounded-xl pl-12 pr-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#DD5903] transition-colors font-mono"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && phoneInput.length === 10) {
+                            handleSendOtp();
+                          }
+                        }}
+                      />
+                    </div>
+                    <p className="text-[11px] text-gray-400 mt-1.5">
+                      Enter your 10-digit mobile number. We will send an OTP via WhatsApp to authenticate.
+                    </p>
+                  </div>
+
+                  {/* Primary Action: Send WhatsApp OTP */}
+                  <button
+                    type="button"
+                    onClick={() => handleSendOtp()}
+                    disabled={isSendingOtp || phoneInput.length < 10}
+                    className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSendingOtp ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>Sending WhatsApp OTP...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <span className="text-base">💬</span>
+                        <span>Send WhatsApp OTP</span>
+                      </>
+                    )}
+                  </button>
+
+                  <div className="p-3 bg-white/5 border border-white/5 rounded-xl text-center">
+                    <p className="text-xs text-gray-400 flex items-center justify-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Existing customers are directly logged in upon OTP verification</span>
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: WhatsApp OTP Verification */}
+              {authStep === 'otp' && (
                 <div className="space-y-4">
                   <div className="p-3.5 bg-emerald-950/40 border border-emerald-500/30 rounded-2xl text-center space-y-1">
                     <div className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-400">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                       <span>WhatsApp OTP Sent</span>
                     </div>
-                    <p className="text-xs text-gray-300">
-                      We sent a 6-digit verification code to <strong className="text-white">+91 {phoneInput}</strong>
-                    </p>
-                    {debugOtpNotice && (
-                      <p className="text-[11px] text-amber-300 font-mono font-bold pt-0.5">{debugOtpNotice}</p>
+                    {isExistingCustomer ? (
+                      <p className="text-xs text-gray-200">
+                        Welcome back{customerPreview?.name ? <strong className="text-emerald-300">, {customerPreview.name}</strong> : ''}! Enter the 6-digit verification code sent to <strong className="text-white font-mono">+91 {phoneInput}</strong>.
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-200">
+                        New Account Setup: We sent a 6-digit verification code to <strong className="text-white font-mono">+91 {phoneInput}</strong> via WhatsApp.
+                      </p>
                     )}
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-gray-300 mb-1.5 uppercase tracking-wider text-center">
-                      Enter 6-Digit OTP Code <span className="text-emerald-400">*</span>
+                      Enter 6-Digit OTP Code <span className="text-emerald-400 font-bold">*</span>
                     </label>
                     <input
                       type="text"
@@ -619,90 +642,29 @@ export default function CustomerProfileModal({
                       onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ''))}
                       placeholder="••••••"
                       className="w-full bg-black/60 border border-emerald-500/50 rounded-xl px-4 py-2.5 text-center text-2xl font-mono tracking-widest text-emerald-400 placeholder-gray-600 focus:outline-none focus:border-emerald-400 shadow-inner"
-                      onKeyDown={(e) => e.key === 'Enter' && handleVerifyOtp()}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && otpInput.length >= 4) {
+                          handleVerifyOtp();
+                        }
+                      }}
                     />
                   </div>
 
-                  {/* Mandatory Customer Profile Details */}
-                  <div className="pt-2 border-t border-white/10 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                        <User className="w-3.5 h-3.5 text-[#DD5903]" />
-                        <span>Profile Information</span>
-                      </span>
-                      <span className="text-[10px] text-[#DD5903] font-semibold uppercase tracking-wider bg-orange-500/10 px-2 py-0.5 rounded-full border border-orange-500/20">
-                        * All Fields Required
-                      </span>
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-semibold text-gray-300 mb-1">
-                        Full Name <span className="text-red-400 font-bold">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={nameInput}
-                        onChange={(e) => setNameInput(e.target.value)}
-                        placeholder="e.g. Rahul Sharma"
-                        className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#DD5903]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-semibold text-gray-300 mb-1">
-                        Gmail / Email Address <span className="text-red-400 font-bold">*</span>
-                      </label>
-                      <input
-                        type="email"
-                        required
-                        value={emailInput}
-                        onChange={(e) => setEmailInput(e.target.value)}
-                        placeholder="e.g. rahul@gmail.com"
-                        className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#DD5903]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-semibold text-gray-300 mb-1">
-                        Delivery / Full Address <span className="text-red-400 font-bold">*</span>
-                      </label>
-                      <textarea
-                        rows="2"
-                        required
-                        value={addressInput}
-                        onChange={(e) => setAddressInput(e.target.value)}
-                        placeholder="Flat/House No, Building, Street, Area..."
-                        className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#DD5903] resize-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-semibold text-gray-300 mb-1">
-                        Nearby Location / Landmark <span className="text-red-400 font-bold">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={landmarkInput}
-                        onChange={(e) => setLandmarkInput(e.target.value)}
-                        placeholder="e.g. Near City Mall / Opp. Metro Gate 2"
-                        className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#DD5903]"
-                      />
-                    </div>
-                  </div>
-
                   <button
+                    type="button"
                     onClick={handleVerifyOtp}
-                    disabled={isLoggingIn || otpInput.length < 4}
-                    className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/50 cursor-pointer disabled:opacity-50"
+                    disabled={isVerifyingOtp || otpInput.length < 4}
+                    className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isLoggingIn ? (
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    {isVerifyingOtp ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>Verifying OTP...</span>
+                      </div>
                     ) : (
                       <>
                         <CheckCircle2 className="w-4 h-4" />
-                        <span>Verify OTP & Create Profile</span>
+                        <span>{isExistingCustomer ? 'Verify OTP & Log In' : 'Verify OTP & Continue'}</span>
                       </>
                     )}
                   </button>
@@ -711,16 +673,17 @@ export default function CustomerProfileModal({
                     <button
                       type="button"
                       onClick={() => {
-                        setAuthMode('lookup');
+                        setAuthStep('phone');
                         setOtpInput('');
+                        setAuthError('');
                       }}
                       className="text-gray-400 hover:text-white transition-colors cursor-pointer"
                     >
-                      ← Change Number
+                      ← Change Mobile Number
                     </button>
 
                     {otpTimer > 0 ? (
-                      <span className="text-gray-500 text-[11px]">Resend in {otpTimer}s</span>
+                      <span className="text-gray-500 text-[11px] font-mono">Resend in {otpTimer}s</span>
                     ) : (
                       <button
                         type="button"
@@ -733,173 +696,157 @@ export default function CustomerProfileModal({
                     )}
                   </div>
                 </div>
-              ) : authMode === 'lookup' ? (
-                /* Case B: Enter Mobile Number Mode */
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-300 mb-1.5 uppercase tracking-wider">
-                      Mobile Number
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">
-                        +91
+              )}
+
+              {/* Step 3: Mandatory Customer Profile Setup (New Customers Only) */}
+              {authStep === 'profile_setup' && (
+                <form onSubmit={handleCompleteProfile} className="space-y-4">
+                  <div className="p-3.5 bg-orange-500/10 border border-orange-500/20 rounded-2xl space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-[#DD5903] flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        <span>Mobile Number Verified (+91 {phoneInput})</span>
                       </span>
-                      <input
-                        type="tel"
-                        maxLength="10"
-                        value={phoneInput}
-                        onChange={(e) => setPhoneInput(e.target.value.replace(/\D/g, ''))}
-                        placeholder="98765 43210"
-                        className="w-full bg-black/40 border border-white/10 rounded-xl pl-12 pr-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#DD5903] transition-colors"
-                        onKeyDown={(e) => e.key === 'Enter' && handleSendOtp()}
-                      />
+                      <span className="text-[10px] text-red-400 font-semibold uppercase tracking-wider bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20">
+                        * Required Fields
+                      </span>
                     </div>
+                    <p className="text-xs text-gray-300">
+                      Welcome to Petuk Adda! Please complete your mandatory profile details below to finalize your account registration.
+                    </p>
                   </div>
 
-                  {/* Primary: Send OTP via WhatsApp */}
-                  <button
-                    onClick={() => handleSendOtp()}
-                    disabled={isSendingOtp || phoneInput.length < 10}
-                    className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/50 cursor-pointer disabled:opacity-50"
-                  >
-                    {isSendingOtp ? (
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    ) : (
-                      <>
-                        <span className="text-base">💬</span>
-                        <span>Send OTP via WhatsApp</span>
-                      </>
-                    )}
-                  </button>
-
-                  {/* Secondary: Quick Phone Lookup */}
-                  <button
-                    onClick={() => handleLoginByPhone()}
-                    disabled={isLoggingIn || phoneInput.length < 10}
-                    className="w-full py-2.5 bg-white/5 hover:bg-white/10 text-gray-300 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  >
-                    {isLoggingIn ? 'Checking...' : 'Direct Login without OTP'}
-                  </button>
-                </div>
-              ) : (
-                /* Register Form for New User */
-                <form onSubmit={handleRegisterCustomer} className="space-y-3.5">
-                  <div className="p-2.5 bg-orange-500/10 border border-orange-500/20 rounded-xl text-xs text-orange-200">
-                    Please provide your complete details below to create your customer profile.
-                  </div>
-
+                  {/* Mandatory Field 1: Full Name */}
                   <div>
                     <label className="block text-xs font-semibold text-gray-300 mb-1">
-                      Your Full Name <span className="text-red-400">*</span>
+                      Full Name <span className="text-red-500 font-bold text-sm">*</span>
                     </label>
                     <input
                       type="text"
-                      required
                       value={nameInput}
-                      onChange={(e) => setNameInput(e.target.value)}
-                      placeholder="e.g. Sourav Mukherjee"
-                      className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#DD5903]"
+                      onChange={(e) => {
+                        setNameInput(e.target.value);
+                        if (inlineErrors.name) setInlineErrors((prev) => ({ ...prev, name: '' }));
+                      }}
+                      placeholder="e.g. Subhashree Ghosh"
+                      className={`w-full bg-black/40 border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none transition-colors ${
+                        inlineErrors.name ? 'border-red-500 focus:border-red-400' : 'border-white/10 focus:border-[#DD5903]'
+                      }`}
                     />
+                    {inlineErrors.name && (
+                      <p className="text-xs text-red-400 mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span>{inlineErrors.name}</span>
+                      </p>
+                    )}
                   </div>
 
+                  {/* Mandatory Field 2: Full Address */}
                   <div>
                     <label className="block text-xs font-semibold text-gray-300 mb-1">
-                      Mobile Number <span className="text-red-400">*</span>
-                    </label>
-                    <input
-                      type="tel"
-                      required
-                      maxLength="10"
-                      value={phoneInput}
-                      onChange={(e) => setPhoneInput(e.target.value.replace(/\D/g, ''))}
-                      className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#DD5903]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-300 mb-1">
-                      Gmail / Email Address <span className="text-red-400">*</span>
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      value={emailInput}
-                      onChange={(e) => setEmailInput(e.target.value)}
-                      placeholder="sourav@gmail.com"
-                      className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#DD5903]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-300 mb-1">
-                      Delivery / Full Address <span className="text-red-400">*</span>
+                      Full Delivery Address <span className="text-red-500 font-bold text-sm">*</span>
                     </label>
                     <textarea
                       rows="2"
-                      required
                       value={addressInput}
-                      onChange={(e) => setAddressInput(e.target.value)}
-                      placeholder="House/Flat No, Building, Street, City..."
-                      className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-[#DD5903] resize-none"
+                      onChange={(e) => {
+                        setAddressInput(e.target.value);
+                        if (inlineErrors.address) setInlineErrors((prev) => ({ ...prev, address: '' }));
+                      }}
+                      placeholder="House/Flat No., Building Name, Street / Road, Area..."
+                      className={`w-full bg-black/40 border rounded-xl px-4 py-2 text-sm text-white focus:outline-none transition-colors resize-none ${
+                        inlineErrors.address ? 'border-red-500 focus:border-red-400' : 'border-white/10 focus:border-[#DD5903]'
+                      }`}
                     />
+                    {inlineErrors.address && (
+                      <p className="text-xs text-red-400 mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span>{inlineErrors.address}</span>
+                      </p>
+                    )}
                   </div>
 
+                  {/* Mandatory Field 3: Landmark */}
                   <div>
                     <label className="block text-xs font-semibold text-gray-300 mb-1">
-                      Nearby Location / Landmark <span className="text-red-400">*</span>
+                      Nearby Landmark <span className="text-red-500 font-bold text-sm">*</span>
                     </label>
                     <input
                       type="text"
-                      required
                       value={landmarkInput}
-                      onChange={(e) => setLandmarkInput(e.target.value)}
+                      onChange={(e) => {
+                        setLandmarkInput(e.target.value);
+                        if (inlineErrors.landmark) setInlineErrors((prev) => ({ ...prev, landmark: '' }));
+                      }}
                       placeholder="e.g. Near City Mall / Opp. Metro Gate 2"
-                      className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#DD5903]"
+                      className={`w-full bg-black/40 border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none transition-colors ${
+                        inlineErrors.landmark ? 'border-red-500 focus:border-red-400' : 'border-white/10 focus:border-[#DD5903]'
+                      }`}
                     />
+                    {inlineErrors.landmark && (
+                      <p className="text-xs text-red-400 mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span>{inlineErrors.landmark}</span>
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Optional Field: Email Address */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-300 mb-1">
+                      Email Address <span className="text-gray-500 text-[11px] font-normal">(Optional)</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={emailInput}
+                      onChange={(e) => {
+                        setEmailInput(e.target.value);
+                        if (inlineErrors.email) setInlineErrors((prev) => ({ ...prev, email: '' }));
+                      }}
+                      placeholder="e.g. customer@gmail.com"
+                      className={`w-full bg-black/40 border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none transition-colors ${
+                        inlineErrors.email ? 'border-red-500 focus:border-red-400' : 'border-white/10 focus:border-[#DD5903]'
+                      }`}
+                    />
+                    {inlineErrors.email && (
+                      <p className="text-xs text-red-400 mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span>{inlineErrors.email}</span>
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex gap-2 pt-2">
                     <button
                       type="button"
-                      onClick={() => setAuthMode('lookup')}
+                      onClick={() => {
+                        setAuthStep('phone');
+                        setAuthError('');
+                      }}
                       className="flex-1 py-2.5 bg-white/5 hover:bg-white/10 text-gray-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
                     >
                       Back
                     </button>
                     <button
                       type="submit"
-                      disabled={isLoggingIn}
-                      className="flex-2 dinenos-btn !py-2.5 !text-xs font-bold cursor-pointer"
+                      disabled={isSubmittingProfile || !nameInput.trim() || !addressInput.trim() || !landmarkInput.trim()}
+                      className="flex-2 dinenos-btn !py-2.5 !text-xs font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
                     >
-                      {isLoggingIn ? 'Creating...' : 'Create & View Profile'}
+                      {isSubmittingProfile ? (
+                        <>
+                          <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          <span>Creating Profile...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Complete Profile & Register</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 </form>
               )}
-
-              {/* 1-Click Demo Profiles for instant testing */}
-              <div className="pt-4 border-t border-white/10">
-                <p className="text-[11px] text-gray-400 font-semibold mb-2 uppercase tracking-wider text-center">
-                  Quick 1-Click Demo Profiles (For Testing):
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {QUICK_DEMO_USERS.map((u) => (
-                    <button
-                      key={u.phone}
-                      onClick={() => handleLoginByPhone(u.phone)}
-                      className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-orange-500/30 text-left transition-all cursor-pointer group"
-                    >
-                      <div className="text-xs font-bold text-white group-hover:text-[#DD5903] transition-colors truncate">
-                        {u.name}
-                      </div>
-                      <div className="text-[10px] text-gray-400 flex items-center justify-between mt-0.5">
-                        <span>{u.phone}</span>
-                        <span className="text-[#DD5903] font-semibold">{u.tier}</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
           ) : (
             /* ================= CASE 2: LOGGED IN CUSTOMER VIEW ================= */
@@ -1058,17 +1005,25 @@ export default function CustomerProfileModal({
                           <span className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold">Email</span>
                           <p className="text-sm text-white">{customer.email || 'Not provided'}</p>
                         </div>
+                        <div className="space-y-1">
+                          <span className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold">Nearby Landmark</span>
+                          <p className="text-sm text-white">
+                            {customer.landmark || (customer.defaultAddress && customer.defaultAddress.includes('(Landmark:') ? customer.defaultAddress.split('(Landmark:')[1].replace(')', '').trim() : 'Not provided')}
+                          </p>
+                        </div>
                         <div className="space-y-1 sm:col-span-2">
-                          <span className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold">Default Delivery Address</span>
+                          <span className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold">Delivery Address</span>
                           <p className="text-sm text-gray-200">
-                            {customer.defaultAddress || customer.notes || 'No default address saved yet. Add one for faster checkout.'}
+                            {customer.address || customer.defaultAddress || customer.notes || 'No address saved yet.'}
                           </p>
                         </div>
                       </div>
                     ) : (
                       <form onSubmit={handleSaveProfile} className="space-y-3 pt-2">
                         <div>
-                          <label className="block text-xs font-semibold text-gray-300 mb-1">Full Name</label>
+                          <label className="block text-xs font-semibold text-gray-300 mb-1">
+                            Full Name <span className="text-red-500 font-bold">*</span>
+                          </label>
                           <input
                             type="text"
                             required
@@ -1087,13 +1042,29 @@ export default function CustomerProfileModal({
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-semibold text-gray-300 mb-1">Default Delivery Address</label>
+                          <label className="block text-xs font-semibold text-gray-300 mb-1">
+                            Delivery Address <span className="text-red-500 font-bold">*</span>
+                          </label>
                           <textarea
                             rows="2"
+                            required
                             value={editAddress}
                             onChange={(e) => setEditAddress(e.target.value)}
-                            placeholder="Flat/House No, Building, Landmark..."
+                            placeholder="Flat/House No, Building, Street..."
                             className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-[#DD5903] resize-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-300 mb-1">
+                            Nearby Landmark <span className="text-red-500 font-bold">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={editLandmark}
+                            onChange={(e) => setEditLandmark(e.target.value)}
+                            placeholder="e.g. Near City Mall"
+                            className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-[#DD5903]"
                           />
                         </div>
                         <div className="flex justify-end gap-2 pt-2">
@@ -1106,8 +1077,8 @@ export default function CustomerProfileModal({
                           </button>
                           <button
                             type="submit"
-                            disabled={isSavingProfile}
-                            className="dinenos-btn !py-2 !px-4 !text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                            disabled={isSavingProfile || !editName.trim() || !editAddress.trim() || !editLandmark.trim()}
+                            className="dinenos-btn !py-2 !px-4 !text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                           >
                             <Save className="w-3.5 h-3.5" />
                             <span>{isSavingProfile ? 'Saving...' : 'Save Changes'}</span>

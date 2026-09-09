@@ -173,7 +173,30 @@ export class OrderModel {
     values.push(sanitize(data.notes, ''));
     values.push(data.serverStaff || (data.orderSource === 'QR_TABLE' ? 'QR Self-Order' : 'Cashier'));
 
-    stmt.run(...values);
+    // Idempotent insert: a client retry (same id after a network timeout) returns
+    // the original order instead of creating a duplicate or throwing a 500.
+    // A random order_number collision regenerates once instead of failing.
+    try {
+      stmt.run(...values);
+    } catch (e) {
+      const msg = String(e?.message || '');
+      if (msg.includes('UNIQUE constraint failed: orders.id')) {
+        const existing = this.findById(id);
+        if (existing) return existing;
+      }
+      if (msg.includes('UNIQUE constraint failed: orders.order_number')) {
+        values[1] = generateOrderNumber('DN');
+        try {
+          stmt.run(...values);
+          return this.findById(id);
+        } catch (e2) {
+          const retry = this.findById(id);
+          if (retry) return retry;
+          throw e2;
+        }
+      }
+      throw e;
+    }
 
     return this.findById(id);
   }

@@ -124,6 +124,8 @@ export default function StaffManagementView() {
                     <img
                       src={emp.avatar}
                       alt={emp.name}
+                      loading="lazy"
+                      decoding="async"
                       className="w-12 h-12 rounded-xl object-cover border border-gray-200 dark:border-gray-700"
                     />
                     <div>

@@ -19,6 +19,8 @@ export default function GallerySection() {
             <img
               src={item.url}
               alt={item.title}
+              loading="lazy"
+              decoding="async"
               className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110 opacity-90 group-hover:opacity-100"
             />
             
@@ -56,6 +58,7 @@ export default function GallerySection() {
             <img
               src={activeImage.url}
               alt={activeImage.title}
+              decoding="async"
               className="max-h-[80vh] w-auto object-contain mx-auto rounded-lg"
             />
             <p className="text-center text-gray-300 text-sm mt-3 font-['Arapey',serif] text-lg">

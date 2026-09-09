@@ -18,6 +18,41 @@ export class OrderService {
       throw new ApiError(400, 'Order cart cannot be empty');
     }
 
+    // ---- Payload integrity: reject corrupt totals/quantities before they touch revenue/stock ----
+    // (Guards against crafted API calls with negative prices, NaN totals, or absurd quantities
+    // that would otherwise corrupt P&L figures and inflate inventory on completion.)
+    const money = (v, field) => {
+      const n = Number(v);
+      if (!Number.isFinite(n) || n < 0 || n > 10000000) {
+        throw new ApiError(400, `Invalid ${field}: must be a non-negative number`);
+      }
+      return n;
+    };
+    orderData.items.forEach((it, i) => {
+      const qty = Number(it.quantity);
+      if (!Number.isFinite(qty) || qty <= 0 || qty > 99) {
+        throw new ApiError(400, `Invalid quantity for item ${i + 1}: must be 1–99`);
+      }
+      it.quantity = Math.floor(qty);
+      ['price', 'unitPrice', 'totalPrice', 'sellingPrice'].forEach((k) => {
+        if (it[k] !== undefined && it[k] !== null) {
+          const n = Number(it[k]);
+          if (!Number.isFinite(n) || n < 0) throw new ApiError(400, `Invalid ${k} for item ${i + 1}`);
+        }
+      });
+    });
+    orderData.subtotal = money(orderData.subtotal ?? 0, 'subtotal');
+    orderData.discountAmount = money(orderData.discountAmount ?? 0, 'discount');
+    orderData.taxAmount = money(orderData.taxAmount ?? 0, 'tax');
+    orderData.serviceCharge = money(orderData.serviceCharge ?? 0, 'service charge');
+    orderData.grandTotal = money(orderData.grandTotal ?? 0, 'grand total');
+    if (orderData.discountAmount > orderData.subtotal) {
+      throw new ApiError(400, 'Discount cannot exceed the order subtotal');
+    }
+    if (orderData.grandTotal > orderData.subtotal - orderData.discountAmount + orderData.taxAmount + orderData.serviceCharge + 1) {
+      throw new ApiError(400, 'Grand total is inconsistent with the bill breakup');
+    }
+
     // Normalize orderType & tableNumber aliases
     orderData.orderType = orderData.orderType || orderData.type || 'dine-in';
     if (orderData.tableNo && !orderData.tableNumber) orderData.tableNumber = orderData.tableNo;

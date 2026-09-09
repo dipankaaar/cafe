@@ -2065,7 +2065,7 @@ export const initialBranches = [
     address: "Salboni, Sakadihi-Ailakundi Road, Near Salboni High School, Salboni, West Bengal 722102",
     phone: "+91 9932148058",
     email: "petukaddacafe@gmail.com",
-    managerName: "Ananya Iyer",
+    managerName: "Subhashree Ghosh",
     openingHours: "09:00 AM – 10:30 PM (Open All Days)",
     isActive: true
   },

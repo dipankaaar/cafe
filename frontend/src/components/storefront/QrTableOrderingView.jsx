@@ -788,6 +788,8 @@ export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
                     <img
                       src={product.image || product.imageUrl || 'https://reactheme.com/products/wordpress/dinenos/wp-content/uploads/2023/03/latte.jpg'}
                       alt={product.name}
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     {product.isVeg ? (
@@ -1049,6 +1051,8 @@ export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
                   <img
                     src={item.image || 'https://reactheme.com/products/wordpress/dinenos/wp-content/uploads/2023/03/latte.jpg'}
                     alt={item.name}
+                    loading="lazy"
+                    decoding="async"
                     className="w-14 h-14 rounded-lg object-cover bg-black flex-shrink-0"
                   />
                   <div className="flex-1 flex flex-col justify-between">
