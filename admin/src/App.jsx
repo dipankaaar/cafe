@@ -119,7 +119,7 @@ function AdminContent() {
       );
     }
 
-    if (currentModule.startsWith('orders')) return <OrdersView />;
+    if (currentModule.startsWith('orders')) return <OrdersView initialModule={currentModule} />;
     if (currentModule.startsWith('menu')) return <MenuManagementView initialModule={currentModule} />;
     if (currentModule.startsWith('inventory')) return <InventoryView />;
 

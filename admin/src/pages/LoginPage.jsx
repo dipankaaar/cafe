@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Shield, Lock, Mail, KeyRound, Coffee, CheckCircle2, AlertCircle, ArrowRight, UserCheck, CreditCard, ChefHat, Grid, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
+import logoImg from '../assets/logo.jpg';
 
 export default function LoginPage() {
   const { login, switchRole } = useAuth();
@@ -112,14 +113,14 @@ export default function LoginPage() {
         
         {/* Header Branding */}
         <div className="text-center mb-8">
-          <div className="relative inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#DD5903] via-amber-600 to-amber-500 shadow-xl shadow-orange-950/50 mb-3 text-white">
-            <Coffee className="w-8 h-8" />
-            <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-amber-400 text-[#1a0f07] flex items-center justify-center text-[10px] shadow-sm font-bold">
+          <div className="relative inline-flex items-center justify-center w-20 h-20 rounded-full bg-black shadow-xl shadow-orange-950/50 mb-3 overflow-hidden border-2 border-amber-500/50">
+            <img src={logoImg} alt="Petuk Adda" className="w-full h-full object-cover" />
+            <span className="absolute top-1 right-1 w-5 h-5 rounded-full bg-amber-400 text-[#1a0f07] flex items-center justify-center text-[10px] shadow-sm font-bold">
               <Sparkles className="w-3 h-3" />
             </span>
           </div>
           <h1 className="text-2xl font-black tracking-tight text-white font-['Playfair_Display',serif]">
-            Petuk Adda Cafe
+            Petuk Adda
           </h1>
           <div className="flex items-center justify-center gap-2 mt-1">
             <span className="text-[10px] uppercase tracking-widest text-[#DD5903] font-bold">

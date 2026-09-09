@@ -1,5 +1,5 @@
 import React from 'react';
-import { Coffee } from 'lucide-react';
+import logoImg from '../../assets/logo.jpg';
 
 export default function BrandLogo({ className = "", size = "default", light = true }) {
   const isSmall = size === "sm";
@@ -7,13 +7,17 @@ export default function BrandLogo({ className = "", size = "default", light = tr
 
   return (
     <div className={`flex items-center gap-3 select-none ${className}`}>
-      {/* Emblem Icon */}
+      {/* Emblem Circular Logo */}
       <div
-        className={`relative flex items-center justify-center rounded-xl bg-gradient-to-br from-[#DD5903] via-[#e8660e] to-[#993b00] text-white shadow-lg shadow-orange-950/40 flex-shrink-0 border border-amber-400/30 transition-transform duration-300 group-hover:scale-105 ${
+        className={`relative flex items-center justify-center rounded-full bg-black text-white shadow-lg shadow-orange-950/40 flex-shrink-0 border-2 border-amber-500/40 transition-transform duration-300 group-hover:scale-105 overflow-hidden ${
           isSmall ? 'w-8 h-8' : isLarge ? 'w-12 h-12' : 'w-10 h-10'
         }`}
       >
-        <Coffee className={isSmall ? 'w-4 h-4' : isLarge ? 'w-6 h-6' : 'w-5 h-5'} />
+        <img
+          src={logoImg}
+          alt="Petuk Adda Logo"
+          className="w-full h-full object-cover rounded-full"
+        />
         <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-300 animate-ping opacity-75" />
       </div>
 
@@ -31,7 +35,7 @@ export default function BrandLogo({ className = "", size = "default", light = tr
             isSmall ? 'text-[9px]' : isLarge ? 'text-xs' : 'text-[10px] sm:text-[11px]'
           }`}
         >
-          CAFE
+          RESTAURANT & CAFE
         </span>
       </div>
     </div>

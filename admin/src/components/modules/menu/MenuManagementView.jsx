@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useCafe } from '../../../context/CafeContext';
 import Card from '../../common/Card';
 import Badge from '../../common/Badge';
@@ -54,6 +54,14 @@ export default function MenuManagementView({ initialModule = 'menu' }) {
     if (initialModule === 'menu-addons') return 'addons';
     return 'table';
   });
+
+  // Synchronize activeTab when initialModule changes from Sidebar navigation
+  useEffect(() => {
+    if (initialModule === 'menu-online') setActiveTab('online');
+    else if (initialModule === 'menu-categories') setActiveTab('categories');
+    else if (initialModule === 'menu-addons') setActiveTab('addons');
+    else if (initialModule === 'menu-table' || initialModule === 'menu') setActiveTab('table');
+  }, [initialModule]);
 
   // Search, Filter & Sort
   const [searchQuery, setSearchQuery] = useState('');
