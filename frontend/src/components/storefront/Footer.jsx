@@ -364,9 +364,17 @@ export default function Footer({ onNavigate, onNavigateToAdmin }) {
           <p className="text-xs text-gray-400 font-medium">
             © 2025 Petuk Adda Cafe. All rights reserved. • Salboni, Bankura
           </p>
-          <p className="text-xs text-gray-500 font-medium">
-            Handcrafted Coffee & Multi-Cuisine Diner
-          </p>
+          <div className="flex flex-col items-center sm:items-end text-xs gap-0.5">
+            <span className="text-gray-200 font-semibold tracking-wide">
+              @DIPANKAR GORAI
+            </span>
+            <a 
+              href="tel:7601852619" 
+              className="text-[#DD5903] hover:underline font-mono text-xs font-semibold tracking-wider transition-colors"
+            >
+              7601852619
+            </a>
+          </div>
         </div>
 
       </div>

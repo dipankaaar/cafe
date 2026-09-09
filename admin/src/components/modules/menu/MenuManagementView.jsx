@@ -786,7 +786,7 @@ export default function MenuManagementView({ initialModule = 'menu' }) {
                               <Copy className="w-3.5 h-3.5" />
                             </button>
                             <button
-                              onClick={() => setProductToDelete(product)}
+                              onClick={() => deleteProduct(product.id)}
                               className="p-1.5 rounded-lg text-gray-500 hover:text-rose-600 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
                               title="Delete Item"
                             >
@@ -843,7 +843,7 @@ export default function MenuManagementView({ initialModule = 'menu' }) {
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => setCategoryToDelete(cat)}
+                    onClick={() => deleteCategory(cat.id)}
                     className="p-1.5 rounded-lg text-gray-500 hover:text-rose-600 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
                     title="Delete category"
                   >
@@ -895,7 +895,7 @@ export default function MenuManagementView({ initialModule = 'menu' }) {
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => setAddonToDelete(add)}
+                    onClick={() => deleteAddon(add.id)}
                     className="p-1.5 rounded-lg text-gray-500 hover:text-rose-600 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
                     title="Delete Add-on"
                   >
@@ -1260,23 +1260,6 @@ export default function MenuManagementView({ initialModule = 'menu' }) {
         </Modal>
       )}
 
-      {/* ================= CONFIRM DELETE PRODUCT MODAL ================= */}
-      {productToDelete && (
-        <ConfirmDialog
-          isOpen={true}
-          title={`Delete "${productToDelete.name}"?`}
-          message="Are you sure you want to permanently delete this food item from all menus? This cannot be undone."
-          confirmText="Delete Food Item"
-          cancelText="Keep Item"
-          type="danger"
-          onConfirm={() => {
-            deleteProduct(productToDelete.id);
-            setProductToDelete(null);
-          }}
-          onCancel={() => setProductToDelete(null)}
-        />
-      )}
-
       {/* ================= CATEGORY MODAL ================= */}
       {isCatModalOpen && (
         <Modal
@@ -1373,37 +1356,6 @@ export default function MenuManagementView({ initialModule = 'menu' }) {
             </div>
           </form>
         </Modal>
-      )}
-
-      {/* ================= DELETE CONFIRMATIONS ================= */}
-      {categoryToDelete && (
-        <ConfirmDialog
-          isOpen={true}
-          title={`Delete Category "${categoryToDelete.name}"?`}
-          message="Products assigned to this category will not be deleted, but will become unassigned."
-          confirmText="Delete Category"
-          type="danger"
-          onConfirm={() => {
-            deleteCategory(categoryToDelete.id);
-            setCategoryToDelete(null);
-          }}
-          onCancel={() => setCategoryToDelete(null)}
-        />
-      )}
-
-      {addonToDelete && (
-        <ConfirmDialog
-          isOpen={true}
-          title={`Delete Add-on "${addonToDelete.name}"?`}
-          message="Are you sure you want to remove this add-on from available customizers?"
-          confirmText="Delete Add-on"
-          type="danger"
-          onConfirm={() => {
-            deleteAddon(addonToDelete.id);
-            setAddonToDelete(null);
-          }}
-          onCancel={() => setAddonToDelete(null)}
-        />
       )}
 
     </div>

@@ -19,14 +19,47 @@ import {
   Smartphone,
   RefreshCw,
   QrCode,
-  CheckCircle2
+  CheckCircle2,
+  LogOut,
+  Lock,
+  KeyRound,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 export default function SettingsView() {
-  const { settings, updateSettings, resetAllDataToDefault } = useCafe();
+  const { settings, updateSettings, resetAllDataToDefault, staff = [], updateStaffMember } = useCafe();
   
   const [form, setForm] = useState({ ...settings });
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+
+  // Admin Credentials Management State
+  const adminStaff = staff.find((s) => s.role === 'Admin') || { id: 'staff-1', email: 'admin@dinenos.com', password: 'admin123', pin: '1234' };
+  const [adminEmail, setAdminEmail] = useState(adminStaff?.email || 'admin@dinenos.com');
+  const [adminPassword, setAdminPassword] = useState(adminStaff?.password || 'admin123');
+  const [adminPin, setAdminPin] = useState(adminStaff?.pin || '1234');
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
+  const [adminCredSaved, setAdminCredSaved] = useState(false);
+
+  React.useEffect(() => {
+    if (adminStaff) {
+      if (adminStaff.email) setAdminEmail(adminStaff.email);
+      if (adminStaff.password) setAdminPassword(adminStaff.password);
+      if (adminStaff.pin) setAdminPin(adminStaff.pin);
+    }
+  }, [adminStaff.email, adminStaff.password, adminStaff.pin]);
+
+  const handleSaveAdminSecurity = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!adminEmail || !updateStaffMember) return;
+    updateStaffMember(adminStaff.id, {
+      email: adminEmail.trim(),
+      password: adminPassword.trim() || 'admin123',
+      pin: adminPin.trim() || '1234'
+    });
+    setAdminCredSaved(true);
+    setTimeout(() => setAdminCredSaved(false), 3000);
+  };
 
   // WhatsApp Baileys integration state
   const [waStatus, setWaStatus] = useState({ status: 'CONNECTING', connected: false });
@@ -36,6 +69,9 @@ export default function SettingsView() {
   const [pairingCode, setPairingCode] = useState('');
   const [isPairingLoading, setIsPairingLoading] = useState(false);
   const [pairingError, setPairingError] = useState('');
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+  const [isLoggingOutWa, setIsLoggingOutWa] = useState(false);
+  const [isReconnectingWa, setIsReconnectingWa] = useState(false);
 
   const fetchWhatsAppStatus = async () => {
     setIsLoadingWa(true);
@@ -45,6 +81,8 @@ export default function SettingsView() {
       setWaStatus(data || { status: 'DISCONNECTED', connected: false });
       if (data?.qrDataUrl) {
         setWaQrDataUrl(data.qrDataUrl);
+      } else if (data?.connected) {
+        setWaQrDataUrl('');
       }
     } catch (e) {
       console.warn('Could not fetch WhatsApp status:', e);
@@ -79,6 +117,36 @@ export default function SettingsView() {
       setIsPairingLoading(false);
     }
   };
+
+  const handleLogoutWhatsApp = async () => {
+    setIsLoggingOutWa(true);
+    try {
+      await api.logoutWhatsApp();
+      setWaStatus({ status: 'DISCONNECTED', connected: false, hasSavedSession: false });
+      setWaQrDataUrl('');
+      setPairingCode('');
+      setPairingPhone('');
+      setIsLogoutConfirmOpen(false);
+      setTimeout(fetchWhatsAppStatus, 1500);
+    } catch (err) {
+      console.error('Failed to remove WhatsApp session:', err);
+    } finally {
+      setIsLoggingOutWa(false);
+    }
+  };
+
+  const handleManualReconnect = async () => {
+    setIsReconnectingWa(true);
+    try {
+      await api.reconnectWhatsApp();
+      setTimeout(fetchWhatsAppStatus, 1500);
+    } catch (err) {
+      console.error('Failed to trigger WhatsApp reconnect:', err);
+    } finally {
+      setIsReconnectingWa(false);
+    }
+  };
+
 
   const handleSave = (e) => {
     e.preventDefault();
@@ -213,6 +281,97 @@ export default function SettingsView() {
           </div>
         </Card>
 
+        {/* Card 1.5: Storefront Homepage Hero Banner */}
+        <Card
+          title="Storefront Homepage & Hero Banner"
+          subtitle="Customize the main welcome text, badges, titles, and banner displayed on customer website"
+        >
+          <div className="space-y-4 text-xs">
+            {/* Live Preview Box */}
+            <div className="p-4 rounded-xl bg-[#2A180E] border border-orange-500/30 text-center relative overflow-hidden shadow-inner">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#DD5903]/20 border border-[#DD5903]/40 text-[#DD5903] text-[10px] font-bold uppercase tracking-wider mb-2">
+                <span>{form.heroBadge || 'ARTISAN COFFEE & GOURMET DINING • SALBONI'}</span>
+              </div>
+              <h3 className="text-xl sm:text-2xl text-white font-[Playfair_Display,serif] font-normal leading-tight">
+                {form.heroTitlePrefix || 'Welcome To'}{' '}
+                <span className="italic text-[#F5A623]">{form.heroTitleHighlight || form.cafeName || 'Petuk Adda Cafe'}</span>
+              </h3>
+              <p className="text-gray-300 text-xs mt-1.5 max-w-xl mx-auto line-clamp-2">
+                {form.heroSubtitle || form.tagline || 'Where every sip and bite tells a story.'}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                  Tagline Badge Text
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. ARTISAN COFFEE & GOURMET DINING • SALBONI"
+                  value={form.heroBadge || ''}
+                  onChange={(e) => setForm({ ...form, heroBadge: e.target.value })}
+                  className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                  Heading Prefix Text
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Welcome To"
+                  value={form.heroTitlePrefix || ''}
+                  onChange={(e) => setForm({ ...form, heroTitlePrefix: e.target.value })}
+                  className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                  Highlighted Title / Brand Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Petuk Adda Cafe"
+                  value={form.heroTitleHighlight || ''}
+                  onChange={(e) => setForm({ ...form, heroTitleHighlight: e.target.value })}
+                  className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none font-semibold text-[#DD5903]"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                  Hero Background Image URL (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="https://..."
+                  value={form.heroImage || ''}
+                  onChange={(e) => setForm({ ...form, heroImage: e.target.value })}
+                  className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none font-mono"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                Hero Subtitle / Description
+              </label>
+              <textarea
+                rows={2}
+                placeholder="Where every sip and bite tells a story..."
+                value={form.heroSubtitle || ''}
+                onChange={(e) => setForm({ ...form, heroSubtitle: e.target.value })}
+                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none resize-none"
+              />
+            </div>
+          </div>
+        </Card>
+
         {/* Card 2: Billing & Tax Rates */}
         <Card
           title="Taxation & Invoice Rules"
@@ -273,6 +432,95 @@ export default function SettingsView() {
           </div>
         </Card>
 
+        {/* Card 2.3: Admin Login & Security Credentials */}
+        <Card
+          title="Admin Account & Login Security"
+          subtitle="Update Admin Login Email/ID, Password, and 4-Digit Quick Terminal PIN"
+          headerAction={
+            <Button
+              type="button"
+              size="sm"
+              icon={adminCredSaved ? CheckCircle2 : Save}
+              onClick={handleSaveAdminSecurity}
+              variant={adminCredSaved ? 'success' : 'primary'}
+            >
+              {adminCredSaved ? 'Credentials Saved!' : 'Save Login Credentials'}
+            </Button>
+          }
+        >
+          <div className="space-y-3.5 text-xs">
+            <div className="p-3 bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-xl flex items-start gap-2.5 text-amber-800 dark:text-amber-300">
+              <ShieldCheck className="w-4 h-4 text-[#DD5903] flex-shrink-0 mt-0.5" />
+              <div className="text-[11px]">
+                <span className="font-bold">Admin Master Credentials:</span> Changes made here apply immediately to both Email/Password login and 4-digit PIN Quick terminal login.
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                  Admin Login ID (Work Email) *
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={adminEmail}
+                  onChange={(e) => setAdminEmail(e.target.value)}
+                  placeholder="admin@dinenos.com"
+                  className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none"
+                />
+                <span className="text-[10px] text-gray-400 mt-0.5 block">Used on login screen</span>
+              </div>
+
+              <div>
+                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                  Login Password *
+                </label>
+                <div className="relative">
+                  <input
+                    type={showAdminPassword ? 'text' : 'password'}
+                    required
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    placeholder="admin123"
+                    className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg pl-3 pr-8 py-2 text-gray-900 dark:text-white outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminPassword(!showAdminPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
+                    title={showAdminPassword ? 'Hide Password' : 'Show Password'}
+                  >
+                    {showAdminPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+                <span className="text-[10px] text-gray-400 mt-0.5 block">Password for portal access</span>
+              </div>
+
+              <div>
+                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                  4-Digit Quick PIN *
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    maxLength={4}
+                    required
+                    value={adminPin}
+                    onChange={(e) => setAdminPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                    placeholder="1234"
+                    className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg pl-3 pr-8 py-2 text-gray-900 dark:text-white outline-none font-mono font-bold tracking-widest text-sm"
+                  />
+                  <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-amber-500 pointer-events-none">
+                    <KeyRound className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+                <span className="text-[10px] text-gray-400 mt-0.5 block">Used for 1-click PIN login</span>
+              </div>
+            </div>
+          </div>
+        </Card>
+
         {/* Card 2.5: WhatsApp Baileys Gateway & OTP Bot */}
         <Card
           title="WhatsApp Baileys Gateway & OTP Bot"
@@ -282,17 +530,19 @@ export default function SettingsView() {
             {/* Status Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-700">
               <div className="flex items-center gap-3">
-                <div className={`w-3 h-3 rounded-full ${waStatus.connected ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : waStatus.status === 'SCAN_QR' ? 'bg-amber-500 animate-pulse' : 'bg-gray-400'}`} />
+                <div className={`w-3 h-3 rounded-full ${waStatus.connected ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : waStatus.status === 'SCAN_QR' ? 'bg-amber-500 animate-pulse' : 'bg-blue-500 animate-pulse'}`} />
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-gray-900 dark:text-white">Status:</span>
                     <Badge variant={waStatus.connected ? 'success' : waStatus.status === 'SCAN_QR' ? 'warning' : 'neutral'}>
-                      {waStatus.status}
+                      {waStatus.connected ? 'CONNECTED' : waStatus.hasSavedSession ? 'RECONNECTING' : waStatus.status}
                     </Badge>
                   </div>
                   <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
                     {waStatus.connected
                       ? 'WhatsApp Bot is linked and actively delivering customer verification OTPs.'
+                      : waStatus.hasSavedSession
+                      ? 'Saved session active. Auto-reconnecting in background — session will not be removed.'
                       : waStatus.status === 'SCAN_QR'
                       ? 'Scan the QR code below using your WhatsApp (Linked Devices) to activate.'
                       : 'Connecting to WhatsApp Baileys socket...'}
@@ -300,20 +550,113 @@ export default function SettingsView() {
                 </div>
               </div>
 
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                icon={RefreshCw}
-                onClick={fetchWhatsAppStatus}
-                disabled={isLoadingWa}
-              >
-                {isLoadingWa ? 'Checking...' : 'Refresh Status'}
-              </Button>
+              <div className="flex items-center gap-2">
+                {!waStatus.connected && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    icon={RefreshCw}
+                    onClick={handleManualReconnect}
+                    disabled={isReconnectingWa || isLoadingWa}
+                  >
+                    {isReconnectingWa ? 'Reconnecting...' : 'Reconnect'}
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  icon={RefreshCw}
+                  onClick={fetchWhatsAppStatus}
+                  disabled={isLoadingWa}
+                >
+                  {isLoadingWa ? 'Checking...' : 'Refresh Status'}
+                </Button>
+              </div>
             </div>
 
-            {/* QR Code Display when pairing */}
-            {!waStatus.connected && (
+            {/* Connected Account Display */}
+            {waStatus.connected && (
+              <div className="p-4 bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-500/30 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20">
+                    <ShieldCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h5 className="font-bold text-gray-900 dark:text-white text-xs sm:text-sm flex items-center gap-2">
+                      <span>{waStatus.user?.name || 'Linked WhatsApp Account'}</span>
+                      <Badge variant="success">Active Session</Badge>
+                    </h5>
+                    <p className="text-xs text-gray-600 dark:text-gray-300 font-mono mt-0.5">
+                      {waStatus.user?.phone ? `+${waStatus.user.phone}` : 'Account Connected'}
+                    </p>
+                    <p className="text-[11px] text-gray-500 mt-1">
+                      🔒 <span className="font-medium text-emerald-700 dark:text-emerald-300">Permanent Session:</span> This login is preserved permanently on disk. It will never be removed unless you explicitly click Unlink below.
+                    </p>
+                  </div>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="danger"
+                  size="sm"
+                  icon={LogOut}
+                  onClick={() => setIsLogoutConfirmOpen(true)}
+                  disabled={isLoggingOutWa}
+                >
+                  {isLoggingOutWa ? 'Removing...' : 'Unlink / Remove WhatsApp'}
+                </Button>
+              </div>
+            )}
+
+            {/* Reconnecting Banner when disconnected with saved session */}
+            {!waStatus.connected && waStatus.hasSavedSession && (
+              <div className="p-4 bg-amber-50/60 dark:bg-amber-950/30 border border-amber-500/30 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 dark:bg-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400 font-bold border border-amber-500/20">
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                  </div>
+                  <div>
+                    <h5 className="font-bold text-gray-900 dark:text-white text-xs sm:text-sm flex items-center gap-2">
+                      <span>Saved Session Found</span>
+                      <Badge variant="warning">Auto-Reconnecting</Badge>
+                    </h5>
+                    <p className="text-xs text-gray-600 dark:text-gray-300 font-mono mt-0.5">
+                      {waStatus.user?.phone ? `+${waStatus.user.phone}` : 'Saved Account'}
+                    </p>
+                    <p className="text-[11px] text-gray-500 mt-1">
+                      The server is automatically restoring connection with WhatsApp. Your session is protected and will not be lost.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleManualReconnect}
+                    disabled={isReconnectingWa}
+                  >
+                    {isReconnectingWa ? 'Reconnecting...' : 'Reconnect Now'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    icon={LogOut}
+                    onClick={() => setIsLogoutConfirmOpen(true)}
+                    disabled={isLoggingOutWa}
+                  >
+                    {isLoggingOutWa ? 'Removing...' : 'Remove Session'}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* QR Code & Pairing Code Display when pairing new device */}
+            {!waStatus.connected && !waStatus.hasSavedSession && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                 {/* QR Code */}
                 <div className="p-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-center flex flex-col items-center justify-center">
@@ -385,6 +728,7 @@ export default function SettingsView() {
                 </div>
               </div>
             )}
+
           </div>
         </Card>
 
@@ -428,6 +772,20 @@ export default function SettingsView() {
           onConfirm={resetAllDataToDefault}
         />
       )}
+
+      {/* ================= WHATSAPP SESSION REMOVE CONFIRMATION DIALOG ================= */}
+      {isLogoutConfirmOpen && (
+        <ConfirmDialog
+          isOpen={true}
+          onClose={() => setIsLogoutConfirmOpen(false)}
+          title="Unlink & Remove WhatsApp Session"
+          message="Are you sure you want to remove this WhatsApp session? Once removed, WhatsApp OTP delivery will fall back to simulated mode until a new device is paired."
+          confirmText="Yes, Remove WhatsApp"
+          type="danger"
+          onConfirm={handleLogoutWhatsApp}
+        />
+      )}
+
 
     </div>
   );

@@ -78,6 +78,8 @@ export class StaffModel {
       phone: r.phone,
       salary: r.salary ?? 0,
       shift: r.shift,
+      pin: r.pin || null,
+      password: r.password || (r.role === 'Admin' ? 'admin123' : 'staff123'),
       status: r.status,
       joiningDate: r.joining_date,
       avatar: r.avatar_url,
@@ -95,6 +97,8 @@ export class StaffModel {
       phone: r.phone,
       salary: r.salary ?? 0,
       shift: r.shift,
+      pin: r.pin || null,
+      password: r.password || (r.role === 'Admin' ? 'admin123' : 'staff123'),
       status: r.status,
       joiningDate: r.joining_date,
       avatar: r.avatar_url,
@@ -117,6 +121,8 @@ export class StaffModel {
       phone: r.phone,
       salary: r.salary ?? 0,
       shift: r.shift,
+      pin: r.pin || null,
+      password: r.password || (r.role === 'Admin' ? 'admin123' : 'staff123'),
       status: r.status,
       joiningDate: r.joining_date,
       avatar: r.avatar_url,
@@ -136,9 +142,10 @@ export class StaffModel {
     const id = data.id || `staff-${Date.now()}`;
     const joiningDate = new Date().toISOString().split('T')[0];
     const avatarUrl = data.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
+    const pwd = data.password ? String(data.password).trim() : (data.role === 'Admin' ? 'admin123' : 'staff123');
 
-    db.prepare('INSERT INTO staff (id, name, role, email, phone, salary, shift, pin, status, joining_date, avatar_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(id, data.name, data.role || 'Cashier', data.email, sanitize(data.phone, ''), Number(data.salary || 0), data.shift || 'General', data.pin ? String(data.pin) : null, 'Active', joiningDate, avatarUrl);
+    db.prepare('INSERT INTO staff (id, name, role, email, phone, salary, shift, pin, password, status, joining_date, avatar_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(id, data.name, data.role || 'Cashier', data.email, sanitize(data.phone, ''), Number(data.salary || 0), data.shift || 'General', data.pin ? String(data.pin) : null, pwd, 'Active', joiningDate, avatarUrl);
 
     return this.findById(id);
   }
@@ -148,8 +155,20 @@ export class StaffModel {
     if (!current) return null;
     const merged = { ...current, ...data };
 
-    db.prepare('UPDATE staff SET name = ?, role = ?, email = ?, phone = ?, salary = ?, shift = ?, pin = COALESCE(?, pin), status = ?, avatar_url = ? WHERE id = ?')
-      .run(merged.name, merged.role, merged.email, merged.phone, Number(merged.salary || 0), merged.shift, data.pin !== undefined ? (data.pin ? String(data.pin) : null) : undefined, merged.status, merged.avatar, id);
+    db.prepare('UPDATE staff SET name = ?, role = ?, email = ?, phone = ?, salary = ?, shift = ?, pin = COALESCE(?, pin), password = COALESCE(?, password), status = ?, avatar_url = ? WHERE id = ?')
+      .run(
+        merged.name,
+        merged.role,
+        merged.email,
+        merged.phone,
+        Number(merged.salary || 0),
+        merged.shift,
+        data.pin !== undefined ? (data.pin ? String(data.pin) : null) : undefined,
+        data.password !== undefined ? (data.password ? String(data.password).trim() : null) : undefined,
+        merged.status,
+        merged.avatar,
+        id
+      );
 
     // Handle explicit PIN clear
     if (data.pin === '' || data.pin === null) {

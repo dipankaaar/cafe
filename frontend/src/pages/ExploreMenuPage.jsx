@@ -25,6 +25,7 @@ import BrandLogo from '../components/common/BrandLogo';
 import CartDrawer from '../components/storefront/CartDrawer';
 import { api } from '../services/api';
 import { formatINR, getProductImage, getProductPrice, getProductOnlinePrice, isProductOnlineEnabled, handleImageFallback } from '../utils/formatters';
+import ProductPriceRating from '../components/common/ProductPriceRating';
 
 const CART_STORAGE_KEY = 'petuk_storefront_cart_v1';
 
@@ -414,10 +415,8 @@ export default function ExploreMenuPage({ onNavigate }) {
                             {prod.name}
                           </h3>
 
-                          {/* Price */}
-                          <p className="text-sm font-bold text-white font-mono">
-                            {formatINR(getProductPrice(prod), { whole: true })}
-                          </p>
+                          {/* Price & Rating (E-commerce Style) */}
+                          <ProductPriceRating product={prod} mode="online" theme="dark" size="sm" />
 
                           {/* Description */}
                           {prod.description && (
@@ -580,9 +579,7 @@ export default function ExploreMenuPage({ onNavigate }) {
                     {selectedProductDetails.name}
                   </h3>
                 </div>
-                <span className="text-lg font-bold font-mono text-[#DD5903]">
-                  {formatINR(getProductPrice(selectedProductDetails), { whole: true })}
-                </span>
+                <ProductPriceRating product={selectedProductDetails} mode="online" theme="dark" size="md" showRating={true} />
               </div>
 
               <p className="text-xs text-gray-300 leading-relaxed">

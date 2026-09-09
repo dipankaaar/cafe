@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, Search, Shield, Clock, QrCode, Utensils, Armchair, User } from 'lucide-react';
+import { ShoppingBag, Search, Shield, QrCode, Utensils, Armchair, User } from 'lucide-react';
 import BrandLogo from '../common/BrandLogo';
 
 export default function Navbar({
@@ -100,15 +100,6 @@ export default function Navbar({
             >
               <Armchair className="w-3.5 h-3.5 text-[#DD5903]" />
               <span>Find a Table</span>
-            </button>
-
-            {/* Track Order Link */}
-            <button
-              onClick={onOpenTrackOrder}
-              className="flex items-center gap-1.5 text-[13px] uppercase tracking-wider font-bold text-gray-300 hover:text-[#DD5903] transition-colors cursor-pointer"
-            >
-              <Clock className="w-3.5 h-3.5" />
-              <span>Track</span>
             </button>
           </nav>
 

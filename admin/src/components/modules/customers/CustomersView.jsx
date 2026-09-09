@@ -16,15 +16,18 @@ import {
   Mail,
   Calendar,
   Heart,
-  Edit2
+  Edit2,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 
 export default function CustomersView() {
-  const { customers, orders, addCustomer, updateCustomer } = useCafe();
+  const { customers, orders, addCustomer, updateCustomer, deleteCustomer } = useCafe();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCustomerForDrawer, setSelectedCustomerForDrawer] = useState(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [customerToDelete, setCustomerToDelete] = useState(null);
 
   // Form State
   const [name, setName] = useState('');
@@ -161,12 +164,19 @@ export default function CustomersView() {
                   <td className="px-5 py-3.5 text-gray-500">
                     {new Date(customer.lastVisit).toLocaleDateString()}
                   </td>
-                  <td className="px-5 py-3.5 text-right">
+                  <td className="px-5 py-3.5 text-right whitespace-nowrap space-x-1.5">
                     <button
                       onClick={() => setSelectedCustomerForDrawer(customer)}
                       className="px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-[#DD5903] hover:text-white text-gray-700 dark:text-gray-300 font-semibold text-xs transition-colors cursor-pointer"
                     >
                       View CRM
+                    </button>
+                    <button
+                      onClick={() => deleteCustomer(customer.id)}
+                      className="p-1 rounded-lg text-red-500 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer inline-flex items-center align-middle"
+                      title="Delete Customer"
+                    >
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </td>
                 </tr>
@@ -261,6 +271,22 @@ export default function CustomersView() {
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* Delete Customer Button in Drawer */}
+            <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
+              <Button
+                variant="danger"
+                size="sm"
+                fullWidth
+                icon={Trash2}
+                onClick={() => {
+                  deleteCustomer(selectedCustomerForDrawer.id);
+                  setSelectedCustomerForDrawer(null);
+                }}
+              >
+                Delete Customer Profile
+              </Button>
             </div>
 
           </div>

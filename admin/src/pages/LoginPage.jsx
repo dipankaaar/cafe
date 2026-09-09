@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Shield, Lock, Mail, KeyRound, Coffee, CheckCircle2, AlertCircle, ArrowRight, UserCheck, CreditCard, ChefHat, Grid, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
+import { dbService, DB_KEYS } from '../services/dbService';
+import { initialStaff } from '../services/seedData';
 import logoImg from '../assets/logo.jpg';
 
 export default function LoginPage() {
@@ -67,19 +69,16 @@ export default function LoginPage() {
     setError('');
     setIsSubmitting(true);
     try {
-      const staffList = await api.getStaff().catch(() => null);
-      if (staffList && staffList.length > 0) {
-        const matched = staffList.find((s) => s.pin === pin || (pin === '1234' && s.role === 'Admin'));
-        if (matched) {
-          login(matched.email, 'pin-auth');
-          return;
-        }
+      const localStaff = dbService.get(DB_KEYS.STAFF, initialStaff);
+      const backendStaff = await api.getStaff().catch(() => null);
+      const staffList = backendStaff && backendStaff.length > 0 ? backendStaff : localStaff;
+
+      const matched = staffList.find((s) => String(s.pin) === String(pin) || (String(pin) === '1234' && s.role === 'Admin'));
+      if (matched) {
+        const res = login(matched.email, 'pin-auth');
+        if (res.success) return;
       }
-      if (pin === '1234' || pin === '0000') {
-        switchRole('Admin');
-      } else {
-        setError('Invalid PIN code. Try 1234 for Admin access.');
-      }
+      setError('Invalid PIN code. Please enter your valid 4-digit staff PIN.');
     } catch (err) {
       setError('PIN verification failed.');
     } finally {

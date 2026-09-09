@@ -28,6 +28,7 @@ import { useCafe } from '../../context/CafeContext';
 import { api } from '../../services/api';
 import { useSSE } from '../../hooks/useSSE';
 import { formatINR, getProductTablePrice, isProductTableEnabled } from '../../utils/formatters';
+import ProductPriceRating from '../common/ProductPriceRating';
 
 export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
   const { products, categories, addons, cafeSettings, placeOrder } = useCafe();
@@ -818,8 +819,8 @@ export default function QrTableOrderingView({ qrToken, onBackToStorefront }) {
 
                     <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
                       <div>
-                        <span className="text-sm font-extrabold text-[#DD5903]">{formatINR(price)}</span>
-                        {hasVariants && <span className="text-[10px] text-gray-500 block">Customizable</span>}
+                        <ProductPriceRating product={product} mode="table" theme="dark" size="sm" showRating={true} />
+                        {hasVariants && <span className="text-[10px] text-gray-500 block mt-0.5">Customizable</span>}
                       </div>
 
                       <button

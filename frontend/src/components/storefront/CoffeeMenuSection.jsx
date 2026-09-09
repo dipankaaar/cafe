@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Plus, Search, Check, SlidersHorizontal, AlertCircle, Coffee } from 'lucide-react';
 import { useCafe } from '../../context/CafeContext';
 import ProductCustomizeModal from './ProductCustomizeModal';
+import ProductPriceRating from '../common/ProductPriceRating';
 import { formatINR, getProductImage, getProductPrice, isProductOnlineEnabled, handleImageFallback } from '../../utils/formatters';
 
 function MenuSkeleton() {
@@ -140,10 +141,10 @@ export default function CoffeeMenuSection({ onAddToCart, onOpenReservation }) {
                 {item.name}
               </h4>
             </div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-              {item.isVeg ? 'Veg' : 'Non-veg'}
-              {item.categoryName ? ` • ${item.categoryName}` : ''}
-            </p>
+
+            {/* Price & Rating (E-commerce Style) */}
+            <ProductPriceRating product={item} mode="online" theme="light" size="sm" className="my-1" />
+
             <p className="text-xs text-gray-500 line-clamp-1 mt-0.5">
               {item.description || 'Crafted with premium selected ingredients.'}
             </p>
@@ -157,9 +158,6 @@ export default function CoffeeMenuSection({ onAddToCart, onOpenReservation }) {
         </div>
 
         <div className="flex items-center gap-3 flex-shrink-0">
-          <span className="text-lg sm:text-xl font-bold font-['Arapey',serif] text-[#DD5903] whitespace-nowrap">
-            {formatINR(price, { whole: true })}
-          </span>
           <button
             onClick={() => handleQuickAdd(item)}
             aria-label={`Add ${item.name} to cart`}

@@ -291,9 +291,23 @@ export default function TableManagementView({ onNavigate }) {
           subtitle={`${selectedTableForAction.zone} • Capacity: ${selectedTableForAction.capacity} Persons`}
           size="sm"
           footer={
-            <Button variant="secondary" onClick={() => setSelectedTableForAction(null)}>
-              Close
-            </Button>
+            <div className="flex items-center justify-between w-full gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (deleteTable) await deleteTable(selectedTableForAction.id);
+                  setSelectedTableForAction(null);
+                  if (refreshData) refreshData();
+                }}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-900/50 border border-red-200 dark:border-red-900/40 flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Remove Table</span>
+              </button>
+              <Button variant="secondary" onClick={() => setSelectedTableForAction(null)}>
+                Close
+              </Button>
+            </div>
           }
         >
           <div className="space-y-4 text-xs">

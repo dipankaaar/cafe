@@ -55,18 +55,24 @@ export function AuthProvider({ children }) {
       (s) => s.email.toLowerCase() === email.toLowerCase() && s.status === 'Active'
     );
 
-    if (user) {
-      setCurrentUser(user);
-      setIsAuthenticated(true);
-      dbService.logAudit({
-        user: `${user.name} (${user.role})`,
-        action: 'USER_LOGIN',
-        category: 'Auth',
-        details: `${user.name} logged into system with role ${user.role}`
-      });
-      return { success: true, user };
+    if (!user) {
+      return { success: false, message: 'No active staff account found with this email.' };
     }
-    return { success: false, message: 'Invalid credentials or inactive staff account.' };
+
+    const expectedPassword = user.password || (user.role === 'Admin' ? 'admin123' : 'staff123');
+    if (password !== 'pin-auth' && password !== expectedPassword) {
+      return { success: false, message: 'Incorrect password. Please verify your credentials.' };
+    }
+
+    setCurrentUser(user);
+    setIsAuthenticated(true);
+    dbService.logAudit({
+      user: `${user.name} (${user.role})`,
+      action: 'USER_LOGIN',
+      category: 'Auth',
+      details: `${user.name} logged into system with role ${user.role}`
+    });
+    return { success: true, user };
   };
 
   const logout = () => {

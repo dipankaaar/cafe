@@ -61,3 +61,14 @@ export const requestPairingCode = asyncHandler(async (req, res) => {
   const code = await whatsAppService.requestPairingCode(phone);
   return ApiResponse.success(res, { code }, 'Pairing code generated');
 });
+
+export const logoutWhatsApp = asyncHandler(async (req, res) => {
+  const result = await whatsAppService.logout();
+  return ApiResponse.success(res, result, 'WhatsApp session removed successfully');
+});
+
+export const reconnectWhatsApp = asyncHandler(async (req, res) => {
+  const result = await whatsAppService.manualReconnect();
+  return ApiResponse.success(res, result, 'WhatsApp reconnection triggered');
+});
+

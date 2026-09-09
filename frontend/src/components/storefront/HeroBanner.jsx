@@ -1,10 +1,19 @@
-import React, { useState } from 'react';
-import { Coffee, Utensils, QrCode, ShoppingBag, Armchair, ArrowRight } from 'lucide-react';
+import React from 'react';
+import { Coffee, Utensils, QrCode, ShoppingBag, Armchair } from 'lucide-react';
+import { useCafe } from '../../context/CafeContext';
 
-const HERO_IMAGE = 'https://reactheme.com/products/wordpress/dinenos/wp-content/uploads/2023/03/restaurant.webp';
+const DEFAULT_HERO_IMAGE = 'https://reactheme.com/products/wordpress/dinenos/wp-content/uploads/2023/03/restaurant.webp';
 const HERO_FALLBACK = 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=1600&auto=format&fit=crop&q=80';
 
 export default function HeroBanner({ onNavigate, onOpenReservation, onOpenCart, onOpenMenu, onOpenQrScanner }) {
+  const { settings } = useCafe();
+
+  const heroBadge = settings?.heroBadge || 'Artisan Coffee & Gourmet Dining • Salboni';
+  const heroTitlePrefix = settings?.heroTitlePrefix !== undefined ? settings.heroTitlePrefix : 'Welcome To';
+  const heroTitleHighlight = settings?.heroTitleHighlight || settings?.cafeName || 'Petuk Adda Cafe';
+  const heroSubtitle = settings?.heroSubtitle || settings?.tagline || 'Where every sip and bite tells a story. Premium espresso, artisan coffee and gourmet dining — order from your table or explore the menu.';
+  const heroImgSrc = settings?.heroImage || DEFAULT_HERO_IMAGE;
+
   const go = (path) => {
     if (onNavigate) onNavigate(path);
     else window.location.hash = path.replace('/', '');
@@ -26,13 +35,13 @@ export default function HeroBanner({ onNavigate, onOpenReservation, onOpenCart, 
     else go('/find-table');
   };
   return (
-    <section aria-label="Welcome to Petuk Adda Cafe" className="relative min-h-[100svh] lg:min-h-screen flex items-center justify-center bg-[#3C2415] overflow-hidden">
+    <section aria-label={`Welcome to ${heroTitleHighlight}`} className="relative min-h-[100svh] lg:min-h-screen flex items-center justify-center bg-[#3C2415] overflow-hidden">
       
       {/* Background Image with Dark Vignette Overlay */}
       <div className="absolute inset-0 z-0">
         <img
-          src={HERO_IMAGE}
-          alt="Petuk Adda Cafe Ambiance"
+          src={heroImgSrc}
+          alt={`${heroTitleHighlight} Ambiance`}
           onError={(e) => { if (e.currentTarget.src !== HERO_FALLBACK) e.currentTarget.src = HERO_FALLBACK; }}
           className="w-full h-full object-cover object-center transform scale-105 transition-transform duration-1000 ease-out"
         />
@@ -61,21 +70,29 @@ export default function HeroBanner({ onNavigate, onOpenReservation, onOpenCart, 
       <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pt-24 pb-16">
         
         {/* Tagline Badge */}
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#DD5903]/20 border border-[#DD5903]/40 text-[#DD5903] text-xs sm:text-sm font-bold tracking-[0.2em] uppercase mb-6 backdrop-blur-sm animate-pulse-subtle">
-          <Coffee className="w-3.5 h-3.5" />
-          <span>Artisan Coffee & Gourmet Dining • Salboni</span>
-        </div>
+        {heroBadge && (
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#DD5903]/20 border border-[#DD5903]/40 text-[#DD5903] text-xs sm:text-sm font-bold tracking-[0.2em] uppercase mb-6 backdrop-blur-sm animate-pulse-subtle">
+            <Coffee className="w-3.5 h-3.5" />
+            <span>{heroBadge}</span>
+          </div>
+        )}
 
         {/* Arapey Heading */}
         <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-[82px] text-white font-[Playfair_Display,Arapey,serif] font-normal leading-[1.1] tracking-tight mb-6 max-w-4xl mx-auto">
-          Welcome To <br className="hidden sm:inline" />
-          <span className="italic text-[#F5A623]">Petuk Adda Cafe</span>
+          {heroTitlePrefix && (
+            <>
+              {heroTitlePrefix} <br className="hidden sm:inline" />
+            </>
+          )}
+          <span className="italic text-[#F5A623]">{heroTitleHighlight}</span>
         </h1>
 
         {/* Subtitle description */}
-        <p className="text-base sm:text-lg text-[#FFF8F0]/80 max-w-2xl mx-auto font-light leading-relaxed mb-10">
-          Where every sip and bite tells a story. Premium espresso, artisan coffee and gourmet dining — order from your table or explore the menu.
-        </p>
+        {heroSubtitle && (
+          <p className="text-base sm:text-lg text-[#FFF8F0]/80 max-w-2xl mx-auto font-light leading-relaxed mb-10">
+            {heroSubtitle}
+          </p>
+        )}
 
         {/* Primary CTAs (mission-required) */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 sm:gap-4">

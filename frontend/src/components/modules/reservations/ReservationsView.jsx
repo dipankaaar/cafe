@@ -13,11 +13,12 @@ import {
   XCircle,
   UserCheck,
   Search,
-  Calendar
+  Calendar,
+  Trash2
 } from 'lucide-react';
 
 export default function ReservationsView({ onNavigate }) {
-  const { reservations, tables, addReservation, updateReservationStatus } = useCafe();
+  const { reservations, tables, addReservation, updateReservationStatus, deleteReservation } = useCafe();
   
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0]);
@@ -227,6 +228,13 @@ export default function ReservationsView({ onNavigate }) {
                           Complete
                         </button>
                       )}
+                      <button
+                        onClick={() => deleteReservation && deleteReservation(res.id)}
+                        className="p-1 rounded text-gray-400 hover:text-rose-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer inline-flex items-center align-middle"
+                        title="Delete Reservation"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </td>
                   </tr>
                 ))

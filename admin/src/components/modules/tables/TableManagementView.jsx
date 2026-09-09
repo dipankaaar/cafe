@@ -17,16 +17,20 @@ import {
   ArrowRight,
   RefreshCw,
   QrCode,
-  LayoutGrid
+  LayoutGrid,
+  Trash2,
+  Edit3
 } from 'lucide-react';
 
 export default function TableManagementView({ onNavigate }) {
-  const { tables, orders, updateTableStatus, occupyTable, releaseTable, addTable, cafeSettings, refreshData } = useCafe();
+  const { tables, orders, updateTableStatus, occupyTable, releaseTable, addTable, updateTable, deleteTable, cafeSettings, refreshData } = useCafe();
   
   const [activeTab, setActiveTab] = useState('floor-plan'); // 'floor-plan' | 'qr-ordering'
   const [selectedZone, setSelectedZone] = useState('all');
   const [selectedTableForAction, setSelectedTableForAction] = useState(null);
   const [isAddTableModalOpen, setIsAddTableModalOpen] = useState(false);
+  const [editCapacity, setEditCapacity] = useState(4);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
   // New Table Form
   const [newTableNumber, setNewTableNumber] = useState('');
@@ -185,7 +189,11 @@ export default function TableManagementView({ onNavigate }) {
               return (
                 <div
                   key={table.id}
-                  onClick={() => setSelectedTableForAction(table)}
+                  onClick={() => {
+                    setSelectedTableForAction(table);
+                    setEditCapacity(table.capacity || 2);
+                    setIsConfirmingDelete(false);
+                  }}
                   className={`p-5 rounded-2xl border-2 transition-all shadow-xs hover:shadow-md cursor-pointer flex flex-col justify-between h-44 bg-white dark:bg-[#181818] ${getStatusColor(
                     table.status
                   )}`}
@@ -267,18 +275,103 @@ export default function TableManagementView({ onNavigate }) {
       {selectedTableForAction && (
         <Modal
           isOpen={true}
-          onClose={() => setSelectedTableForAction(null)}
+          onClose={() => {
+            setSelectedTableForAction(null);
+            setIsConfirmingDelete(false);
+          }}
           title={`Manage Table ${selectedTableForAction.tableNumber}`}
           subtitle={`${selectedTableForAction.zone} • Capacity: ${selectedTableForAction.capacity} Persons`}
           size="sm"
           footer={
-            <Button variant="secondary" onClick={() => setSelectedTableForAction(null)}>
-              Close
-            </Button>
+            <div className="flex items-center justify-between w-full gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  await deleteTable(selectedTableForAction.id);
+                  setSelectedTableForAction(null);
+                  if (refreshData) refreshData();
+                }}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-900/50 border border-red-200 dark:border-red-900/40 flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Remove Table</span>
+              </button>
+
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setSelectedTableForAction(null);
+                  setIsConfirmingDelete(false);
+                }}
+              >
+                Close
+              </Button>
+            </div>
           }
         >
           <div className="space-y-4 text-xs">
-            {/* Quick Occupy / Release actions */}
+            {/* 1. Table Capacity / Seating Configuration */}
+            <div className="p-3 bg-gray-50 dark:bg-gray-800/80 rounded-xl border border-gray-200 dark:border-gray-700 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="font-bold text-gray-800 dark:text-gray-200 flex items-center gap-1.5 text-xs">
+                  <Users className="w-4 h-4 text-[#DD5903]" />
+                  <span>Seating Capacity (Kitne person baith sakte hain)</span>
+                </label>
+                <span className="text-[11px] font-bold text-[#DD5903] bg-orange-500/10 px-2 py-0.5 rounded-full border border-orange-500/20">
+                  {editCapacity} Persons
+                </span>
+              </div>
+
+              {/* Quick Capacity Preset Buttons */}
+              <div className="grid grid-cols-4 gap-1.5">
+                {[1, 2, 4, 6, 8, 10, 12, 16].map((cap) => (
+                  <button
+                    key={cap}
+                    type="button"
+                    onClick={() => setEditCapacity(cap)}
+                    className={`py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                      editCapacity === cap
+                        ? 'bg-[#DD5903] text-white border-[#DD5903] shadow-xs'
+                        : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600 hover:border-[#DD5903]'
+                    }`}
+                  >
+                    {cap} {cap === 1 ? 'Person' : 'Persons'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom Number Input & Save Capacity Button */}
+              <div className="flex items-center gap-2 pt-1">
+                <div className="relative flex-1">
+                  <input
+                    type="number"
+                    min="1"
+                    max="30"
+                    value={editCapacity}
+                    onChange={(e) => setEditCapacity(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-900 dark:text-white outline-none focus:border-[#DD5903]"
+                    placeholder="Enter seating capacity"
+                  />
+                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 font-semibold pointer-events-none">
+                    Seats
+                  </span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={async () => {
+                    await updateTable(selectedTableForAction.id, { capacity: Number(editCapacity) });
+                    setSelectedTableForAction((prev) => prev ? { ...prev, capacity: Number(editCapacity) } : null);
+                    if (refreshData) refreshData();
+                  }}
+                >
+                  Save Capacity
+                </Button>
+              </div>
+            </div>
+
+            {/* 2. Quick Occupy / Release actions */}
             <div className="grid grid-cols-2 gap-2">
               <Button
                 size="sm"
@@ -308,6 +401,8 @@ export default function TableManagementView({ onNavigate }) {
                 Release Table
               </Button>
             </div>
+
+            {/* 3. Status Switcher */}
             <div>
               <label className="font-bold text-gray-700 dark:text-gray-300 block mb-2">
                 Update Table Status:

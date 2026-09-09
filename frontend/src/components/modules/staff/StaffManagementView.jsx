@@ -181,14 +181,27 @@ export default function StaffManagementView() {
                 </div>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center text-xs">
-                <span className="text-gray-400 text-[11px]">Joined: {emp.joiningDate}</span>
-                <button
-                  onClick={() => handleOpenEdit(emp)}
-                  className="text-[#DD5903] hover:underline font-bold flex items-center gap-1 cursor-pointer"
-                >
-                  <Edit2 className="w-3.5 h-3.5" /> Edit Profile
-                </button>
+              <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 flex flex-wrap justify-between items-center gap-2 text-xs">
+                <span className="text-gray-400 text-[11px]">Joined: {emp.joiningDate || '2024-01-01'}</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEdit(emp)}
+                    className="text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
+                  >
+                    <Edit2 className="w-3.5 h-3.5 text-[#DD5903]" />
+                    <span>Edit Profile</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteStaffMember(emp.id)}
+                    className="text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-900/50 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
+                    title={`Remove ${emp.name}`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Remove</span>
+                  </button>
+                </div>
               </div>
             </Card>
           );
@@ -203,14 +216,30 @@ export default function StaffManagementView() {
           title={editingStaff ? `Edit Employee: ${editingStaff.name}` : 'Register New Staff Member'}
           size="md"
           footer={
-            <>
-              <Button variant="secondary" onClick={() => setIsModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSaveStaff}>
-                {editingStaff ? 'Save Changes' : 'Create Staff Account'}
-              </Button>
-            </>
+            <div className="flex items-center justify-between w-full">
+              {editingStaff ? (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  icon={Trash2}
+                  type="button"
+                  onClick={() => {
+                    deleteStaffMember(editingStaff.id);
+                    setIsModalOpen(false);
+                  }}
+                >
+                  Delete Staff
+                </Button>
+              ) : <div />}
+              <div className="flex items-center gap-2">
+                <Button variant="secondary" onClick={() => setIsModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveStaff}>
+                  {editingStaff ? 'Save Changes' : 'Create Staff Account'}
+                </Button>
+              </div>
+            </div>
           }
         >
           <form onSubmit={handleSaveStaff} className="space-y-3.5 text-xs">

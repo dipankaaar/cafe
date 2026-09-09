@@ -570,7 +570,7 @@ export default function OrdersView({ initialModule = 'orders', initialStatus = '
                         )}
                         {!terminal && (
                           <button
-                            onClick={() => setOrderToCancel(order)}
+                            onClick={() => cancelOrder(order.id, 'Cancelled via Order Dashboard')}
                             className="p-1.5 rounded-lg text-gray-500 hover:text-rose-600 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
                             title="Cancel Order"
                           >
@@ -885,21 +885,6 @@ export default function OrdersView({ initialModule = 'orders', initialStatus = '
             </div>
           </form>
         </Modal>
-      )}
-
-      {/* ================= CANCEL CONFIRMATION ================= */}
-      {orderToCancel && (
-        <ConfirmDialog
-          isOpen={true}
-          onClose={() => setOrderToCancel(null)}
-          title={`Cancel Order #${orderToCancel.orderNumber || `ORD-${orderToCancel.id}`}`}
-          message="Are you sure you want to cancel this order? Table reservations and associated items will be released."
-          confirmText="Yes, Cancel Order"
-          onConfirm={() => {
-            cancelOrder(orderToCancel.id, 'Cancelled via Order Dashboard');
-            setOrderToCancel(null);
-          }}
-        />
       )}
 
     </div>

@@ -177,20 +177,54 @@ export function isValidIndianPhone(phone) {
   return digits.length >= 10;
 }
 
-export function formatRelativeTime(dateString) {
-  if (!dateString) return 'Just now';
-  try {
-    const d = new Date(dateString);
-    const now = new Date();
-    const diffMs = now - d;
-    const diffMins = Math.floor(diffMs / 60000);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return formatDate(dateString);
-  } catch (e) {
-    return dateString;
+export function getProductRating(product) {
+  if (!product) return { rating: '4.2', count: 120 };
+  if (product.rating) {
+    return {
+      rating: Number(product.rating).toFixed(1),
+      count: product.ratingCount || product.reviewsCount || 120
+    };
   }
+  const str = String(product.id || product.name || 'item');
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const absHash = Math.abs(hash);
+  // Realistic ratings between 3.8 and 4.9
+  const rating = (3.8 + (absHash % 12) / 10).toFixed(1);
+  // Realistic rating counts between 35 and 450
+  const count = 35 + (absHash % 415);
+  return { rating, count };
+}
+
+export function getProductPricingInfo(product, mode = 'online') {
+  const sellingPrice = getProductPrice(product, mode);
+  let originalPrice = product?.originalPrice || product?.mrp || product?.strikePrice;
+  
+  if (!originalPrice && sellingPrice > 0) {
+    // Generate a realistic MRP with ~25% to 50% discount
+    const str = String(product?.id || product?.name || 'item');
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash << 5) - hash + str.charCodeAt(i);
+      hash |= 0;
+    }
+    const markupPct = 25 + (Math.abs(hash) % 35); // 25% to 60% higher
+    const rawMrp = Math.round(sellingPrice * (1 + markupPct / 100));
+    // Round to clean 5/9 ending or 10s
+    originalPrice = rawMrp > 50 ? Math.ceil(rawMrp / 10) * 10 - 1 : rawMrp + 10;
+    if (originalPrice <= sellingPrice) originalPrice = sellingPrice + 20;
+  }
+  
+  originalPrice = Number(originalPrice || sellingPrice);
+  const discountPercent = product?.discountPercent 
+    || (originalPrice > sellingPrice ? Math.round(((originalPrice - sellingPrice) / originalPrice) * 100) : 0);
+
+  return {
+    sellingPrice,
+    originalPrice,
+    discountPercent
+  };
 }

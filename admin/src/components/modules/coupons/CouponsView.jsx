@@ -19,16 +19,19 @@ import {
   Users,
   Copy,
   Clock,
-  Edit2
+  Edit2,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 
 export default function CouponsView() {
-  const { coupons, categories, addCoupon, updateCoupon, toggleCouponStatus } = useCafe();
+  const { coupons, categories, addCoupon, updateCoupon, deleteCoupon, toggleCouponStatus } = useCafe();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCoupon, setEditingCoupon] = useState(null);
+  const [couponToDelete, setCouponToDelete] = useState(null);
 
   // Form State
   const [form, setForm] = useState({
@@ -274,13 +277,20 @@ export default function CouponsView() {
                       </Badge>
                     </button>
                   </td>
-                  <td className="px-5 py-3.5 text-right space-x-1">
+                  <td className="px-5 py-3.5 text-right space-x-1 whitespace-nowrap">
                     <button
                       onClick={() => handleOpenEdit(coupon)}
-                      className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
+                      className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
                       title="Edit Coupon"
                     >
                       <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => deleteCoupon(coupon.id)}
+                      className="p-1.5 rounded-lg text-red-500 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
+                      title="Delete Coupon"
+                    >
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </td>
                 </tr>
@@ -298,14 +308,30 @@ export default function CouponsView() {
           title={editingCoupon ? `Edit Coupon "${editingCoupon.code}"` : 'Create New Promotional Coupon'}
           size="lg"
           footer={
-            <>
-              <Button variant="secondary" onClick={() => setIsModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSaveCoupon}>
-                {editingCoupon ? 'Save Changes' : 'Create Coupon'}
-              </Button>
-            </>
+            <div className="flex items-center justify-between w-full">
+              {editingCoupon ? (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  icon={Trash2}
+                  type="button"
+                  onClick={() => {
+                    deleteCoupon(editingCoupon.id);
+                    setIsModalOpen(false);
+                  }}
+                >
+                  Delete Coupon
+                </Button>
+              ) : <div />}
+              <div className="flex items-center gap-2">
+                <Button variant="secondary" onClick={() => setIsModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveCoupon}>
+                  {editingCoupon ? 'Save Changes' : 'Create Coupon'}
+                </Button>
+              </div>
+            </div>
           }
         >
           <form onSubmit={handleSaveCoupon} className="space-y-4 text-xs">

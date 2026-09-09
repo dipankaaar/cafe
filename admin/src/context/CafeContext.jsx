@@ -859,6 +859,31 @@ export function CafeProvider({ children }) {
     addToastNotification('Table Added', `Table ${newTable.tableNumber} created.`, 'success', '/tables');
   }, [addAuditLog, addToastNotification]);
 
+  const updateTable = useCallback(async (tableId, updatedData) => {
+    setTables((prev) =>
+      prev.map((t) => (t.id === tableId ? { ...t, ...updatedData, capacity: Number(updatedData.capacity ?? t.capacity) } : t))
+    );
+    try {
+      await api.updateTable(tableId, updatedData);
+    } catch (err) {
+      console.error('Failed to update table on server:', err);
+    }
+    addAuditLog('UPDATE_TABLE', 'Tables', `Updated Table ID ${tableId} details`);
+    addToastNotification('Table Updated', 'Table details updated successfully.', 'success', '/tables');
+  }, [addAuditLog, addToastNotification]);
+
+  const deleteTable = useCallback(async (tableId) => {
+    const tableToDelete = tables.find((t) => t.id === tableId);
+    setTables((prev) => prev.filter((t) => t.id !== tableId));
+    try {
+      await api.deleteTable(tableId);
+    } catch (err) {
+      console.error('Failed to delete table on server:', err);
+    }
+    addAuditLog('DELETE_TABLE', 'Tables', `Deleted Table ${tableToDelete?.tableNumber || tableId}`);
+    addToastNotification('Table Removed', `Table ${tableToDelete?.tableNumber || ''} removed successfully.`, 'info', '/tables');
+  }, [tables, addAuditLog, addToastNotification]);
+
   // -------------------------------------------------------------
   // RESERVATIONS
   // -------------------------------------------------------------
@@ -911,6 +936,19 @@ export function CafeProvider({ children }) {
     addAuditLog('UPDATE_RESERVATION', 'Reservations', `Updated reservation ${resId} status to ${newStatus}`);
   }, [addAuditLog]);
 
+  const deleteReservation = useCallback((resId) => {
+    const res = reservations.find((r) => r.id === resId);
+    if (res?.tableId && res.status === 'Confirmed') {
+      setTables((tbls) =>
+        tbls.map((t) => (t.id === res.tableId ? { ...t, status: 'Available', customerName: null } : t))
+      );
+    }
+    setReservations((prev) => prev.filter((r) => r.id !== resId));
+    api.deleteReservation(resId).catch(() => {});
+    addAuditLog('DELETE_RESERVATION', 'Reservations', `Deleted reservation for ${res?.customerName || resId}`);
+    addToastNotification('Reservation Removed', 'Booking deleted.', 'info', '/reservations');
+  }, [reservations, addAuditLog, addToastNotification]);
+
   // -------------------------------------------------------------
   // CUSTOMERS & CRM
   // -------------------------------------------------------------
@@ -945,6 +983,14 @@ export function CafeProvider({ children }) {
     addAuditLog('UPDATE_CUSTOMER', 'Customers', `Updated customer profile ${customerId}`);
   }, [customers, addAuditLog]);
 
+  const deleteCustomer = useCallback((customerId) => {
+    const cust = customers.find((c) => c.id === customerId);
+    setCustomers((prev) => prev.filter((c) => c.id !== customerId));
+    api.deleteCustomer(customerId).catch(() => {});
+    addAuditLog('DELETE_CUSTOMER', 'Customers', `Deleted customer ${cust?.name || customerId}`);
+    addToastNotification('Customer Removed', `Customer ${cust?.name || ''} deleted.`, 'info', '/customers');
+  }, [customers, addAuditLog, addToastNotification]);
+
   // -------------------------------------------------------------
   // COUPONS ENGINE
   // -------------------------------------------------------------
@@ -974,8 +1020,18 @@ export function CafeProvider({ children }) {
     setCoupons((prev) =>
       prev.map((c) => (c.id === couponId ? { ...c, ...updatedData } : c))
     );
+    api.updateCoupon(couponId, updatedData).catch(() => {});
     addAuditLog('UPDATE_COUPON', 'Coupons', `Updated coupon ID ${couponId}`);
-  }, [addAuditLog]);
+    addToastNotification('Coupon Updated', 'Promo coupon updated successfully.', 'success', '/coupons');
+  }, [addAuditLog, addToastNotification]);
+
+  const deleteCoupon = useCallback((couponId) => {
+    const cpn = coupons.find((c) => c.id === couponId);
+    setCoupons((prev) => prev.filter((c) => c.id !== couponId));
+    api.deleteCoupon(couponId).catch(() => {});
+    addAuditLog('DELETE_COUPON', 'Coupons', `Deleted coupon "${cpn?.code || couponId}"`);
+    addToastNotification('Coupon Deleted', `Coupon ${cpn?.code || ''} removed.`, 'info', '/coupons');
+  }, [coupons, addAuditLog, addToastNotification]);
 
   const toggleCouponStatus = useCallback((couponId) => {
     setCoupons((prev) =>
@@ -1216,19 +1272,37 @@ export function CafeProvider({ children }) {
       joiningDate: new Date().toISOString().split('T')[0],
       avatar: staffData.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
     };
-    setStaff((prev) => [...prev, newStaff]);
+    setStaff((prev) => {
+      const next = [...prev, newStaff];
+      dbService.set(DB_KEYS.STAFF, next);
+      return next;
+    });
     api.createStaff(newStaff).catch(() => {});
     addAuditLog('ADD_STAFF', 'Staff', `Created staff account for "${newStaff.name}" (${newStaff.role})`);
     return newStaff;
   }, [addAuditLog]);
 
   const updateStaffMember = useCallback((staffId, updatedData) => {
-    setStaff((prev) =>
-      prev.map((s) => (s.id === staffId ? { ...s, ...updatedData } : s))
-    );
+    setStaff((prev) => {
+      const next = prev.map((s) => (s.id === staffId ? { ...s, ...updatedData } : s));
+      dbService.set(DB_KEYS.STAFF, next);
+      return next;
+    });
     api.updateStaff(staffId, updatedData).catch(() => {});
     addAuditLog('UPDATE_STAFF', 'Staff', `Updated staff record for ID ${staffId}`);
   }, [addAuditLog]);
+
+  const deleteStaffMember = useCallback((staffId) => {
+    const member = staff.find((s) => s.id === staffId);
+    setStaff((prev) => {
+      const next = prev.filter((s) => s.id !== staffId);
+      dbService.set(DB_KEYS.STAFF, next);
+      return next;
+    });
+    api.deleteStaff(staffId).catch(() => {});
+    addAuditLog('DELETE_STAFF', 'Staff', `Deleted staff account for "${member?.name || staffId}"`);
+    addToastNotification('Staff Removed', `Staff member ${member?.name || ''} deleted.`, 'info', '/staff');
+  }, [staff, addAuditLog, addToastNotification]);
 
   // -------------------------------------------------------------
   // NOTIFICATIONS
@@ -1329,12 +1403,17 @@ export function CafeProvider({ children }) {
         releaseTable,
         refreshData,
         addTable,
+        updateTable,
+        deleteTable,
         addReservation,
         updateReservationStatus,
+        deleteReservation,
         addCustomer,
         updateCustomer,
+        deleteCustomer,
         addCoupon,
         updateCoupon,
+        deleteCoupon,
         toggleCouponStatus,
         adjustInventoryStock,
         addInventoryItem,
@@ -1350,6 +1429,7 @@ export function CafeProvider({ children }) {
         deleteExpense,
         addStaffMember,
         updateStaffMember,
+        deleteStaffMember,
         markNotificationAsRead,
         markAllNotificationsAsRead,
         updateSettings,

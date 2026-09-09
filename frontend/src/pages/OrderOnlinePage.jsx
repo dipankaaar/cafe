@@ -34,6 +34,7 @@ import CustomerProfileModal from '../components/storefront/CustomerProfileModal'
 import { api } from '../services/api';
 import { validateCouponLive } from '../services/couponValidator';
 import { formatINR, getProductImage, handleImageFallback, isValidIndianPhone, getProductOnlinePrice, isProductOnlineEnabled } from '../utils/formatters';
+import ProductPriceRating from '../components/common/ProductPriceRating';
 
 export default function OrderOnlinePage({ onNavigate }) {
   const { products, categories } = useCafe();
@@ -667,10 +668,8 @@ export default function OrderOnlinePage({ onNavigate }) {
                               {prod.name}
                             </h3>
 
-                            {/* Price */}
-                            <p className="text-sm font-bold text-white font-mono">
-                              {formatINR(price, { whole: true })}
-                            </p>
+                            {/* Price & Rating (E-commerce Style) */}
+                            <ProductPriceRating product={prod} mode="online" theme="dark" size="sm" />
 
                             {/* Short Description */}
                             {prod.description && (
@@ -678,12 +677,6 @@ export default function OrderOnlinePage({ onNavigate }) {
                                 {prod.description}
                               </p>
                             )}
-                          </div>
-
-                          <div className="pt-3">
-                            <span className="text-[10px] text-gray-500">
-                              ★ 4.8 (Popular)
-                            </span>
                           </div>
                         </div>
 

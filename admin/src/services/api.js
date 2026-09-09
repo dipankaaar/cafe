@@ -59,6 +59,12 @@ class ApiService {
     });
   }
 
+  deleteStaff(id) {
+    return this.request(`/auth/staff/${id}`, {
+      method: 'DELETE'
+    });
+  }
+
   // --- Menu ---
   getProducts(params = {}) {
     const query = new URLSearchParams(params).toString();
@@ -237,6 +243,19 @@ class ApiService {
     });
   }
 
+  updateTable(id, tableData) {
+    return this.request(`/tables/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(tableData)
+    });
+  }
+
+  deleteTable(id) {
+    return this.request(`/tables/${id}`, {
+      method: 'DELETE'
+    });
+  }
+
   // --- QR Table Ordering API ---
   validateQrToken(token) {
     return this.request(`/tables/qr/validate/${encodeURIComponent(token)}`);
@@ -304,6 +323,12 @@ class ApiService {
     });
   }
 
+  deleteReservation(id) {
+    return this.request(`/reservations/${id}`, {
+      method: 'DELETE'
+    });
+  }
+
   // --- Customers & Loyalty ---
   getCustomers(params = {}) {
     const query = new URLSearchParams(params).toString();
@@ -314,6 +339,12 @@ class ApiService {
     return this.request('/customers', {
       method: 'POST',
       body: JSON.stringify(custData)
+    });
+  }
+
+  deleteCustomer(id) {
+    return this.request(`/customers/${id}`, {
+      method: 'DELETE'
     });
   }
 
@@ -346,6 +377,19 @@ class ApiService {
   toggleCoupon(id) {
     return this.request(`/coupons/${id}/toggle`, {
       method: 'PATCH'
+    });
+  }
+
+  updateCoupon(id, couponData) {
+    return this.request(`/coupons/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(couponData)
+    });
+  }
+
+  deleteCoupon(id) {
+    return this.request(`/coupons/${id}`, {
+      method: 'DELETE'
     });
   }
 
@@ -607,6 +651,19 @@ class ApiService {
       body: JSON.stringify({ phone })
     });
   }
+
+  logoutWhatsApp() {
+    return this.request('/whatsapp/logout', {
+      method: 'POST'
+    });
+  }
+
+  reconnectWhatsApp() {
+    return this.request('/whatsapp/reconnect', {
+      method: 'POST'
+    });
+  }
+
 
   // --- Real-time SSE Connection ---
   subscribeToEvents(onEvent) {

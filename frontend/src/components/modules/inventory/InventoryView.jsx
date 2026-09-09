@@ -400,7 +400,7 @@ export default function InventoryView() {
                             Edit
                           </button>
                           <button
-                            onClick={() => setItemToDelete(item)}
+                            onClick={() => deleteInventoryItem(item.id)}
                             className="px-2.5 py-1 text-xs font-semibold text-gray-500 hover:text-rose-600"
                             title="Delete item"
                           >
@@ -450,7 +450,7 @@ export default function InventoryView() {
                   <button onClick={() => openEditSupplier(sup)} className="text-gray-500 hover:text-gray-900 dark:hover:text-white font-bold">
                     Edit
                   </button>
-                  <button onClick={() => setSupplierToDelete(sup)} className="text-gray-500 hover:text-rose-600 font-bold">
+                  <button onClick={() => deleteSupplier(sup.id)} className="text-gray-500 hover:text-rose-600 font-bold">
                     Delete
                   </button>
                   <button
@@ -1013,20 +1013,6 @@ export default function InventoryView() {
               <input type="text" value={editSupForm.category || ''} onChange={(e) => setEditSupForm({ ...editSupForm, category: e.target.value })} className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none" />
             </div>
           </form>
-        </Modal>
-      )}
-
-      {itemToDelete && (
-        <Modal isOpen={true} onClose={() => setItemToDelete(null)} title={`Delete "${itemToDelete.name}"`} size="sm"
-          footer={<><Button variant="secondary" onClick={() => setItemToDelete(null)}>Cancel</Button><Button onClick={() => { deleteInventoryItem(itemToDelete.id); setItemToDelete(null); }}>Yes, Delete</Button></>}>
-          <p className="text-xs text-gray-600 dark:text-gray-300">Remove this raw material from inventory? Products linked via recipe will no longer deduct it. This cannot be undone.</p>
-        </Modal>
-      )}
-
-      {supplierToDelete && (
-        <Modal isOpen={true} onClose={() => setSupplierToDelete(null)} title={`Delete "${supplierToDelete.name}"`} size="sm"
-          footer={<><Button variant="secondary" onClick={() => setSupplierToDelete(null)}>Cancel</Button><Button onClick={() => { deleteSupplier(supplierToDelete.id); setSupplierToDelete(null); }}>Yes, Delete</Button></>}>
-          <p className="text-xs text-gray-600 dark:text-gray-300">Remove this supplier? Past purchase orders are kept. This cannot be undone.</p>
         </Modal>
       )}
 

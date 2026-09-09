@@ -174,6 +174,7 @@ export function initDatabaseSchema() {
       salary REAL DEFAULT 0,
       shift TEXT,
       pin TEXT,
+      password TEXT DEFAULT 'admin123',
       status TEXT DEFAULT 'Active',
       joining_date TEXT,
       avatar_url TEXT
@@ -326,6 +327,8 @@ export function initDatabaseSchema() {
   try { db.exec(`ALTER TABLE orders ADD COLUMN out_for_delivery_at TEXT;`); } catch (e) {}
   try { db.exec(`ALTER TABLE orders ADD COLUMN delivered_at TEXT;`); } catch (e) {}
   try { db.exec(`UPDATE orders SET delivery_status = 'preparing' WHERE delivery_status IS NULL;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE staff ADD COLUMN password TEXT DEFAULT 'admin123';`); } catch (e) {}
+
 
   // 3. Ensure All Existing Tables Have a Permanent QR Token
   try {

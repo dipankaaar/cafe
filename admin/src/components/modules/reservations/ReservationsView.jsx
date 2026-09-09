@@ -4,6 +4,7 @@ import Card from '../../common/Card';
 import Badge from '../../common/Badge';
 import Button from '../../common/Button';
 import Modal from '../../common/Modal';
+import ConfirmDialog from '../../common/ConfirmDialog';
 import {
   CalendarDays,
   Plus,
@@ -13,15 +14,17 @@ import {
   XCircle,
   UserCheck,
   Search,
-  Calendar
+  Calendar,
+  Trash2
 } from 'lucide-react';
 
 export default function ReservationsView({ onNavigate }) {
-  const { reservations, tables, addReservation, updateReservationStatus } = useCafe();
+  const { reservations, tables, addReservation, updateReservationStatus, deleteReservation } = useCafe();
   
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [reservationToDelete, setReservationToDelete] = useState(null);
 
   // Form State
   const [guestName, setGuestName] = useState('');
@@ -201,7 +204,7 @@ export default function ReservationsView({ onNavigate }) {
                     <td className="px-5 py-3.5">
                       {getStatusBadge(res.status)}
                     </td>
-                    <td className="px-5 py-3.5 text-right space-x-1">
+                    <td className="px-5 py-3.5 text-right space-x-1 whitespace-nowrap">
                       {res.status === 'Confirmed' && (
                         <button
                           onClick={() => updateReservationStatus(res.id, 'Seated')}
@@ -227,6 +230,13 @@ export default function ReservationsView({ onNavigate }) {
                           Complete
                         </button>
                       )}
+                      <button
+                        onClick={() => deleteReservation(res.id)}
+                        className="p-1 rounded text-gray-400 hover:text-rose-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer inline-flex items-center align-middle"
+                        title="Delete Reservation"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </td>
                   </tr>
                 ))

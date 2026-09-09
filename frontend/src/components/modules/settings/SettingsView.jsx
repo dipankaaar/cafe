@@ -180,7 +180,17 @@ export default function SettingsView() {
                         <Pencil className="w-4 h-4" />
                       </button>
                       {b.id !== 'br-main' && (
-                        <button onClick={() => setBranchToDelete(b)} title="Delete branch" className="p-1.5 rounded-lg text-gray-500 hover:text-rose-600 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        <button
+                          onClick={async () => {
+                            try {
+                              await deleteBranch(b.id);
+                            } catch (e) {
+                              console.error(e);
+                            }
+                          }}
+                          title="Delete branch"
+                          className="p-1.5 rounded-lg text-gray-500 hover:text-rose-600 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                        >
                           <Trash2 className="w-4 h-4" />
                         </button>
                       )}
@@ -244,17 +254,6 @@ export default function SettingsView() {
                 </label>
               </form>
             </Modal>
-          )}
-
-          {branchToDelete && (
-            <ConfirmDialog
-              isOpen={true}
-              onClose={() => setBranchToDelete(null)}
-              title={`Close ${branchToDelete.name}?`}
-              message="The branch can only be closed when no tables, orders, reservations, expenses or staff are assigned to it. This cannot be undone."
-              confirmText="Yes, Close Branch"
-              onConfirm={async () => { try { await deleteBranch(branchToDelete.id); } catch (e) { alert(e.message); } setBranchToDelete(null); }}
-            />
           )}
         </div>
       ) : (
@@ -341,6 +340,97 @@ export default function SettingsView() {
                   className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none font-mono uppercase"
                 />
               </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* Card 1.5: Storefront Homepage Hero Banner */}
+        <Card
+          title="Storefront Homepage & Hero Banner"
+          subtitle="Customize the main welcome text, badges, titles, and banner displayed on customer website"
+        >
+          <div className="space-y-4 text-xs">
+            {/* Live Preview Box */}
+            <div className="p-4 rounded-xl bg-[#2A180E] border border-orange-500/30 text-center relative overflow-hidden shadow-inner">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#DD5903]/20 border border-[#DD5903]/40 text-[#DD5903] text-[10px] font-bold uppercase tracking-wider mb-2">
+                <span>{form.heroBadge || 'ARTISAN COFFEE & GOURMET DINING • SALBONI'}</span>
+              </div>
+              <h3 className="text-xl sm:text-2xl text-white font-[Playfair_Display,serif] font-normal leading-tight">
+                {form.heroTitlePrefix || 'Welcome To'}{' '}
+                <span className="italic text-[#F5A623]">{form.heroTitleHighlight || form.cafeName || 'Petuk Adda Cafe'}</span>
+              </h3>
+              <p className="text-gray-300 text-xs mt-1.5 max-w-xl mx-auto line-clamp-2">
+                {form.heroSubtitle || form.tagline || 'Where every sip and bite tells a story.'}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                  Tagline Badge Text
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. ARTISAN COFFEE & GOURMET DINING • SALBONI"
+                  value={form.heroBadge || ''}
+                  onChange={(e) => setForm({ ...form, heroBadge: e.target.value })}
+                  className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                  Heading Prefix Text
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Welcome To"
+                  value={form.heroTitlePrefix || ''}
+                  onChange={(e) => setForm({ ...form, heroTitlePrefix: e.target.value })}
+                  className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                  Highlighted Title / Brand Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Petuk Adda Cafe"
+                  value={form.heroTitleHighlight || ''}
+                  onChange={(e) => setForm({ ...form, heroTitleHighlight: e.target.value })}
+                  className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none font-semibold text-[#DD5903]"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                  Hero Background Image URL (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="https://..."
+                  value={form.heroImage || ''}
+                  onChange={(e) => setForm({ ...form, heroImage: e.target.value })}
+                  className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none font-mono"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                Hero Subtitle / Description
+              </label>
+              <textarea
+                rows={2}
+                placeholder="Where every sip and bite tells a story..."
+                value={form.heroSubtitle || ''}
+                onChange={(e) => setForm({ ...form, heroSubtitle: e.target.value })}
+                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white outline-none resize-none"
+              />
             </div>
           </div>
         </Card>

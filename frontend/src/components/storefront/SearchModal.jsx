@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, X } from 'lucide-react';
 import { useCafe } from '../../context/CafeContext';
 import { formatINR, getProductImage, getProductPrice, handleImageFallback } from '../../utils/formatters';
+import ProductPriceRating from '../common/ProductPriceRating';
 
 export default function SearchModal({ isOpen, onClose, onAddToCart }) {
   const { products } = useCafe();
@@ -113,14 +114,12 @@ export default function SearchModal({ isOpen, onClose, onAddToCart }) {
                             </span>
                           )}
                         </h4>
-                        <p className="text-xs text-gray-400 line-clamp-1">{item.description}</p>
+                        <p className="text-xs text-gray-400 line-clamp-1 mb-1">{item.description}</p>
+                        <ProductPriceRating product={item} mode="online" theme="dark" size="sm" showRating={true} />
                       </div>
                     </div>
 
                     <div className="flex items-center gap-3 flex-shrink-0">
-                      <span className="text-lg font-bold text-[#DD5903] font-mono whitespace-nowrap">
-                        {formatINR(getProductPrice(item), { whole: true })}
-                      </span>
                       <button
                         onClick={() => {
                           onAddToCart(item);
