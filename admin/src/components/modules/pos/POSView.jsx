@@ -92,9 +92,6 @@ export default function POSView() {
     { method: 'UPI', amount: '' }
   ]);
 
-  const splitTotal = splitPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-  const splitRemaining = Number((grandTotal - splitTotal).toFixed(2));
-
   const updateSplitRow = (idx, patch) => {
     setSplitPayments((prev) => prev.map((row, i) => (i === idx ? { ...row, ...patch } : row)));
     setPaymentError('');
@@ -251,6 +248,8 @@ export default function POSView() {
   const halfGstRate = ((settings.taxRate || 5) / 2).toFixed(1);
   const serviceCharge = orderType === 'dine-in' ? (discountedSubtotal * (settings.serviceChargeRate || 2.5)) / 100 : 0;
   const grandTotal = discountedSubtotal + taxAmount + serviceCharge;
+  const splitTotal = splitPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  const splitRemaining = Number((grandTotal - splitTotal).toFixed(2));
 
   // Selected Table Object
   const selectedTableObj = tables.find((t) => t.id === selectedTable);

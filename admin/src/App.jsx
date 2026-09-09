@@ -9,6 +9,7 @@ import Topbar from './components/layout/Topbar';
 import GlobalSearchModal from './components/common/GlobalSearchModal';
 import Button from './components/common/Button';
 import NewOrderAlertModal from './components/common/NewOrderAlertModal';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { useCafe } from './context/CafeContext';
 
 // Admin Modules
@@ -206,8 +207,6 @@ function AdminContent() {
     </div>
   );
 }
-
-import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 export default function App() {
   return (
