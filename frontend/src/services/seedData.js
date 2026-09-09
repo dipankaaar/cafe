@@ -1787,69 +1787,17 @@ export const initialProducts = [
 ];
 
 export const initialTables = [
-  { id: "tbl-1", tableNumber: "T-01", zone: "Indoor Cafe", capacity: 2, status: "Occupied", currentOrderId: "ord-101", customerName: "Rahul Sharma", x: 1, y: 1 },
+  { id: "tbl-1", tableNumber: "T-01", zone: "Indoor Cafe", capacity: 2, status: "Occupied", currentOrderId: "ord-101", customerName: "Arjun Das", x: 1, y: 1 },
   { id: "tbl-2", tableNumber: "T-02", zone: "Indoor Cafe", capacity: 4, status: "Available", currentOrderId: null, customerName: null, x: 2, y: 1 },
-  { id: "tbl-3", tableNumber: "T-03", zone: "Indoor Cafe", capacity: 4, status: "Reserved", currentOrderId: null, customerName: "Priya Nair", x: 3, y: 1 },
+  { id: "tbl-3", tableNumber: "T-03", zone: "Indoor Cafe", capacity: 4, status: "Reserved", currentOrderId: null, customerName: "Sita Patel", x: 3, y: 1 },
   { id: "tbl-4", tableNumber: "T-04", zone: "Indoor Cafe", capacity: 6, status: "Available", currentOrderId: null, customerName: null, x: 4, y: 1 },
   { id: "tbl-5", tableNumber: "T-05", zone: "Garden Terrace", capacity: 2, status: "Available", currentOrderId: null, customerName: null, x: 1, y: 2 },
-  { id: "tbl-6", tableNumber: "T-06", zone: "Garden Terrace", capacity: 4, status: "Occupied", currentOrderId: "ord-102", customerName: "Ananya Iyer", x: 2, y: 2 },
+  { id: "tbl-6", tableNumber: "T-06", zone: "Garden Terrace", capacity: 4, status: "Occupied", currentOrderId: "ord-102", customerName: "Meera Sen", x: 2, y: 2 },
   { id: "tbl-7", tableNumber: "T-07", zone: "Garden Terrace", capacity: 4, status: "Cleaning", currentOrderId: null, customerName: null, x: 3, y: 2 },
   { id: "tbl-8", tableNumber: "T-08", zone: "Garden Terrace", capacity: 8, status: "Available", currentOrderId: null, customerName: null, x: 4, y: 2 }
 ];
 
 export const initialCustomers = [
-  {
-    id: "cust-1",
-    name: "Rahul Sharma",
-    phone: "+91 98450 11223",
-    email: "rahul.sharma@example.com",
-    tier: "Platinum",
-    loyaltyPoints: 340,
-    totalSpent: 12450,
-    totalOrders: 28,
-    lastVisit: "2026-09-01T16:30:00Z",
-    favoriteProducts: ["Classic Latte", "Avocado Sourdough Toast"],
-    notes: "Prefers oat milk in hot drinks. Regular weekday morning visitor."
-  },
-  {
-    id: "cust-2",
-    name: "Ananya Iyer",
-    phone: "+91 97412 33445",
-    email: "ananya.iyer@example.com",
-    tier: "Gold",
-    loyaltyPoints: 180,
-    totalSpent: 6820,
-    totalOrders: 14,
-    lastVisit: "2026-09-01T15:15:00Z",
-    favoriteProducts: ["Cappuccino Italiano", "Butter Croissant with Preserves"],
-    notes: "Allergic to walnuts."
-  },
-  {
-    id: "cust-3",
-    name: "Vikram Malhotra",
-    phone: "+91 99160 55667",
-    email: "vikram.m@example.com",
-    tier: "Silver",
-    loyaltyPoints: 95,
-    totalSpent: 3950,
-    totalOrders: 8,
-    lastVisit: "2026-08-30T11:20:00Z",
-    favoriteProducts: ["Nitro Cold Brew", "Smoked Chicken Ciabatta"],
-    notes: "Likes outdoor seating."
-  },
-  {
-    id: "cust-4",
-    name: "Priya Nair",
-    phone: "+91 98860 77889",
-    email: "priya.nair@example.com",
-    tier: "Bronze",
-    loyaltyPoints: 40,
-    totalSpent: 1420,
-    totalOrders: 3,
-    lastVisit: "2026-08-28T18:00:00Z",
-    favoriteProducts: ["Royal Earl Grey Lavender Tea"],
-    notes: "New resident in the neighbourhood."
-  },
   {
     id: "cust-5",
     name: "Siddharth Sen",
@@ -2027,7 +1975,7 @@ export const initialStaff = [
 ];
 
 export const initialReservations = [
-  { id: "res-1", customerName: "Priya Nair", phone: "+91 98860 77889", email: "priya.nair@example.com", date: "2026-09-01", time: "18:00", guests: 4, tableId: "tbl-3", tableNumber: "T-03", status: "Confirmed", specialRequest: "Window side birthday setup with extra napkins.", createdAt: "2026-09-01T10:12:00Z" },
+  { id: "res-1", customerName: "Sita Patel", phone: "+91 98888 77665", email: "sita.patel@example.com", date: "2026-09-01", time: "18:00", guests: 4, tableId: "tbl-3", tableNumber: "T-03", status: "Confirmed", specialRequest: "Window side birthday setup with extra napkins.", createdAt: "2026-09-01T10:12:00Z" },
   { id: "res-2", customerName: "Marcus Thorne", phone: "+61 422 998 877", email: "marcus@thorne.com", date: "2026-09-01", time: "19:30", guests: 6, tableId: "tbl-4", tableNumber: "T-04", status: "Pending", specialRequest: "Quiet booth for business discussion.", createdAt: "2026-09-01T12:45:00Z" },
   { id: "res-3", customerName: "Clara Oswald", phone: "+61 433 112 244", email: "clara@oswald.com", date: "2026-09-02", time: "11:00", guests: 2, tableId: "tbl-5", tableNumber: "T-05", status: "Confirmed", specialRequest: "Outdoor terrace table.", createdAt: "2026-09-01T14:20:00Z" }
 ];
@@ -2039,9 +1987,9 @@ export const initialOrders = [
     orderType: "dine-in",
     tableNumber: "T-01",
     tableId: "tbl-1",
-    customerId: "cust-1",
-    customerName: "Rahul Sharma",
-    customerPhone: "+91 98450 11223",
+    customerId: "cust-101",
+    customerName: "Arjun Das",
+    customerPhone: "+91 98000 11223",
     status: "brewing", // placed, accepted, brewing, ready, completed, cancelled, refunded
     orderTime: "2026-09-01T16:35:00Z",
     kitchenAcceptedAt: "2026-09-01T16:36:00Z",
@@ -2091,9 +2039,9 @@ export const initialOrders = [
     orderType: "dine-in",
     tableNumber: "T-06",
     tableId: "tbl-6",
-    customerId: "cust-2",
-    customerName: "Ananya Iyer",
-    customerPhone: "+91 97412 33445",
+    customerId: "cust-102",
+    customerName: "Meera Sen",
+    customerPhone: "+91 98000 33445",
     status: "accepted",
     orderTime: "2026-09-01T16:48:00Z",
     kitchenAcceptedAt: "2026-09-01T16:49:00Z",
@@ -2143,9 +2091,9 @@ export const initialOrders = [
     orderType: "takeaway",
     tableNumber: null,
     tableId: null,
-    customerId: "cust-3",
-    customerName: "Vikram Malhotra",
-    customerPhone: "+91 99160 55667",
+    customerId: "cust-100",
+    customerName: "Rohan Roy",
+    customerPhone: "+91 98000 55667",
     status: "completed",
     orderTime: "2026-09-01T15:10:00Z",
     kitchenAcceptedAt: "2026-09-01T15:11:00Z",
@@ -2192,7 +2140,7 @@ export const initialOrders = [
 ];
 
 export const initialAuditLogs = [
-  { id: "log-1", timestamp: "2026-09-01T16:35:10Z", user: "David Chen (Cashier)", action: "CREATE_ORDER", category: "Orders", details: "Created Dine-in order #DN-8021 for Rahul Sharma at Table T-01 ($811.63)", ip: "192.168.1.45" },
+  { id: "log-1", timestamp: "2026-09-01T16:35:10Z", user: "David Chen (Cashier)", action: "CREATE_ORDER", category: "Orders", details: "Created Dine-in order #DN-8021 for Arjun Das at Table T-01 ($811.63)", ip: "192.168.1.45" },
   { id: "log-2", timestamp: "2026-09-01T16:35:05Z", user: "David Chen (Cashier)", action: "APPLY_COUPON", category: "Coupons", details: "Validated and applied coupon WELCOME50 (₹150 discount) for order #DN-8021", ip: "192.168.1.45" },
   { id: "log-3", timestamp: "2026-09-01T15:25:00Z", user: "David Chen (Cashier)", action: "COMPLETE_ORDER", category: "Orders", details: "Marked order #DN-8020 as Completed and deducted stock for Nitro Cold Brew & Ciabatta", ip: "192.168.1.45" },
   { id: "log-4", timestamp: "2026-09-01T14:30:22Z", user: "Alex Walker (Admin)", action: "UPDATE_INVENTORY", category: "Inventory", details: "Adjusted Fresh Milk stock +10.0 L (Supplier shipment received)", ip: "192.168.1.10" },
@@ -2201,7 +2149,7 @@ export const initialAuditLogs = [
 
 export const initialNotifications = [
   { id: "notif-1", title: "Low Stock Alert", message: "Fresh Full Cream Milk is at 3.2 L (Below minimum 10.0 L threshold).", type: "warning", time: "10 mins ago", isRead: false, link: "/inventory" },
-  { id: "notif-2", title: "New Dine-in Order", message: "Order #DN-8022 placed for Table T-06 (Ananya Iyer).", type: "order", time: "15 mins ago", isRead: false, link: "/kitchen" },
-  { id: "notif-3", title: "Upcoming Reservation", message: "Priya Nair reserved Table T-03 for 4 guests at 6:00 PM today.", type: "reservation", time: "1 hour ago", isRead: true, link: "/reservations" },
+  { id: "notif-2", title: "New Dine-in Order", message: "Order #DN-8022 placed for Table T-06 (Meera Sen).", type: "order", time: "15 mins ago", isRead: false, link: "/kitchen" },
+  { id: "notif-3", title: "Upcoming Reservation", message: "Sita Patel reserved Table T-03 for 4 guests at 6:00 PM today.", type: "reservation", time: "1 hour ago", isRead: true, link: "/reservations" },
   { id: "notif-4", title: "Purchase Order Received", message: "PO-2026-092 from Highland Dairy Farms marked as received.", type: "inventory", time: "3 hours ago", isRead: true, link: "/purchases" }
 ];

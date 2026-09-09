@@ -1787,69 +1787,17 @@ export const initialProducts = [
 ];
 
 export const initialTables = [
-  { id: "tbl-1", tableNumber: "T-01", zone: "Indoor Cafe", capacity: 2, status: "Occupied", currentOrderId: "ord-101", customerName: "Rahul Sharma", x: 1, y: 1 },
+  { id: "tbl-1", tableNumber: "T-01", zone: "Indoor Cafe", capacity: 2, status: "Occupied", currentOrderId: "ord-101", customerName: "Arjun Das", x: 1, y: 1 },
   { id: "tbl-2", tableNumber: "T-02", zone: "Indoor Cafe", capacity: 4, status: "Available", currentOrderId: null, customerName: null, x: 2, y: 1 },
-  { id: "tbl-3", tableNumber: "T-03", zone: "Indoor Cafe", capacity: 4, status: "Reserved", currentOrderId: null, customerName: "Priya Nair", x: 3, y: 1 },
+  { id: "tbl-3", tableNumber: "T-03", zone: "Indoor Cafe", capacity: 4, status: "Reserved", currentOrderId: null, customerName: "Sita Patel", x: 3, y: 1 },
   { id: "tbl-4", tableNumber: "T-04", zone: "Indoor Cafe", capacity: 6, status: "Available", currentOrderId: null, customerName: null, x: 4, y: 1 },
   { id: "tbl-5", tableNumber: "T-05", zone: "Garden Terrace", capacity: 2, status: "Available", currentOrderId: null, customerName: null, x: 1, y: 2 },
-  { id: "tbl-6", tableNumber: "T-06", zone: "Garden Terrace", capacity: 4, status: "Occupied", currentOrderId: "ord-102", customerName: "Ananya Iyer", x: 2, y: 2 },
+  { id: "tbl-6", tableNumber: "T-06", zone: "Garden Terrace", capacity: 4, status: "Occupied", currentOrderId: "ord-102", customerName: "Meera Sen", x: 2, y: 2 },
   { id: "tbl-7", tableNumber: "T-07", zone: "Garden Terrace", capacity: 4, status: "Cleaning", currentOrderId: null, customerName: null, x: 3, y: 2 },
   { id: "tbl-8", tableNumber: "T-08", zone: "Garden Terrace", capacity: 8, status: "Available", currentOrderId: null, customerName: null, x: 4, y: 2 }
 ];
 
 export const initialCustomers = [
-  {
-    id: "cust-1",
-    name: "Rahul Sharma",
-    phone: "+91 98450 11223",
-    email: "rahul.sharma@example.com",
-    tier: "Platinum",
-    loyaltyPoints: 340,
-    totalSpent: 12450,
-    totalOrders: 28,
-    lastVisit: "2026-09-01T16:30:00Z",
-    favoriteProducts: ["Classic Latte", "Avocado Sourdough Toast"],
-    notes: "Prefers oat milk in hot drinks. Regular weekday morning visitor."
-  },
-  {
-    id: "cust-2",
-    name: "Ananya Iyer",
-    phone: "+91 97412 33445",
-    email: "ananya.iyer@example.com",
-    tier: "Gold",
-    loyaltyPoints: 180,
-    totalSpent: 6820,
-    totalOrders: 14,
-    lastVisit: "2026-09-01T15:15:00Z",
-    favoriteProducts: ["Cappuccino Italiano", "Butter Croissant with Preserves"],
-    notes: "Allergic to walnuts."
-  },
-  {
-    id: "cust-3",
-    name: "Vikram Malhotra",
-    phone: "+91 99160 55667",
-    email: "vikram.m@example.com",
-    tier: "Silver",
-    loyaltyPoints: 95,
-    totalSpent: 3950,
-    totalOrders: 8,
-    lastVisit: "2026-08-30T11:20:00Z",
-    favoriteProducts: ["Nitro Cold Brew", "Smoked Chicken Ciabatta"],
-    notes: "Likes outdoor seating."
-  },
-  {
-    id: "cust-4",
-    name: "Priya Nair",
-    phone: "+91 98860 77889",
-    email: "priya.nair@example.com",
-    tier: "Bronze",
-    loyaltyPoints: 40,
-    totalSpent: 1420,
-    totalOrders: 3,
-    lastVisit: "2026-08-28T18:00:00Z",
-    favoriteProducts: ["Royal Earl Grey Lavender Tea"],
-    notes: "New resident in the neighbourhood."
-  },
   {
     id: "cust-5",
     name: "Siddharth Sen",

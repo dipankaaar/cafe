@@ -298,6 +298,10 @@ export function initDatabaseSchema() {
   try { db.exec(`UPDATE staff SET branch_id = 'br-main' WHERE branch_id IS NULL;`); } catch (e) {}
   try { db.exec(`UPDATE purchases SET branch_id = 'br-main' WHERE branch_id IS NULL;`); } catch (e) {}
 
+  // ---- Customer profile address & landmark columns ----
+  try { db.exec(`ALTER TABLE customers ADD COLUMN address TEXT;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE customers ADD COLUMN landmark TEXT;`); } catch (e) {}
+
   // ---- Phase-2: delivery tracking columns on orders ----
   try { db.exec(`ALTER TABLE orders ADD COLUMN delivery_address TEXT;`); } catch (e) {}
   try { db.exec(`ALTER TABLE orders ADD COLUMN delivery_landmark TEXT;`); } catch (e) {}

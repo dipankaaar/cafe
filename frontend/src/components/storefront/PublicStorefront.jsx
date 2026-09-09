@@ -197,10 +197,6 @@ export default function PublicStorefront({ onNavigate, onNavigateToAdmin, onNavi
         <AboutSection
           onOpenReservation={() => (onNavigate ? onNavigate('/find-table') : setIsReservationOpen(true))}
         />
-        <CoffeeMenuSection
-          onAddToCart={handleAddToCart}
-          onOpenReservation={() => (onNavigate ? onNavigate('/find-table') : setIsReservationOpen(true))}
-        />
         <TestimonialsSection />
         <GallerySection />
       </main>

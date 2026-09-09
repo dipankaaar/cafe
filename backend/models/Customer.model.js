@@ -40,11 +40,27 @@ export class CustomerModel {
     const id = data.id || `cust-${Date.now()}`;
     const now = getCurrentTimestamp();
 
-    const stmt = db.prepare(`
-      INSERT INTO customers (id, name, phone, email, tier, loyalty_points, total_spent, total_orders, last_visit, favorite_products_json, notes)
-      VALUES (?, ?, ?, ?, 'Bronze', 0, 0, 0, ?, '[]', ?)
-    `);
-    stmt.run(id, data.name.trim(), normalizeIndianPhone(data.phone), sanitize(data.email, '')?.trim?.() || '', now, sanitize(data.notes, ''));
+    const address = sanitize(data.address || '', '');
+    const landmark = sanitize(data.landmark || '', '');
+    let notes = sanitize(data.notes || '', '');
+    if (!notes && (address || landmark)) {
+      notes = [address, landmark ? `(Landmark: ${landmark})` : ''].filter(Boolean).join(' ');
+    }
+
+    const cols = new Set(db.prepare("PRAGMA table_info(customers)").all().map((c) => c.name));
+    if (cols.has('address') && cols.has('landmark')) {
+      const stmt = db.prepare(`
+        INSERT INTO customers (id, name, phone, email, tier, loyalty_points, total_spent, total_orders, last_visit, favorite_products_json, notes, address, landmark)
+        VALUES (?, ?, ?, ?, 'Bronze', 0, 0, 0, ?, '[]', ?, ?, ?)
+      `);
+      stmt.run(id, data.name.trim(), normalizeIndianPhone(data.phone), sanitize(data.email, '')?.trim?.() || '', now, notes, address, landmark);
+    } else {
+      const stmt = db.prepare(`
+        INSERT INTO customers (id, name, phone, email, tier, loyalty_points, total_spent, total_orders, last_visit, favorite_products_json, notes)
+        VALUES (?, ?, ?, ?, 'Bronze', 0, 0, 0, ?, '[]', ?)
+      `);
+      stmt.run(id, data.name.trim(), normalizeIndianPhone(data.phone), sanitize(data.email, '')?.trim?.() || '', now, notes);
+    }
 
     return this.findById(id);
   }
@@ -55,9 +71,21 @@ export class CustomerModel {
     const name = data.name !== undefined ? String(data.name).trim() : existing.name;
     const phone = data.phone !== undefined ? normalizeIndianPhone(data.phone) : existing.phone;
     const email = data.email !== undefined ? String(data.email || '').trim() : (existing.email || '');
-    const notes = data.notes !== undefined ? String(data.notes || '') : (existing.notes || '');
-    db.prepare('UPDATE customers SET name = ?, phone = ?, email = ?, notes = ? WHERE id = ?')
-      .run(name, phone, email, notes, id);
+    const address = data.address !== undefined ? String(data.address || '').trim() : (existing.address || '');
+    const landmark = data.landmark !== undefined ? String(data.landmark || '').trim() : (existing.landmark || '');
+    let notes = data.notes !== undefined ? String(data.notes || '') : (existing.notes || '');
+    if ((data.address !== undefined || data.landmark !== undefined) && data.notes === undefined) {
+      notes = [address, landmark ? `(Landmark: ${landmark})` : ''].filter(Boolean).join(' ');
+    }
+
+    const cols = new Set(db.prepare("PRAGMA table_info(customers)").all().map((c) => c.name));
+    if (cols.has('address') && cols.has('landmark')) {
+      db.prepare('UPDATE customers SET name = ?, phone = ?, email = ?, notes = ?, address = ?, landmark = ? WHERE id = ?')
+        .run(name, phone, email, notes, address, landmark, id);
+    } else {
+      db.prepare('UPDATE customers SET name = ?, phone = ?, email = ?, notes = ? WHERE id = ?')
+        .run(name, phone, email, notes, id);
+    }
     return this.findById(id);
   }
 
@@ -110,6 +138,19 @@ export class CustomerModel {
   }
 
   static format(row) {
+    let address = row.address || '';
+    let landmark = row.landmark || '';
+    if (!address && row.notes) {
+      if (row.notes.includes('(Landmark:')) {
+        const parts = row.notes.split('(Landmark:');
+        address = parts[0].trim();
+        landmark = parts[1].replace(')', '').trim();
+      } else {
+        address = row.notes.trim();
+      }
+    }
+    const defaultAddress = [address, landmark ? `(Landmark: ${landmark})` : ''].filter(Boolean).join(' ') || row.notes || '';
+
     return {
       id: row.id,
       name: row.name,
@@ -121,7 +162,10 @@ export class CustomerModel {
       totalOrders: row.total_orders,
       lastVisit: row.last_visit,
       favoriteProducts: parseJSON(row.favorite_products_json, []),
-      notes: row.notes
+      notes: row.notes,
+      address,
+      landmark,
+      defaultAddress
     };
   }
 }

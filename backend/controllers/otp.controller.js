@@ -21,7 +21,17 @@ export const verifyOtp = asyncHandler(async (req, res) => {
   }
 
   const result = await otpService.verifyMobileOtp(phone, otp, { name, email, address, landmark });
-  return ApiResponse.success(res, result, 'Mobile OTP verified successfully');
+  return ApiResponse.success(res, result, result.message || 'Mobile OTP verified successfully');
+});
+
+export const completeProfile = asyncHandler(async (req, res) => {
+  const { phone, name, address, landmark, email } = req.body;
+  if (!phone) {
+    throw new ApiError(400, 'Phone number is required');
+  }
+
+  const result = await otpService.completeCustomerProfile({ phone, name, address, landmark, email });
+  return ApiResponse.success(res, result, result.message || 'Customer profile completed successfully');
 });
 
 export const getWhatsAppStatus = asyncHandler(async (req, res) => {

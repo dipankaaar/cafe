@@ -608,6 +608,13 @@ class ApiService {
     });
   }
 
+  completeProfile({ phone, name, address, landmark, email }) {
+    return this.request('/otp/complete-profile', {
+      method: 'POST',
+      body: JSON.stringify({ phone, name, address, landmark, email })
+    });
+  }
+
   getWhatsAppStatus() {
     return this.request('/whatsapp/status');
   }

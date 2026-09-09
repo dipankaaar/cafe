@@ -4,10 +4,12 @@ import { normalizeIndianPhone } from '../utils/helpers.js';
 
 class OtpService {
   constructor() {
-    // In-memory store for fast and ephemeral OTP handling
+    // In-memory store for active OTP codes: phone -> { otp, expiresAt, attempts, createdAt }
     this.otpStore = new Map();
     // Throttle store: phone -> lastRequestedTimestamp
     this.throttleStore = new Map();
+    // Verified session store for new customer profile completion: phone -> { verifiedAt, expiresAt }
+    this.verifiedSessions = new Map();
   }
 
   // Generate clean 6-digit numeric OTP
@@ -21,6 +23,10 @@ class OtpService {
     }
 
     const cleanPhone = normalizeIndianPhone(phone);
+    if (!cleanPhone || cleanPhone.length !== 10) {
+      throw new Error('Please provide a valid 10-digit Indian mobile number');
+    }
+
     const now = Date.now();
 
     // 1. Throttle check (min 20 seconds between requests)
@@ -42,16 +48,21 @@ class OtpService {
     });
     this.throttleStore.set(cleanPhone, now);
 
-    // 3. Dispatch via WhatsApp Baileys
+    // 3. Check if existing customer account
+    const existingCustomer = CustomerModel.findByPhone(cleanPhone);
+
+    // 4. Dispatch via WhatsApp Baileys
     const dispatchResult = await whatsAppService.sendOtp(cleanPhone, otp, context);
 
     return {
       success: true,
       phone: cleanPhone,
+      isExistingCustomer: !!existingCustomer,
+      customerPreview: existingCustomer ? {
+        name: existingCustomer.name
+      } : null,
       expiresInSeconds: 300,
-      channel: dispatchResult.delivered ? 'whatsapp' : 'whatsapp_simulated',
-      // In development / demo mode when WhatsApp is pairing, we return debug preview
-      debugOtp: process.env.NODE_ENV !== 'production' || !dispatchResult.delivered ? otp : undefined
+      channel: dispatchResult.delivered ? 'whatsapp' : 'whatsapp_simulated'
     };
   }
 
@@ -84,35 +95,133 @@ class OtpService {
       throw new Error(`Invalid OTP code. (${4 - record.attempts} attempts remaining)`);
     }
 
-    // OTP is valid! Remove from store
+    // OTP is valid! Remove from active OTP store
     this.otpStore.delete(cleanPhone);
 
-    const fullAddress = [
-      profileData.address?.trim(),
-      profileData.landmark?.trim() ? `(Landmark: ${profileData.landmark.trim()})` : ''
-    ].filter(Boolean).join(' ');
+    // Store verified session (valid for 15 minutes for profile completion if new)
+    this.verifiedSessions.set(cleanPhone, {
+      verifiedAt: now,
+      expiresAt: now + 15 * 60 * 1000
+    });
 
-    // Find or create customer record in database
-    let customer = CustomerModel.findByPhone(cleanPhone);
-    if (!customer) {
-      customer = CustomerModel.create({
-        name: profileData.name?.trim() || `Customer (${cleanPhone.slice(-4)})`,
-        phone: cleanPhone,
-        email: profileData.email?.trim() || '',
-        notes: fullAddress || ''
-      });
-    } else if (profileData.name || profileData.email || profileData.address || profileData.landmark) {
-      customer = CustomerModel.update(customer.id, {
-        name: profileData.name?.trim() || customer.name,
-        email: profileData.email?.trim() || customer.email,
-        notes: fullAddress || customer.notes
-      });
+    // Check if customer already exists in database
+    const existingCustomer = CustomerModel.findByPhone(cleanPhone);
+    if (existingCustomer) {
+      this.verifiedSessions.delete(cleanPhone);
+      return {
+        success: true,
+        isNewCustomer: false,
+        isExistingCustomer: true,
+        customer: existingCustomer,
+        message: `Welcome back, ${existingCustomer.name}! Logged in successfully.`
+      };
     }
+
+    // Customer is new: check if all mandatory profile fields were provided in this call
+    const hasMandatory =
+      profileData.name &&
+      String(profileData.name).trim().length >= 2 &&
+      profileData.address &&
+      String(profileData.address).trim().length >= 3 &&
+      profileData.landmark &&
+      String(profileData.landmark).trim().length >= 2;
+
+    if (hasMandatory) {
+      const fullAddress = [
+        String(profileData.address).trim(),
+        `(Landmark: ${String(profileData.landmark).trim()})`
+      ].join(' ');
+
+      const newCustomer = CustomerModel.create({
+        name: String(profileData.name).trim(),
+        phone: cleanPhone,
+        email: profileData.email ? String(profileData.email).trim() : '',
+        address: String(profileData.address).trim(),
+        landmark: String(profileData.landmark).trim(),
+        notes: fullAddress
+      });
+
+      this.verifiedSessions.delete(cleanPhone);
+
+      return {
+        success: true,
+        isNewCustomer: false,
+        customer: newCustomer,
+        message: 'Customer profile created and logged in successfully.'
+      };
+    }
+
+    // Return new customer flag requiring mandatory profile completion
+    return {
+      success: true,
+      isNewCustomer: true,
+      phone: cleanPhone,
+      message: 'OTP verified successfully. Please complete your profile details.'
+    };
+  }
+
+  async completeCustomerProfile({ phone, name, address, landmark, email }) {
+    if (!phone) {
+      throw new Error('Phone number is required');
+    }
+
+    const cleanPhone = normalizeIndianPhone(phone);
+    if (!cleanPhone || cleanPhone.length !== 10) {
+      throw new Error('Valid 10-digit Indian mobile number is required');
+    }
+
+    // Verify that this phone has an active verified session
+    const session = this.verifiedSessions.get(cleanPhone);
+    if (!session || Date.now() > session.expiresAt) {
+      this.verifiedSessions.delete(cleanPhone);
+      throw new Error('Verification session has expired. Please verify with WhatsApp OTP again.');
+    }
+
+    // If customer already exists, return existing profile
+    const existingCustomer = CustomerModel.findByPhone(cleanPhone);
+    if (existingCustomer) {
+      this.verifiedSessions.delete(cleanPhone);
+      return {
+        success: true,
+        isNewCustomer: false,
+        isExistingCustomer: true,
+        customer: existingCustomer,
+        message: `Welcome back, ${existingCustomer.name}! Logged in successfully.`
+      };
+    }
+
+    // Enforce mandatory fields: Full Name, Full Address, Landmark
+    if (!name || !String(name).trim() || String(name).trim().length < 2) {
+      throw new Error('Full Name is mandatory and must be at least 2 characters.');
+    }
+    if (!address || !String(address).trim() || String(address).trim().length < 3) {
+      throw new Error('Full Address is mandatory.');
+    }
+    if (!landmark || !String(landmark).trim() || String(landmark).trim().length < 2) {
+      throw new Error('Landmark is mandatory.');
+    }
+
+    const fullAddress = [
+      String(address).trim(),
+      `(Landmark: ${String(landmark).trim()})`
+    ].join(' ');
+
+    const newCustomer = CustomerModel.create({
+      name: String(name).trim(),
+      phone: cleanPhone,
+      email: email ? String(email).trim() : '',
+      address: String(address).trim(),
+      landmark: String(landmark).trim(),
+      notes: fullAddress
+    });
+
+    this.verifiedSessions.delete(cleanPhone);
 
     return {
       success: true,
-      customer,
-      message: 'Mobile verification successful'
+      isNewCustomer: false,
+      customer: newCustomer,
+      message: 'Customer profile created successfully. Welcome to Petuk Adda Cafe!'
     };
   }
 }
