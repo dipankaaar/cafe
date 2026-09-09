@@ -105,20 +105,42 @@ app.use(requestLogger);
 app.use(ENV.API_PREFIX, apiRouter);
 
 // Serve Admin Panel Static Assets (Production SPA)
-app.use('/admin', express.static(ENV.ADMIN_STATIC_DIR));
+app.use('/admin', express.static(ENV.ADMIN_STATIC_DIR, {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
+}));
 // Express 5 (path-to-regexp v8) rejects '/admin*' — regex keeps it version-agnostic
 app.get(/^\/admin(\/.*)?$/, (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.sendFile(path.join(ENV.ADMIN_STATIC_DIR, 'index.html'), (err) => {
     if (err) return next();
   });
 });
 
 // Serve Frontend Static Assets (Production SPA Fallback)
-app.use(express.static(ENV.STATIC_DIR));
+app.use(express.static(ENV.STATIC_DIR, {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
+}));
 
 // Fallback to client-side index.html for React SPA
 app.use((req, res, next) => {
   if (req.originalUrl.startsWith(ENV.API_PREFIX)) return next();
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.sendFile(path.join(ENV.STATIC_DIR, 'index.html'), (err) => {
     if (err) {
       res.status(200).send('☕ Petuk Adda Cafe Fullstack API Server is online. Start Vite client on port 5173 for UI.');
