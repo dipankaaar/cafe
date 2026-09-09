@@ -207,14 +207,18 @@ function AdminContent() {
   );
 }
 
+import { ErrorBoundary } from './components/common/ErrorBoundary';
+
 export default function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <CafeProvider>
-          <AdminContent />
-        </CafeProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AuthProvider>
+          <CafeProvider>
+            <AdminContent />
+          </CafeProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }

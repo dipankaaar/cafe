@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   X, 
   Trash2, 
@@ -44,6 +44,22 @@ export default function CartDrawer({
   const [paymentMethod, setPaymentMethod] = useState('UPI'); // 'UPI' | 'COD' | 'Card'
   const [orderNotes, setOrderNotes] = useState('');
   
+  // Auto-prefill customer details from session if available
+  useEffect(() => {
+    if (isOpen) {
+      try {
+        const saved = localStorage.getItem('dinenos_customer_session');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed?.name && !customerName) setCustomerName(parsed.name);
+          if (parsed?.phone && !customerPhone) setCustomerPhone(parsed.phone);
+          if (parsed?.defaultAddress && !deliveryAddress) setDeliveryAddress(parsed.defaultAddress);
+          else if (parsed?.notes && !deliveryAddress) setDeliveryAddress(parsed.notes);
+        }
+      } catch (e) {}
+    }
+  }, [isOpen]);
+
   // Coupon State
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);

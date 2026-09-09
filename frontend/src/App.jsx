@@ -124,14 +124,18 @@ function MainApp() {
   );
 }
 
+import { ErrorBoundary } from './components/common/ErrorBoundary';
+
 export default function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <CafeProvider>
-          <MainApp />
-        </CafeProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AuthProvider>
+          <CafeProvider>
+            <MainApp />
+          </CafeProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
