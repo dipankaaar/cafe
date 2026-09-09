@@ -18,7 +18,8 @@ import {
   Award,
   Users,
   Copy,
-  Clock
+  Clock,
+  Edit2
 } from 'lucide-react';
 
 export default function CouponsView() {
