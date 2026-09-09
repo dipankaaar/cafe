@@ -59,6 +59,7 @@ export default function CustomerProfileModal({
   const [phoneInput, setPhoneInput] = useState('');
   const [nameInput, setNameInput] = useState('');
   const [addressInput, setAddressInput] = useState('');
+  const [landmarkInput, setLandmarkInput] = useState('');
   const [emailInput, setEmailInput] = useState('');
   const [authMode, setAuthMode] = useState('lookup'); // 'lookup' | 'register' | 'otp_verify'
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -204,6 +205,23 @@ export default function CustomerProfileModal({
     setAuthError('');
     setDebugOtpNotice('');
     try {
+      // Lookup if customer profile already exists to prefill details
+      api.lookupCustomer(clean).then((res) => {
+        const custData = res?.data || res;
+        if (custData && custData.name) {
+          setNameInput(custData.name || '');
+          setEmailInput(custData.email || '');
+          const rawNotes = custData.defaultAddress || custData.notes || '';
+          if (rawNotes.includes('(Landmark:')) {
+            const parts = rawNotes.split('(Landmark:');
+            setAddressInput(parts[0].trim());
+            setLandmarkInput(parts[1].replace(')', '').trim());
+          } else {
+            setAddressInput(rawNotes);
+          }
+        }
+      }).catch(() => {});
+
       const res = await api.sendOtp(clean, 'Customer Profile Login');
       const data = res.data || res;
       setIsOtpSent(true);
@@ -225,7 +243,32 @@ export default function CustomerProfileModal({
     if (e) e.preventDefault();
     const clean = phoneInput.replace(/\D/g, '').slice(-10);
     if (!otpInput || otpInput.trim().length < 4) {
-      setAuthError('Please enter the 6-digit OTP code.');
+      setAuthError('Please enter the 6-digit OTP code received on WhatsApp.');
+      return;
+    }
+
+    if (!nameInput.trim()) {
+      setAuthError('Full Name is mandatory. Please enter your name.');
+      return;
+    }
+
+    if (!emailInput.trim()) {
+      setAuthError('Gmail / Email address is mandatory. Please enter your email.');
+      return;
+    }
+
+    if (!emailInput.includes('@') || !emailInput.includes('.')) {
+      setAuthError('Please enter a valid Gmail / Email address (e.g. yourname@gmail.com).');
+      return;
+    }
+
+    if (!addressInput.trim()) {
+      setAuthError('Delivery / Full Address is mandatory. Please enter your address.');
+      return;
+    }
+
+    if (!landmarkInput.trim()) {
+      setAuthError('Nearby Location / Landmark is mandatory. Please enter a landmark.');
       return;
     }
 
@@ -237,18 +280,31 @@ export default function CustomerProfileModal({
         otp: otpInput.trim(),
         name: nameInput.trim(),
         email: emailInput.trim(),
-        address: addressInput.trim()
+        address: addressInput.trim(),
+        landmark: landmarkInput.trim()
       });
       const data = res.data || res;
       const cust = data.customer || data;
       if (cust) {
-        setCustomer(cust);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(cust));
-        setEditName(cust.name || '');
-        setEditEmail(cust.email || '');
-        setEditAddress(cust.defaultAddress || cust.notes || '');
-        loadOrders(cust.id, cust.phone);
-        loadReservations(cust.phone);
+        const fullAddressStr = [
+          addressInput.trim(),
+          landmarkInput.trim() ? `(Landmark: ${landmarkInput.trim()})` : ''
+        ].filter(Boolean).join(' ');
+
+        const enrichedCust = {
+          ...cust,
+          name: nameInput.trim() || cust.name,
+          email: emailInput.trim() || cust.email,
+          defaultAddress: fullAddressStr || cust.notes || ''
+        };
+
+        setCustomer(enrichedCust);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(enrichedCust));
+        setEditName(enrichedCust.name || '');
+        setEditEmail(enrichedCust.email || '');
+        setEditAddress(enrichedCust.defaultAddress || '');
+        loadOrders(enrichedCust.id, enrichedCust.phone);
+        loadReservations(enrichedCust.phone);
         setIsOtpSent(false);
         setOtpInput('');
         setAuthMode('lookup');
@@ -279,7 +335,7 @@ export default function CustomerProfileModal({
         localStorage.setItem(STORAGE_KEY, JSON.stringify(custData));
         setEditName(custData.name || '');
         setEditEmail(custData.email || '');
-        setEditAddress(custData.defaultAddress || '');
+        setEditAddress(custData.defaultAddress || custData.notes || '');
         loadOrders(custData.id, custData.phone);
         loadReservations(custData.phone);
       } else {
@@ -291,7 +347,7 @@ export default function CustomerProfileModal({
       // If 404, prompt to create profile
       setAuthMode('register');
       setPhoneInput(clean);
-      setAuthError('No profile found for this number. Please enter your name to create one.');
+      setAuthError('No profile found for this number. Please enter your details below.');
     } finally {
       setIsLoggingIn(false);
     }
@@ -301,32 +357,49 @@ export default function CustomerProfileModal({
   const handleRegisterCustomer = async (e) => {
     e.preventDefault();
     const clean = phoneInput.replace(/\D/g, '').slice(-10);
-    if (!nameInput.trim()) {
-      setAuthError('Please enter your full name.');
-      return;
-    }
     if (clean.length < 10) {
       setAuthError('Please enter a valid 10-digit mobile number.');
+      return;
+    }
+    if (!nameInput.trim()) {
+      setAuthError('Full Name is mandatory. Please enter your name.');
+      return;
+    }
+    if (!emailInput.trim() || !emailInput.includes('@') || !emailInput.includes('.')) {
+      setAuthError('Valid Gmail / Email address is mandatory.');
+      return;
+    }
+    if (!addressInput.trim()) {
+      setAuthError('Delivery Address is mandatory.');
+      return;
+    }
+    if (!landmarkInput.trim()) {
+      setAuthError('Nearby Location / Landmark is mandatory.');
       return;
     }
 
     setIsLoggingIn(true);
     setAuthError('');
     try {
+      const fullAddressStr = [
+        addressInput.trim(),
+        landmarkInput.trim() ? `(Landmark: ${landmarkInput.trim()})` : ''
+      ].filter(Boolean).join(' ');
+
       const payload = {
         name: nameInput.trim(),
         phone: clean,
         email: emailInput.trim(),
-        notes: addressInput.trim()
+        notes: fullAddressStr
       };
       const res = await api.createCustomer(payload);
       const created = res.data || res;
-      const full = { ...created, defaultAddress: addressInput.trim() };
+      const full = { ...created, defaultAddress: fullAddressStr };
       setCustomer(full);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(full));
       setEditName(full.name);
       setEditEmail(full.email || '');
-      setEditAddress(addressInput.trim());
+      setEditAddress(fullAddressStr);
       loadOrders(full.id, full.phone);
       loadReservations(full.phone);
     } catch (err) {
@@ -376,7 +449,9 @@ export default function CustomerProfileModal({
     setAuthMode('lookup');
     setPhoneInput('');
     setNameInput('');
+    setEmailInput('');
     setAddressInput('');
+    setLandmarkInput('');
     setAuthError('');
   };
 
@@ -519,7 +594,7 @@ export default function CustomerProfileModal({
               {/* Case A: OTP Verify Mode */}
               {authMode === 'otp_verify' ? (
                 <div className="space-y-4">
-                  <div className="p-4 bg-emerald-950/40 border border-emerald-500/30 rounded-2xl text-center space-y-1.5">
+                  <div className="p-3.5 bg-emerald-950/40 border border-emerald-500/30 rounded-2xl text-center space-y-1">
                     <div className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-400">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                       <span>WhatsApp OTP Sent</span>
@@ -528,13 +603,13 @@ export default function CustomerProfileModal({
                       We sent a 6-digit verification code to <strong className="text-white">+91 {phoneInput}</strong>
                     </p>
                     {debugOtpNotice && (
-                      <p className="text-[11px] text-amber-300 font-mono font-bold pt-1">{debugOtpNotice}</p>
+                      <p className="text-[11px] text-amber-300 font-mono font-bold pt-0.5">{debugOtpNotice}</p>
                     )}
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-gray-300 mb-1.5 uppercase tracking-wider text-center">
-                      Enter 6-Digit OTP Code
+                      Enter 6-Digit OTP Code <span className="text-emerald-400">*</span>
                     </label>
                     <input
                       type="text"
@@ -543,20 +618,78 @@ export default function CustomerProfileModal({
                       value={otpInput}
                       onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ''))}
                       placeholder="••••••"
-                      className="w-full bg-black/60 border border-emerald-500/50 rounded-xl px-4 py-3 text-center text-2xl font-mono tracking-widest text-emerald-400 placeholder-gray-600 focus:outline-none focus:border-emerald-400 shadow-inner"
+                      className="w-full bg-black/60 border border-emerald-500/50 rounded-xl px-4 py-2.5 text-center text-2xl font-mono tracking-widest text-emerald-400 placeholder-gray-600 focus:outline-none focus:border-emerald-400 shadow-inner"
                       onKeyDown={(e) => e.key === 'Enter' && handleVerifyOtp()}
                     />
                   </div>
 
-                  {/* Optional Quick Name for first-time guests */}
-                  <div>
-                    <input
-                      type="text"
-                      value={nameInput}
-                      onChange={(e) => setNameInput(e.target.value)}
-                      placeholder="Your Name (Optional if returning user)"
-                      className="w-full bg-black/30 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#DD5903]"
-                    />
+                  {/* Mandatory Customer Profile Details */}
+                  <div className="pt-2 border-t border-white/10 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <User className="w-3.5 h-3.5 text-[#DD5903]" />
+                        <span>Profile Information</span>
+                      </span>
+                      <span className="text-[10px] text-[#DD5903] font-semibold uppercase tracking-wider bg-orange-500/10 px-2 py-0.5 rounded-full border border-orange-500/20">
+                        * All Fields Required
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-300 mb-1">
+                        Full Name <span className="text-red-400 font-bold">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={nameInput}
+                        onChange={(e) => setNameInput(e.target.value)}
+                        placeholder="e.g. Rahul Sharma"
+                        className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#DD5903]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-300 mb-1">
+                        Gmail / Email Address <span className="text-red-400 font-bold">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={emailInput}
+                        onChange={(e) => setEmailInput(e.target.value)}
+                        placeholder="e.g. rahul@gmail.com"
+                        className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#DD5903]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-300 mb-1">
+                        Delivery / Full Address <span className="text-red-400 font-bold">*</span>
+                      </label>
+                      <textarea
+                        rows="2"
+                        required
+                        value={addressInput}
+                        onChange={(e) => setAddressInput(e.target.value)}
+                        placeholder="Flat/House No, Building, Street, Area..."
+                        className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#DD5903] resize-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-300 mb-1">
+                        Nearby Location / Landmark <span className="text-red-400 font-bold">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={landmarkInput}
+                        onChange={(e) => setLandmarkInput(e.target.value)}
+                        placeholder="e.g. Near City Mall / Opp. Metro Gate 2"
+                        className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#DD5903]"
+                      />
+                    </div>
                   </div>
 
                   <button
@@ -569,7 +702,7 @@ export default function CustomerProfileModal({
                     ) : (
                       <>
                         <CheckCircle2 className="w-4 h-4" />
-                        <span>Verify OTP & Log In</span>
+                        <span>Verify OTP & Create Profile</span>
                       </>
                     )}
                   </button>
@@ -651,8 +784,14 @@ export default function CustomerProfileModal({
               ) : (
                 /* Register Form for New User */
                 <form onSubmit={handleRegisterCustomer} className="space-y-3.5">
+                  <div className="p-2.5 bg-orange-500/10 border border-orange-500/20 rounded-xl text-xs text-orange-200">
+                    Please provide your complete details below to create your customer profile.
+                  </div>
+
                   <div>
-                    <label className="block text-xs font-semibold text-gray-300 mb-1">Your Full Name *</label>
+                    <label className="block text-xs font-semibold text-gray-300 mb-1">
+                      Your Full Name <span className="text-red-400">*</span>
+                    </label>
                     <input
                       type="text"
                       required
@@ -664,7 +803,9 @@ export default function CustomerProfileModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-300 mb-1">Mobile Number *</label>
+                    <label className="block text-xs font-semibold text-gray-300 mb-1">
+                      Mobile Number <span className="text-red-400">*</span>
+                    </label>
                     <input
                       type="tel"
                       required
@@ -676,24 +817,44 @@ export default function CustomerProfileModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-300 mb-1">Email Address (Optional)</label>
+                    <label className="block text-xs font-semibold text-gray-300 mb-1">
+                      Gmail / Email Address <span className="text-red-400">*</span>
+                    </label>
                     <input
                       type="email"
+                      required
                       value={emailInput}
                       onChange={(e) => setEmailInput(e.target.value)}
-                      placeholder="sourav@example.com"
+                      placeholder="sourav@gmail.com"
                       className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#DD5903]"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-300 mb-1">Delivery Address (Optional)</label>
+                    <label className="block text-xs font-semibold text-gray-300 mb-1">
+                      Delivery / Full Address <span className="text-red-400">*</span>
+                    </label>
                     <textarea
                       rows="2"
+                      required
                       value={addressInput}
                       onChange={(e) => setAddressInput(e.target.value)}
-                      placeholder="House/Flat No, Landmark, City..."
+                      placeholder="House/Flat No, Building, Street, City..."
                       className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-[#DD5903] resize-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-300 mb-1">
+                      Nearby Location / Landmark <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={landmarkInput}
+                      onChange={(e) => setLandmarkInput(e.target.value)}
+                      placeholder="e.g. Near City Mall / Opp. Metro Gate 2"
+                      className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#DD5903]"
                     />
                   </div>
 

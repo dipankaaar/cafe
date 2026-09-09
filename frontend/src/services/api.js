@@ -601,10 +601,10 @@ class ApiService {
     });
   }
 
-  verifyOtp({ phone, otp, name, email, address }) {
+  verifyOtp({ phone, otp, name, email, address, landmark }) {
     return this.request('/otp/verify', {
       method: 'POST',
-      body: JSON.stringify({ phone, otp, name, email, address })
+      body: JSON.stringify({ phone, otp, name, email, address, landmark })
     });
   }
 

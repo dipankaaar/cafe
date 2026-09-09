@@ -15,12 +15,12 @@ export const sendOtp = asyncHandler(async (req, res) => {
 });
 
 export const verifyOtp = asyncHandler(async (req, res) => {
-  const { phone, otp, name, email, address } = req.body;
+  const { phone, otp, name, email, address, landmark } = req.body;
   if (!phone || !otp) {
     throw new ApiError(400, 'Phone number and OTP code are required');
   }
 
-  const result = await otpService.verifyMobileOtp(phone, otp, { name, email, address });
+  const result = await otpService.verifyMobileOtp(phone, otp, { name, email, address, landmark });
   return ApiResponse.success(res, result, 'Mobile OTP verified successfully');
 });
 

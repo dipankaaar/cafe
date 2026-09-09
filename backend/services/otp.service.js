@@ -87,20 +87,25 @@ class OtpService {
     // OTP is valid! Remove from store
     this.otpStore.delete(cleanPhone);
 
+    const fullAddress = [
+      profileData.address?.trim(),
+      profileData.landmark?.trim() ? `(Landmark: ${profileData.landmark.trim()})` : ''
+    ].filter(Boolean).join(' ');
+
     // Find or create customer record in database
     let customer = CustomerModel.findByPhone(cleanPhone);
     if (!customer) {
       customer = CustomerModel.create({
-        name: profileData.name || `Guest (${cleanPhone.slice(-4)})`,
+        name: profileData.name?.trim() || `Customer (${cleanPhone.slice(-4)})`,
         phone: cleanPhone,
-        email: profileData.email || '',
-        notes: profileData.address || ''
+        email: profileData.email?.trim() || '',
+        notes: fullAddress || ''
       });
-    } else if (profileData.name || profileData.email || profileData.address) {
+    } else if (profileData.name || profileData.email || profileData.address || profileData.landmark) {
       customer = CustomerModel.update(customer.id, {
-        name: profileData.name || customer.name,
-        email: profileData.email || customer.email,
-        notes: profileData.address || customer.notes
+        name: profileData.name?.trim() || customer.name,
+        email: profileData.email?.trim() || customer.email,
+        notes: fullAddress || customer.notes
       });
     }
 
