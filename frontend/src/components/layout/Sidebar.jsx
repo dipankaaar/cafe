@@ -3,15 +3,11 @@ import {
   LayoutDashboard,
   ShoppingBag,
   CreditCard,
-  ChefHat,
   UtensilsCrossed,
   Grid,
   CalendarDays,
   Users,
-  Award,
   Tag,
-  Boxes,
-  Receipt,
   UserCog,
   BarChart3,
   Bell,
@@ -34,12 +30,11 @@ export default function Sidebar({
   onCloseMobile
 }) {
   const { role, hasPermission, currentUser, logout } = useAuth();
-  const { orders, inventory, notifications, reservations } = useCafe();
+  const { orders, notifications, reservations } = useCafe();
 
   const [expandedMenus, setExpandedMenus] = useState({
     orders: true,
-    menu: false,
-    inventory: false
+    menu: false
   });
 
   const toggleExpand = (key) => {
@@ -53,8 +48,6 @@ export default function Sidebar({
     return n === 'placed' || n === 'new' ? 'placed' : n === 'preparing' ? 'brewing' : n;
   };
   const pendingOrdersCount = orders.filter((o) => ['placed', 'accepted', 'brewing', 'ready', 'out_for_delivery'].includes(normActive(o.status))).length;
-  const kitchenOrdersCount = orders.filter((o) => ['accepted', 'brewing'].includes(normActive(o.status))).length;
-  const lowStockCount = inventory.filter((i) => i.status === 'Low Stock').length;
   const unreadNotifsCount = notifications.filter((n) => !n.isRead).length;
   const todayPendingReservations = reservations.filter((r) => r.status === 'Pending').length;
 
@@ -89,14 +82,6 @@ export default function Sidebar({
       highlight: true
     },
     {
-      key: 'kitchen',
-      label: 'Kitchen KDS',
-      icon: ChefHat,
-      permission: 'kitchen',
-      badge: kitchenOrdersCount > 0 ? kitchenOrdersCount : null,
-      badgeColor: 'bg-rose-500'
-    },
-    {
       key: 'menu',
       label: 'Menu',
       icon: UtensilsCrossed,
@@ -128,35 +113,10 @@ export default function Sidebar({
       permission: 'customers'
     },
     {
-      key: 'loyalty',
-      label: 'Loyalty Program',
-      icon: Award,
-      permission: 'loyalty'
-    },
-    {
       key: 'coupons',
       label: 'Coupons & Promos',
       icon: Tag,
       permission: 'coupons'
-    },
-    {
-      key: 'inventory',
-      label: 'Inventory',
-      icon: Boxes,
-      permission: 'inventory',
-      badge: lowStockCount > 0 ? `${lowStockCount} Low` : null,
-      badgeColor: 'bg-amber-500',
-      subItems: [
-        { key: 'inventory-stock', label: 'Stock Levels' },
-        { key: 'inventory-suppliers', label: 'Suppliers' },
-        { key: 'inventory-purchases', label: 'Purchases' }
-      ]
-    },
-    {
-      key: 'expenses',
-      label: 'Expenses',
-      icon: Receipt,
-      permission: 'expenses'
     },
     {
       key: 'staff',
