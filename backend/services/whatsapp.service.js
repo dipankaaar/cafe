@@ -125,7 +125,7 @@ class WhatsAppService {
       throw new Error('Invalid mobile number provided');
     }
 
-    const message = `☕ *PETUK ADDA CAFE*\n\nYour *${purpose} Code* is: *${otpCode}*\n\n⏱️ Valid for *5 minutes*.\n🔒 Please do not share this OTP with anyone for security.\n\n_Thank you for choosing Petuk Adda Cafe!_`;
+    const message = `☕ *PETUK ADDA CAFE*\n\nYour *${purpose} Code* is: *${otpCode}*\n\n⏱️ Valid for *5 minutes*.\n🔒 Please do not share this OTP with anyone for security.\n\nIf you experience any issues related to your order or booking, please call or message us through this chat for prompt assistance and resolution.\n\n_Thank you for choosing Petuk Adda Cafe!_`;
 
     if (this.status === 'CONNECTED' && this.sock) {
       try {
