@@ -11,8 +11,9 @@ const getApiBaseUrl = () => {
     if (window.location.port !== '5000') {
       return 'http://localhost:5000/api';
     }
+    return '/api';
   }
-  return '/api';
+  return 'https://dinenos-cafe-backend-production.up.railway.app/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();
