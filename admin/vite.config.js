@@ -3,9 +3,12 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 // https://vite.dev/config/
-export default defineConfig(({ command }) => ({
-  base: process.env.VITE_BASE_URL || (command === 'serve' ? '/' : '/admin/'),
-  plugins: [react(), tailwindcss()],
+export default defineConfig(({ command }) => {
+  const isStandalone = process.env.VERCEL || process.env.VITE_BASE_URL === '/' || process.env.STANDALONE;
+  const base = process.env.VITE_BASE_URL || (command === 'serve' || isStandalone ? '/' : '/admin/');
+  return {
+    base,
+    plugins: [react(), tailwindcss()],
   server: {
     port: 5174,
     strictPort: true,
@@ -35,4 +38,5 @@ export default defineConfig(({ command }) => ({
       }
     }
   }
-}));
+};
+});
