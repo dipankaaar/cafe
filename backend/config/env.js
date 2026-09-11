@@ -30,7 +30,7 @@ export const ENV = {
   HOST: process.env.HOST || '0.0.0.0',
   CORS_ORIGIN: parseCorsOrigin(process.env.CORS_ORIGIN),
   CORS_ORIGIN_RAW: process.env.CORS_ORIGIN || '',
-  DB_PATH: process.env.DB_PATH || path.join(__dirname, '..', 'data', 'cafe.db'),
+  DB_PATH: process.env.DB_PATH ? path.resolve(process.env.DB_PATH) : path.join(__dirname, '..', 'data', 'cafe.db'),
   STATIC_DIR: path.join(__dirname, '..', '..', 'frontend', 'dist'),
   ADMIN_STATIC_DIR: process.env.ADMIN_STATIC_DIR || path.join(__dirname, '..', '..', 'admin', 'dist'),
   API_PREFIX: '/api',

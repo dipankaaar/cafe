@@ -16,11 +16,18 @@ class DatabaseConnection {
       const db = new DatabaseSync(ENV.DB_PATH);
       
       // Optimize SQLite performance pragmas
-      db.exec(`
-        PRAGMA journal_mode = WAL;
-        PRAGMA synchronous = NORMAL;
-        PRAGMA foreign_keys = ON;
-      `);
+      try {
+        db.exec(`
+          PRAGMA journal_mode = WAL;
+          PRAGMA synchronous = NORMAL;
+          PRAGMA foreign_keys = ON;
+        `);
+      } catch (err) {
+        console.warn('⚠️ SQLite PRAGMA journal_mode notice (continuing with default journal):', err.message);
+        try {
+          db.exec('PRAGMA foreign_keys = ON;');
+        } catch (_) {}
+      }
 
       DatabaseConnection.instance = db;
     }

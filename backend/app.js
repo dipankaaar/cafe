@@ -41,7 +41,10 @@ const corsOptions =
             ENV.CORS_ORIGIN.includes(normalized) ||
             /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(normalized) ||
             /\.vercel\.app$/.test(normalized) ||
+            /\.onrender\.com$/.test(normalized) ||
             /\.railway\.app$/.test(normalized) ||
+            /\.netlify\.app$/.test(normalized) ||
+            /\.pages\.dev$/.test(normalized) ||
             /\.trycloudflare\.com$/.test(normalized)
           ) {
             return callback(null, true);
@@ -100,6 +103,9 @@ app.use(ENV.API_PREFIX, apiRateLimiter);
 
 // Request Logging
 app.use(requestLogger);
+
+// Root health probe for cloud load balancers & monitoring
+app.get('/health', (req, res) => res.redirect(307, `${ENV.API_PREFIX}/health`));
 
 // Mount API Root
 app.use(ENV.API_PREFIX, apiRouter);

@@ -37,5 +37,6 @@ backend/auth_info.baileys/
 backend/data/whatsapp_auth/
 **/whatsapp_auth/
 backend/data/whatsapp_auth/*
+scratch/
 
 

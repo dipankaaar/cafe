@@ -266,7 +266,12 @@ export default function LoginPage() {
         {/* Link back to public storefront */}
         <div className="mt-6 text-center">
           <a
-            href={typeof window !== 'undefined' && (window.location.port === '5174' || window.location.hostname === 'localhost') ? 'http://localhost:5173' : 'https://petukadda.vercel.app'}
+            href={
+              (typeof import.meta !== 'undefined' && import.meta.env?.VITE_STOREFRONT_URL) ||
+              (typeof window !== 'undefined' && (window.location.port === '5174' || window.location.hostname === 'localhost')
+                ? 'http://localhost:5173'
+                : (typeof window !== 'undefined' ? window.location.origin : 'https://petukadda.vercel.app'))
+            }
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs text-gray-400 hover:text-[#DD5903] transition-colors inline-flex items-center gap-1.5"

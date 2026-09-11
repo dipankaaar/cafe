@@ -103,3 +103,30 @@ npm run build
 - `GET /api/tables` — Floor plan occupancy
 - `POST /api/reservations` — Table booking
 - `GET /api/reports/analytics` — P&L & financial metrics
+
+---
+
+## 🚀 One-Click Production Deployment
+
+### Option A: Render.com (Recommended - All-in-One Monolith)
+1. Push your code to GitHub (`origin main`).
+2. In [Render Dashboard](https://dashboard.render.com/), click **New** ➔ **Blueprint** (or **Web Service**).
+3. Connect your GitHub repository (`cafe`).
+4. Render automatically reads `render.yaml`:
+   - **Build Command**: `npm install && npm run build`
+   - **Start Command**: `npm start`
+   - **Health Check**: `/health`
+5. Once deployed:
+   - 🌐 **Storefront**: `https://<your-app>.onrender.com/`
+   - 🛡️ **Admin Portal**: `https://<your-app>.onrender.com/admin/`
+   - 📡 **Backend API**: `https://<your-app>.onrender.com/api`
+
+### Option B: Railway.app
+1. In [Railway Dashboard](https://railway.app/), click **New Project** ➔ **Deploy from GitHub repo**.
+2. Select your `cafe` repository.
+3. Railway automatically uses `railway.json` and builds both frontend and admin, then starts the backend.
+
+### Option C: Standalone Vercel (Frontend / Admin)
+- Both `frontend/` and `admin/` include `vercel.json` for seamless SPA routing.
+- Set `VITE_API_BASE_URL=https://<your-backend-url>/api` in the Vercel Environment Variables.
+

@@ -81,9 +81,12 @@ function AdminContent() {
   }
 
   const handleOpenStorefront = () => {
-    const url = typeof window !== 'undefined' && (window.location.port === '5174' || window.location.hostname === 'localhost')
-      ? 'http://localhost:5173'
-      : 'https://petukadda.vercel.app';
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const url =
+      (typeof import.meta !== 'undefined' && import.meta.env?.VITE_STOREFRONT_URL) ||
+      (typeof window !== 'undefined' && (window.location.port === '5174' || window.location.hostname === 'localhost')
+        ? 'http://localhost:5173'
+        : (origin || 'https://petukadda.vercel.app'));
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 

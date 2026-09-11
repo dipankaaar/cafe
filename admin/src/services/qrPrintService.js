@@ -30,9 +30,11 @@ export const qrPrintService = {
    * (Legacy hash form `${origin}/#order/:qr_token` is still parsed by App.jsx.)
    */
   getOrderingUrl(qrToken) {
-    const origin = typeof window !== 'undefined'
-      ? (window.location.port === '5174' || window.location.hostname === 'localhost' ? 'http://localhost:5173' : 'https://petukadda.vercel.app')
-      : 'https://petukadda.vercel.app';
+    const origin =
+      (typeof import.meta !== 'undefined' && import.meta.env?.VITE_STOREFRONT_URL) ||
+      (typeof window !== 'undefined'
+        ? (window.location.port === '5174' || window.location.hostname === 'localhost' ? 'http://localhost:5173' : window.location.origin)
+        : 'https://petukadda.vercel.app');
     return `${origin}/order/${qrToken}`;
   },
 
