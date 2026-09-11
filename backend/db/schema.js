@@ -326,8 +326,24 @@ export function initDatabaseSchema() {
   try { db.exec(`ALTER TABLE orders ADD COLUMN delivery_status TEXT DEFAULT 'preparing';`); } catch (e) {}
   try { db.exec(`ALTER TABLE orders ADD COLUMN out_for_delivery_at TEXT;`); } catch (e) {}
   try { db.exec(`ALTER TABLE orders ADD COLUMN delivered_at TEXT;`); } catch (e) {}
-  try { db.exec(`UPDATE orders SET delivery_status = 'preparing' WHERE delivery_status IS NULL;`); } catch (e) {}
   try { db.exec(`ALTER TABLE staff ADD COLUMN password TEXT DEFAULT 'admin123';`); } catch (e) {}
+
+  // ---- Production Hygiene: Purge legacy demo orders & demo customer profiles ----
+  try {
+    db.exec(`DELETE FROM orders WHERE customer_name IN ('Aarav Sharma', 'Priya Patel', 'Rahul Sharma', 'Ananya Iyer', 'Vikram Malhotra') OR id LIKE 'ord-178885%' OR id LIKE 'ord-demo%';`);
+  } catch (e) {}
+  try {
+    db.exec(`DELETE FROM customers WHERE name IN ('Rahul Sharma', 'Ananya Iyer', 'Vikram Malhotra', 'Priya Nair', 'Sneha Roy') OR id LIKE 'cust-178885%' OR id LIKE 'cust-demo%';`);
+  } catch (e) {}
+  try {
+    db.exec(`UPDATE staff SET name = 'Petuk Adda Admin', email = 'admin@petukadda.com', password = 'admin', pin = '1234' WHERE role = 'Admin' AND (email = 'admin@dinenos.com' OR name = 'Alex Walker');`);
+  } catch (e) {}
+  try {
+    db.exec(`UPDATE products SET table_enabled = 1 WHERE table_enabled IS NULL;`);
+    db.exec(`UPDATE products SET online_enabled = 1 WHERE online_enabled IS NULL;`);
+    db.exec(`UPDATE products SET table_price = selling_price WHERE table_price IS NULL OR table_price = 0;`);
+    db.exec(`UPDATE products SET online_price = selling_price WHERE online_price IS NULL OR online_price = 0;`);
+  } catch (e) {}
 
 
   // 3. Ensure All Existing Tables Have a Permanent QR Token

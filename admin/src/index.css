@@ -311,6 +311,41 @@
   animation-duration: 200ms;
 }
 
+/* iPhone safe-area: keep fixed bottom bars above the home indicator */
+.pb-safe {
+  padding-bottom: calc(0.875rem + env(safe-area-inset-bottom, 0px));
+}
+.mb-safe {
+  margin-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ── Mobile Performance & Touch Optimizations ── */
+@media (max-width: 768px) {
+  /* Reduce heavy blur calculations on mobile GPUs to eliminate scroll lag */
+  .backdrop-blur-3xl,
+  .backdrop-blur-2xl,
+  .backdrop-blur-xl {
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+  }
+  
+  /* Disable resource-draining ambient blur circles on mobile */
+  .blur-3xl,
+  .blur-2xl {
+    display: none !important;
+  }
+
+  /* Hardware accelerate smooth touch scrolling */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Fast touch interactions without delay */
+  button, a, input, select {
+    touch-action: manipulation;
+  }
+}
+
 /* Respect reduced motion for premium feel without vestibular strain */
 @media (prefers-reduced-motion: reduce) {
   .animate-float,

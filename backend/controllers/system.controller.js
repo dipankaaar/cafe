@@ -80,3 +80,19 @@ export const updateSettings = asyncHandler(async (req, res) => {
   });
   return ApiResponse.success(res, updated, 'Settings updated successfully');
 });
+
+export const purgeDemoData = asyncHandler(async (req, res) => {
+  const { OrderModel } = await import('../models/Order.model.js');
+  const { CustomerModel } = await import('../models/Customer.model.js');
+  const orderCount = OrderModel.purgeDemo();
+  const customerCount = CustomerModel.purgeDemo();
+  AuditLogModel.log({
+    user: 'Admin',
+    action: 'PURGE_DEMO_DATA',
+    category: 'System',
+    details: `Cleaned ${orderCount} demo orders and ${customerCount} demo customer profiles`,
+    ip: req.ip || '127.0.0.1'
+  });
+  return ApiResponse.success(res, { orderCount, customerCount, success: true }, 'All demo data permanently purged from database');
+});
+

@@ -5,6 +5,8 @@ const router = Router();
 
 router.post('/login', authController.login);
 router.post('/login-pin', authController.pinLogin);
+router.put('/admin-credentials', authController.updateAdminCredentials);
+router.post('/admin-credentials', authController.updateAdminCredentials);
 router.get('/staff', authController.getStaff);
 router.post('/staff', authController.createStaff);
 router.put('/staff/:id', authController.updateStaff);

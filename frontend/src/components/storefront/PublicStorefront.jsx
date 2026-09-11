@@ -34,6 +34,7 @@ export default function PublicStorefront({ onNavigate, onNavigateToAdmin, onNavi
   const [isReservationOpen, setIsReservationOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isTrackOrderOpen, setIsTrackOrderOpen] = useState(false);
+  const [activeTrackOrderNumber, setActiveTrackOrderNumber] = useState('');
   const [isCustomerProfileOpen, setIsCustomerProfileOpen] = useState(false);
   const [isOffcanvasOpen, setIsOffcanvasOpen] = useState(false);
   const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
@@ -231,7 +232,11 @@ export default function PublicStorefront({ onNavigate, onNavigateToAdmin, onNavi
 
       <TrackOrderModal
         isOpen={isTrackOrderOpen}
-        onClose={() => setIsTrackOrderOpen(false)}
+        initialOrderNumber={activeTrackOrderNumber}
+        onClose={() => {
+          setIsTrackOrderOpen(false);
+          setActiveTrackOrderNumber('');
+        }}
       />
 
       <WebsiteQrScannerModal
@@ -248,8 +253,9 @@ export default function PublicStorefront({ onNavigate, onNavigateToAdmin, onNavi
         isOpen={isOffcanvasOpen}
         onClose={() => setIsOffcanvasOpen(false)}
         onNavigate={onNavigate}
-        onOpenTrackOrder={() => {
+        onOpenTrackOrder={(orderNum) => {
           setIsOffcanvasOpen(false);
+          setActiveTrackOrderNumber(orderNum || '');
           setIsTrackOrderOpen(true);
         }}
         onOpenCustomerProfile={() => {
@@ -264,6 +270,7 @@ export default function PublicStorefront({ onNavigate, onNavigateToAdmin, onNavi
         onClose={() => setIsCustomerProfileOpen(false)}
         onOpenTrackOrder={(orderNum) => {
           setIsCustomerProfileOpen(false);
+          setActiveTrackOrderNumber(orderNum || '');
           setIsTrackOrderOpen(true);
         }}
         onReorder={(items) => {

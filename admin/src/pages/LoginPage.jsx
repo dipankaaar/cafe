@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Lock, Mail, KeyRound, Coffee, CheckCircle2, AlertCircle, ArrowRight, UserCheck, CreditCard, ChefHat, Grid, Sparkles } from 'lucide-react';
+import { Shield, Lock, Mail, KeyRound, Coffee, CheckCircle2, AlertCircle, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { dbService, DB_KEYS } from '../services/dbService';
@@ -7,10 +7,11 @@ import { initialStaff } from '../services/seedData';
 import logoImg from '../assets/logo.jpg';
 
 export default function LoginPage() {
-  const { login, switchRole } = useAuth();
+  const { login } = useAuth();
   const [activeTab, setActiveTab] = useState('credentials'); // 'credentials' | 'pin'
-  const [email, setEmail] = useState('admin@dinenos.com');
-  const [password, setPassword] = useState('admin123');
+  const cachedSettings = dbService.get(DB_KEYS.SETTINGS, {});
+  const [email, setEmail] = useState(() => cachedSettings.adminEmail || 'admin@petukadda.com');
+  const [password, setPassword] = useState(() => cachedSettings.adminPassword || 'admin');
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -23,11 +24,10 @@ export default function LoginPage() {
       try {
         const res = await api.checkHealth();
         if (mounted) {
-          const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
           setBackendStatus({
             checking: false,
             online: res?.status === 'healthy' || true,
-            message: `Connected to Express & SQLite Backend (${isLocal ? 'Port 5000' : 'Railway Cloud'})`
+            message: 'System Online • Cloud Database Connected'
           });
         }
       } catch (err) {
@@ -70,10 +70,19 @@ export default function LoginPage() {
     setIsSubmitting(true);
     try {
       const localStaff = dbService.get(DB_KEYS.STAFF, initialStaff);
+      const settings = dbService.get(DB_KEYS.SETTINGS, {});
       const backendStaff = await api.getStaff().catch(() => null);
       const staffList = backendStaff && backendStaff.length > 0 ? backendStaff : localStaff;
 
-      const matched = staffList.find((s) => String(s.pin) === String(pin) || (String(pin) === '1234' && s.role === 'Admin'));
+      const adminUser = staffList.find((s) => s.role === 'Admin') || { email: settings.adminEmail || 'admin@petukadda.com', role: 'Admin' };
+      const masterPin = settings.adminPin || adminUser.pin || '1234';
+
+      if (String(pin) === String(masterPin)) {
+        const res = login(adminUser.email, 'pin-auth');
+        if (res.success) return;
+      }
+
+      const matched = staffList.find((s) => String(s.pin) === String(pin));
       if (matched) {
         const res = login(matched.email, 'pin-auth');
         if (res.success) return;
@@ -85,14 +94,6 @@ export default function LoginPage() {
       setIsSubmitting(false);
     }
   };
-
-  const quickRoles = [
-    { role: 'Admin', name: 'Alex Walker', desc: 'Full Access & Settings', icon: Shield, color: 'text-amber-500' },
-    { role: 'Manager', name: 'Sarah Jenkins', desc: 'Operations & Stock', icon: UserCheck, color: 'text-blue-500' },
-    { role: 'Cashier', name: 'David Miller', desc: 'POS & Billing', icon: CreditCard, color: 'text-emerald-500' },
-    { role: 'Kitchen Staff', name: 'Marco Rossi', desc: 'KDS & Prep Orders', icon: ChefHat, color: 'text-rose-500' },
-    { role: 'Waiter', name: 'Emma Watson', desc: 'Tables & Orders', icon: Grid, color: 'text-purple-500' },
-  ];
 
   return (
     <div className="min-h-screen bg-[#0d0e11] text-gray-100 flex flex-col justify-center items-center p-4 relative overflow-hidden font-sans">
@@ -237,30 +238,14 @@ export default function LoginPage() {
           </form>
         )}
 
-        {/* 1-Click Quick Demo Switch */}
-        <div className="mt-8 pt-6 border-t border-gray-800">
-          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3 text-center">
-            Or Quick 1-Click Role Login (Demo / Testing)
+        {/* Security & Access Information */}
+        <div className="mt-8 pt-5 border-t border-gray-800/80 text-center">
+          <p className="text-[11px] text-gray-400">
+            🔒 Protected Management Terminal for Petuk Adda Cafe Staff.
           </p>
-          <div className="grid grid-cols-2 gap-2">
-            {quickRoles.map((qr) => {
-              const RoleIcon = qr.icon;
-              return (
-                <button
-                  key={qr.role}
-                  type="button"
-                  onClick={() => switchRole(qr.role)}
-                  className="flex items-center gap-2 p-2 rounded-xl bg-gray-900/60 hover:bg-gray-800/80 border border-gray-800/80 text-left transition-all hover:border-[#DD5903]/40 cursor-pointer"
-                >
-                  <RoleIcon className={`w-4 h-4 shrink-0 ${qr.color}`} />
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-gray-200 truncate">{qr.role}</p>
-                    <p className="text-[10px] text-gray-500 truncate">{qr.name}</p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+          <p className="text-[10px] text-gray-500 mt-0.5">
+            Admin credentials can be managed inside Settings &gt; Admin Security.
+          </p>
         </div>
 
         {/* Link back to public storefront */}

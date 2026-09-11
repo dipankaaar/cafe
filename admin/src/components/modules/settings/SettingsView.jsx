@@ -28,18 +28,20 @@ import {
 } from 'lucide-react';
 
 export default function SettingsView() {
-  const { settings, updateSettings, resetAllDataToDefault, staff = [], updateStaffMember } = useCafe();
+  const { settings, updateSettings, updateAdminCredentials, purgeAllDemoData, resetAllDataToDefault, staff = [], updateStaffMember } = useCafe();
   
   const [form, setForm] = useState({ ...settings });
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+  const [isPurgeConfirmOpen, setIsPurgeConfirmOpen] = useState(false);
 
   // Admin Credentials Management State
-  const adminStaff = staff.find((s) => s.role === 'Admin') || { id: 'staff-1', email: 'admin@dinenos.com', password: 'admin123', pin: '1234' };
-  const [adminEmail, setAdminEmail] = useState(adminStaff?.email || 'admin@dinenos.com');
-  const [adminPassword, setAdminPassword] = useState(adminStaff?.password || 'admin123');
-  const [adminPin, setAdminPin] = useState(adminStaff?.pin || '1234');
+  const adminStaff = staff.find((s) => s.role === 'Admin') || { id: 'staff-1', email: 'admin@petukadda.com', password: 'admin', pin: '1234' };
+  const [adminEmail, setAdminEmail] = useState(settings?.adminEmail || adminStaff?.email || 'admin@petukadda.com');
+  const [adminPassword, setAdminPassword] = useState(settings?.adminPassword || adminStaff?.password || 'admin');
+  const [adminPin, setAdminPin] = useState(settings?.adminPin || adminStaff?.pin || '1234');
   const [showAdminPassword, setShowAdminPassword] = useState(false);
   const [adminCredSaved, setAdminCredSaved] = useState(false);
+  const [isSavingCreds, setIsSavingCreds] = useState(false);
 
   React.useEffect(() => {
     if (adminStaff) {
@@ -49,17 +51,34 @@ export default function SettingsView() {
     }
   }, [adminStaff.email, adminStaff.password, adminStaff.pin]);
 
-  const handleSaveAdminSecurity = (e) => {
+  const handleSaveAdminSecurity = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
-    if (!adminEmail || !updateStaffMember) return;
-    updateStaffMember(adminStaff.id, {
-      email: adminEmail.trim(),
-      password: adminPassword.trim() || 'admin123',
-      pin: adminPin.trim() || '1234'
-    });
-    setAdminCredSaved(true);
-    setTimeout(() => setAdminCredSaved(false), 3000);
+    if (!adminEmail.trim()) return;
+    setIsSavingCreds(true);
+    try {
+      if (updateAdminCredentials) {
+        await updateAdminCredentials({
+          email: adminEmail.trim(),
+          password: adminPassword.trim() || 'admin',
+          pin: adminPin.trim() || '1234',
+          name: 'Petuk Adda Admin'
+        });
+      } else if (updateStaffMember) {
+        updateStaffMember(adminStaff.id, {
+          email: adminEmail.trim(),
+          password: adminPassword.trim() || 'admin',
+          pin: adminPin.trim() || '1234'
+        });
+      }
+      setAdminCredSaved(true);
+      setTimeout(() => setAdminCredSaved(false), 3500);
+    } catch (err) {
+      console.error('Failed to update credentials:', err);
+    } finally {
+      setIsSavingCreds(false);
+    }
   };
+
 
   // WhatsApp Baileys integration state
   const [waStatus, setWaStatus] = useState({ status: 'CONNECTING', connected: false });
@@ -734,32 +753,71 @@ export default function SettingsView() {
 
         {/* Card 3: Danger Zone / Reset Database */}
         <Card
-          title="Danger Zone: Database Reset"
-          subtitle="Reset all orders, stock deductions, and customer changes back to factory seed data"
+          title="Danger Zone & Production Data Management"
+          subtitle="Clean demo data for fresh production launch or reset database"
           className="border-rose-200 dark:border-rose-900/50"
         >
-          <div className="flex items-center justify-between">
-            <div>
-              <h5 className="text-xs font-bold text-rose-600 dark:text-rose-400">
-                Factory Demo Reset
-              </h5>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Clears all local storage modifications and restores the original comprehensive dataset.
-              </p>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
+              <div>
+                <h5 className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Permanently Wipe All Demo Data (Orders & Customers)
+                </h5>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Deletes all test orders, demo customer profiles, and test bookings from both cloud database and local cache.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="danger"
+                size="sm"
+                icon={Trash2}
+                onClick={() => setIsPurgeConfirmOpen(true)}
+              >
+                Purge All Demo Data
+              </Button>
             </div>
-            <Button
-              type="button"
-              variant="danger"
-              size="sm"
-              icon={RotateCcw}
-              onClick={() => setIsResetConfirmOpen(true)}
-            >
-              Reset All Demo Data
-            </Button>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <h5 className="text-xs font-bold text-gray-700 dark:text-gray-300">
+                  Factory Reset
+                </h5>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Restores original settings, menu items, and initial system templates.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                icon={RotateCcw}
+                onClick={() => setIsResetConfirmOpen(true)}
+              >
+                Reset To Template
+              </Button>
+            </div>
           </div>
         </Card>
 
       </form>
+
+      {/* ================= PURGE DEMO DATA CONFIRMATION DIALOG ================= */}
+      {isPurgeConfirmOpen && (
+        <ConfirmDialog
+          isOpen={true}
+          onClose={() => setIsPurgeConfirmOpen(false)}
+          title="Permanently Wipe All Demo Data"
+          message="Are you sure you want to permanently delete all demo/testing orders, dummy customers, and test bookings? This will wipe them from both the remote cloud database and local cache. Active menu items and cafe settings will be preserved."
+          confirmText="Yes, Wipe All Demo Data"
+          type="danger"
+          onConfirm={() => {
+            if (purgeAllDemoData) purgeAllDemoData();
+            setIsPurgeConfirmOpen(false);
+          }}
+        />
+      )}
 
       {/* ================= RESET CONFIRMATION DIALOG ================= */}
       {isResetConfirmOpen && (

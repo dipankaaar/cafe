@@ -319,8 +319,36 @@
   margin-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* ── Mobile Performance & Smooth Touch Optimizations ── */
+@media (max-width: 768px) {
+  /* Reduce heavy blur calculations on mobile GPUs to eliminate scroll lag */
+  .backdrop-blur-3xl,
+  .backdrop-blur-2xl,
+  .backdrop-blur-xl {
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+  }
+  
+  /* Disable resource-draining ambient blur circles on mobile */
+  .blur-3xl,
+  .blur-2xl {
+    display: none !important;
+  }
+
+  /* Hardware accelerate scrolling */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Optimize layout shifts and tap response */
+  button, a, input, select {
+    touch-action: manipulation;
+  }
+}
+
 /* Respect reduced motion for premium feel without vestibular strain */
-@media (prefers-reduced-motion: reduce) {  .animate-float,
+@media (prefers-reduced-motion: reduce) {
+  .animate-float,
   .animate-float-slow,
   .animate-pulse-subtle,
   .animate-fadeIn,

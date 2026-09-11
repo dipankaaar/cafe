@@ -597,6 +597,18 @@ export function CafeProvider({ children }) {
     addToastNotification('Order Refunded', `Order #${orderId} has been refunded.`, 'warning', '/orders');
   }, [addAuditLog, addToastNotification]);
 
+  const deleteOrder = useCallback((orderId) => {
+    setOrders((prev) => {
+      const next = prev.filter((o) => o.id !== orderId && o.orderNumber !== orderId);
+      dbService.set(DB_KEYS.ORDERS, next);
+      return next;
+    });
+    api.deleteOrder(orderId).catch(() => {});
+    addAuditLog('DELETE_ORDER', 'Orders', `Deleted order ID ${orderId}`);
+    addToastNotification('Order Deleted', `Order #${orderId} permanently deleted.`, 'info', '/orders');
+  }, [addAuditLog, addToastNotification]);
+
+
   // -------------------------------------------------------------
   // DELIVERY LEG (rider assignment + OTP handover)
   // -------------------------------------------------------------
@@ -1329,6 +1341,66 @@ export function CafeProvider({ children }) {
     addToastNotification('Settings Saved', 'Cafe configuration updated successfully.', 'success', '/settings');
   }, [addAuditLog, addToastNotification]);
 
+  const updateAdminCredentials = useCallback(async (credentials) => {
+    try {
+      await api.updateAdminCredentials(credentials);
+      // Sync local staff state
+      setStaff((prev) => {
+        const next = prev.map((s) => (s.role === 'Admin' ? { ...s, ...credentials } : s));
+        dbService.set(DB_KEYS.STAFF, next);
+        return next;
+      });
+      // Sync settings credentials cache
+      setSettings((prev) => {
+        const next = {
+          ...prev,
+          adminEmail: credentials.email,
+          adminPassword: credentials.password,
+          adminPin: credentials.pin
+        };
+        dbService.set(DB_KEYS.SETTINGS, next);
+        return next;
+      });
+      addAuditLog('UPDATE_CREDENTIALS', 'Security', `Updated Admin credentials for ${credentials.email}`);
+      addToastNotification('Credentials Saved', 'Admin master login credentials and PIN updated successfully.', 'success', '/settings');
+      return { success: true };
+    } catch (err) {
+      // Offline fallback: persist to local state & storage
+      setStaff((prev) => {
+        const next = prev.map((s) => (s.role === 'Admin' ? { ...s, ...credentials } : s));
+        dbService.set(DB_KEYS.STAFF, next);
+        return next;
+      });
+      setSettings((prev) => {
+        const next = {
+          ...prev,
+          adminEmail: credentials.email,
+          adminPassword: credentials.password,
+          adminPin: credentials.pin
+        };
+        dbService.set(DB_KEYS.SETTINGS, next);
+        return next;
+      });
+      addToastNotification('Credentials Saved (Local)', 'Admin login credentials updated in local storage.', 'success', '/settings');
+      return { success: true };
+    }
+  }, [addAuditLog, addToastNotification]);
+
+  const purgeAllDemoData = useCallback(async () => {
+    try {
+      await api.purgeDemoData().catch(() => {});
+    } catch (e) {}
+    // Clear local state
+    setOrders([]);
+    setCustomers([]);
+    setReservations([]);
+    dbService.set(DB_KEYS.ORDERS, []);
+    dbService.set(DB_KEYS.CUSTOMERS, []);
+    dbService.set(DB_KEYS.RESERVATIONS, []);
+    addAuditLog('PURGE_DEMO', 'System', 'Purged all demo orders, demo customers, and demo reservations');
+    addToastNotification('Demo Data Purged', 'All dummy orders and customer profiles have been wiped.', 'success', '/');
+  }, [addAuditLog, addToastNotification]);
+
   const resetAllDataToDefault = useCallback(() => {
     dbService.resetAllData();
     setSettings(initialCafeSettings);
@@ -1433,6 +1505,9 @@ export function CafeProvider({ children }) {
         markNotificationAsRead,
         markAllNotificationsAsRead,
         updateSettings,
+        updateAdminCredentials,
+        purgeAllDemoData,
+        deleteOrder,
         resetAllDataToDefault,
         addToastNotification,
         addAuditLog

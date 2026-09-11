@@ -96,6 +96,11 @@ export class CustomerModel {
     return true;
   }
 
+  static purgeDemo() {
+    const res = db.prepare(`DELETE FROM customers WHERE name IN ('Rahul Sharma', 'Ananya Iyer', 'Vikram Malhotra', 'Priya Nair', 'Sneha Roy', 'Amit Patel') OR id LIKE 'cust-178885%' OR id LIKE 'cust-demo%'`).run();
+    return res.changes;
+  }
+
   static updateLoyalty(id, deltaPoints, addedSpent = 0, incrementOrders = false) {
     const cust = this.findById(id);
     if (!cust) return null;

@@ -436,7 +436,7 @@ export default function POSView() {
       </div>
 
       {/* ================= RIGHT SIDE: ORDER CART, COUPON & BILLING ================= */}
-      <div className="lg:col-span-5 xl:col-span-4 bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-xl shadow-xs flex flex-col justify-between">
+      <div id="pos-cart-section" className="lg:col-span-5 xl:col-span-4 bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-xl shadow-xs flex flex-col justify-between scroll-mt-20">
         
         {/* Top Controls: Order Type & Customer */}
         <div className="p-4 border-b border-gray-100 dark:border-gray-800 space-y-3">
@@ -957,6 +957,29 @@ export default function POSView() {
           </div>
         </form>
       </Modal>
+
+      {/* Mobile Floating Cart Summary Button */}
+      {cart.length > 0 && (
+        <div className="lg:hidden fixed bottom-18 left-3 right-3 z-30 animate-slideUp">
+          <button
+            type="button"
+            onClick={() => {
+              const el = document.getElementById('pos-cart-section');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-[#DD5903] to-amber-600 text-white font-bold text-xs flex items-center justify-between shadow-2xl shadow-orange-950/60 cursor-pointer active:scale-98 transition-transform"
+          >
+            <div className="flex items-center gap-2">
+              <ShoppingBag className="w-4 h-4" />
+              <span>{cart.reduce((s, i) => s + i.quantity, 0)} Items in Cart</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="font-mono font-extrabold text-sm">₹{grandTotal.toFixed(2)}</span>
+              <ArrowRight className="w-4 h-4 ml-1" />
+            </div>
+          </button>
+        </div>
+      )}
 
     </div>
   );

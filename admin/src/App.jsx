@@ -6,6 +6,7 @@ import { CafeProvider } from './context/CafeContext';
 // Layout & UI Shell
 import Sidebar from './components/layout/Sidebar';
 import Topbar from './components/layout/Topbar';
+import MobileBottomNav from './components/layout/MobileBottomNav';
 import GlobalSearchModal from './components/common/GlobalSearchModal';
 import Button from './components/common/Button';
 import NewOrderAlertModal from './components/common/NewOrderAlertModal';
@@ -167,16 +168,16 @@ function AdminContent() {
         />
 
         {/* Dynamic View Body */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto animate-fadeIn">
+        <main className="flex-1 p-3 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto animate-fadeIn pb-24 lg:pb-8">
           {renderModuleView()}
         </main>
 
         {/* Admin Footer with Backend Connection Pulse */}
-        <footer className="px-6 py-4 border-t border-gray-200 dark:border-gray-800 text-center text-xs text-gray-400 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-[#121212]">
+        <footer className="px-6 py-4 border-t border-gray-200 dark:border-gray-800 text-center text-xs text-gray-400 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-[#121212] mb-16 lg:mb-0">
           <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${backendHealthy ? 'bg-emerald-500 shadow-[0_0_6px_#10b981]' : 'bg-rose-500 animate-pulse'}`} />
-            <span className="text-[11px] text-gray-500 dark:text-gray-400">
-              Backend API: {backendHealthy ? 'Connected (http://localhost:5000)' : 'Disconnected (Offline Mode)'}
+            <span className={`w-2.5 h-2.5 rounded-full ${backendHealthy ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-rose-500 animate-pulse'}`} />
+            <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+              {backendHealthy ? 'System Online • Live Cloud Sync' : 'Offline Mode (Local Cache)'}
             </span>
           </div>
 
@@ -192,6 +193,13 @@ function AdminContent() {
           </div>
         </footer>
       </div>
+
+      {/* Mobile Bottom Navigation for Fast 1-Thumb Admin Operation */}
+      <MobileBottomNav
+        currentModule={currentModule}
+        onSelectModule={setCurrentModule}
+        onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
+      />
 
       {/* Global Cmd/Ctrl+K Search Modal */}
       <GlobalSearchModal

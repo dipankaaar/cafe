@@ -15,8 +15,11 @@ router.post('/notifications', systemController.createNotification);
 router.patch('/notifications/:id/read', systemController.markNotificationRead);
 router.post('/notifications/read-all', systemController.markAllNotificationsRead);
 
-// Settings
+// Settings & Data Management
 router.get('/settings', systemController.getSettings);
 router.put('/settings', systemController.updateSettings);
+router.post('/purge-demo-data', systemController.purgeDemoData);
+router.delete('/purge-demo-data', systemController.purgeDemoData);
 
 export default router;
+

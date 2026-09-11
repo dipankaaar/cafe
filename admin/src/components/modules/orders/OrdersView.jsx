@@ -30,7 +30,8 @@ import {
   Receipt,
   Clock,
   ArrowRight,
-  Filter
+  Filter,
+  Trash2
 } from 'lucide-react';
 
 const STATUS_TABS = [
@@ -62,6 +63,7 @@ export default function OrdersView({ initialModule = 'orders', initialStatus = '
   const {
     orders = [],
     cancelOrder,
+    deleteOrder,
     updateOrderStatus,
     assignRider,
     verifyDeliveryOtp,
@@ -293,6 +295,19 @@ export default function OrdersView({ initialModule = 'orders', initialStatus = '
     }
     updateOrderStatus(order.id, action);
     setSelectedOrder(null);
+  };
+
+  const handleDeleteOrder = async (orderId) => {
+    if (window.confirm('Are you sure you want to permanently delete this order? This cannot be undone.')) {
+      try {
+        await deleteOrder(orderId);
+        if (selectedOrder?.id === orderId) {
+          setSelectedOrder(null);
+        }
+      } catch (err) {
+        alert(err.message || 'Failed to delete order');
+      }
+    }
   };
 
   const liveOrder = selectedOrder ? (orders.find((o) => o.id === selectedOrder.id) || selectedOrder) : null;
@@ -577,6 +592,13 @@ export default function OrdersView({ initialModule = 'orders', initialStatus = '
                             <XCircle className="w-4 h-4" />
                           </button>
                         )}
+                        <button
+                          onClick={() => handleDeleteOrder(order.id)}
+                          className="p-1.5 rounded-lg text-gray-500 hover:text-rose-600 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
+                          title="Permanently Delete Order"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </td>
                     </tr>
                   );
@@ -597,13 +619,22 @@ export default function OrdersView({ initialModule = 'orders', initialStatus = '
           size="lg"
           footer={
             <div className="flex flex-wrap items-center justify-between w-full gap-2">
-              <Button
-                variant="secondary"
-                icon={Printer}
-                onClick={() => handlePrint(liveOrder)}
-              >
-                Print Receipt
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  icon={Printer}
+                  onClick={() => handlePrint(liveOrder)}
+                >
+                  Print Receipt
+                </Button>
+                <Button
+                  variant="danger"
+                  icon={Trash2}
+                  onClick={() => handleDeleteOrder(liveOrder.id)}
+                >
+                  Delete
+                </Button>
+              </div>
               <div className="flex items-center gap-2">
                 {isDeliveryLive && ['placed', 'accepted', 'brewing', 'ready'].includes(normalizeOrderStatus(liveOrder.status)) && (
                   <Button

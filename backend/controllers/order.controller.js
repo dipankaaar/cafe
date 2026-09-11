@@ -1,4 +1,6 @@
 import { OrderModel } from '../models/Order.model.js';
+import { CustomerModel } from '../models/Customer.model.js';
+import { AuditLogModel } from '../models/System.model.js';
 import { OrderService } from '../services/order.service.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { ApiError } from '../utils/ApiError.js';
@@ -99,3 +101,31 @@ export const verifyDelivery = asyncHandler(async (req, res) => {
   const updated = OrderService.verifyDeliveryOtp(id, otp, req.ip || '127.0.0.1');
   return ApiResponse.success(res, updated, `Order ${updated.orderNumber} delivered`);
 });
+
+export const deleteOrder = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const deleted = OrderModel.delete(id);
+  if (!deleted) throw new ApiError(404, 'Order not found');
+  AuditLogModel.log({
+    user: 'Staff',
+    action: 'DELETE_ORDER',
+    category: 'Orders',
+    details: `Deleted order ${id}`,
+    ip: req.ip || '127.0.0.1'
+  });
+  return ApiResponse.success(res, { id, success: true }, 'Order deleted successfully');
+});
+
+export const purgeDemoOrders = asyncHandler(async (req, res) => {
+  const orderCount = OrderModel.purgeDemo();
+  const customerCount = CustomerModel.purgeDemo();
+  AuditLogModel.log({
+    user: 'Admin',
+    action: 'PURGE_DEMO_DATA',
+    category: 'System',
+    details: `Purged ${orderCount} legacy demo orders and ${customerCount} demo customer profiles`,
+    ip: req.ip || '127.0.0.1'
+  });
+  return ApiResponse.success(res, { purgedOrders: orderCount, purgedCustomers: customerCount, success: true }, `Purged ${orderCount} demo orders and ${customerCount} demo customers`);
+});
+

@@ -58,16 +58,23 @@ export function runDatabaseSeeds(force = false) {
       addStmt.run(a.id, a.name, a.category, sanitize(a.price, 0), a.isAvailable ? 1 : 0);
     });
 
-    // 4. Products (IGNORE: REPLACE would DELETE+INSERT and churn the FK graph;
-    // also preserves runtime price/availability edits)
+    // 4. Products (ON CONFLICT DO UPDATE ensures latest table/online prices & channel toggles are applied)
     const prodStmt = db.prepare(`
-      INSERT OR IGNORE INTO products (
+      INSERT INTO products (
         id, name, category_id, description, cost_price, selling_price,
         is_veg, prep_time, is_available, is_featured, image_url,
         variants_json, addons_json, ingredients_json,
         table_enabled, online_enabled, table_price, online_price
       )
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        name = excluded.name,
+        category_id = excluded.category_id,
+        table_enabled = COALESCE(products.table_enabled, excluded.table_enabled),
+        online_enabled = COALESCE(products.online_enabled, excluded.online_enabled),
+        table_price = COALESCE(products.table_price, excluded.table_price),
+        online_price = COALESCE(products.online_price, excluded.online_price),
+        selling_price = excluded.selling_price
     `);
     initialProducts.forEach((p) => {
       const basePrice = sanitize(p.sellingPrice ?? p.price, 0);
@@ -191,8 +198,16 @@ export function runDatabaseSeeds(force = false) {
       expStmt.run(e.id, e.title, e.category, sanitize(e.amount, 0), sanitize(e.paymentMethod, 'Cash'), e.date, sanitize(e.loggedBy, 'Admin'));
     });
 
-    // 12. Staff (IGNORE: preserves role/status edits incl. the admin user)
-    const stfStmt = db.prepare('INSERT OR IGNORE INTO staff (id, name, role, email, phone, shift, status, joining_date, avatar_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    // 12. Staff (ON CONFLICT DO UPDATE ensures admin and staff roles/emails match current brand)
+    const stfStmt = db.prepare(`
+      INSERT INTO staff (id, name, role, email, phone, shift, status, joining_date, avatar_url)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        name = excluded.name,
+        role = excluded.role,
+        email = excluded.email,
+        phone = excluded.phone
+    `);
     initialStaff.forEach((st) => {
       stfStmt.run(st.id, st.name, st.role, st.email, sanitize(st.phone, ''), sanitize(st.shift, 'Morning'), sanitize(st.status, 'Active'), sanitize(st.joiningDate, null), sanitize(st.avatar, ''));
     });

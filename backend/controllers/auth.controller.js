@@ -71,6 +71,46 @@ export const updateStaff = asyncHandler(async (req, res) => {
   return ApiResponse.success(res, updated, 'Staff updated successfully');
 });
 
+export const updateAdminCredentials = asyncHandler(async (req, res) => {
+  const { email, password, pin, name } = req.body || {};
+  if (!email) throw new ApiError(400, 'Admin email address is required');
+
+  const allStaff = StaffModel.findAll();
+  let admin = allStaff.find((s) => s.role === 'Admin');
+
+  let updated;
+  if (admin) {
+    updated = StaffModel.update(admin.id, {
+      name: name?.trim() || admin.name || 'Petuk Adda Admin',
+      email: email.trim(),
+      password: password !== undefined ? String(password).trim() : admin.password,
+      pin: pin !== undefined ? String(pin).trim() : admin.pin
+    });
+  } else {
+    updated = StaffModel.create({
+      id: 'staff-1',
+      name: name?.trim() || 'Petuk Adda Admin',
+      role: 'Admin',
+      email: email.trim(),
+      password: password ? String(password).trim() : 'admin',
+      pin: pin ? String(pin).trim() : '1234',
+      phone: '+91 9932148058',
+      shift: 'Morning'
+    });
+  }
+
+  AuditLogModel.log({
+    user: 'Admin',
+    action: 'UPDATE_ADMIN_CREDENTIALS',
+    category: 'Security',
+    details: `Updated master Admin login email to "${updated.email}" and refreshed security credentials`,
+    ip: req.ip || '127.0.0.1'
+  });
+
+  return ApiResponse.success(res, updated, 'Admin master credentials updated successfully');
+});
+
+
 export const deleteStaff = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const existing = StaffModel.findById(id);

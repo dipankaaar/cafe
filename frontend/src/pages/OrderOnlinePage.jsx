@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   ShoppingBag, 
   Search, 
@@ -25,15 +25,22 @@ import {
   Info,
   SlidersHorizontal,
   Flame,
-  Leaf
+  Leaf,
+  ChefHat,
+  PackageCheck,
+  Bike,
+  KeyRound,
+  Eye
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useCafe } from '../context/CafeContext';
 import BrandLogo from '../components/common/BrandLogo';
 import CustomerProfileModal from '../components/storefront/CustomerProfileModal';
+import TrackOrderModal from '../components/storefront/TrackOrderModal';
 import { api } from '../services/api';
 import { validateCouponLive } from '../services/couponValidator';
 import { formatINR, getProductImage, handleImageFallback, isValidIndianPhone, getProductOnlinePrice, isProductOnlineEnabled } from '../utils/formatters';
+import { normalizeOrderStatus, getStatusBadgeVariant } from '../utils/orderStatus';
 import ProductPriceRating from '../components/common/ProductPriceRating';
 
 export default function OrderOnlinePage({ onNavigate }) {
@@ -111,10 +118,35 @@ export default function OrderOnlinePage({ onNavigate }) {
   const [couponError, setCouponError] = useState('');
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
 
-  // Order Submission State
+  // Order Submission & Live Tracking State
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [placedOrder, setPlacedOrder] = useState(null);
   const [orderError, setOrderError] = useState('');
+  const [isTrackOrderOpen, setIsTrackOrderOpen] = useState(false);
+  const [trackOrderNumber, setTrackOrderNumber] = useState('');
+
+  // Live polling for placed order status
+  useEffect(() => {
+    if (!placedOrder?.orderNumber) return;
+    const num = placedOrder.orderNumber;
+    let isMounted = true;
+
+    const interval = setInterval(async () => {
+      try {
+        const fresh = await api.trackOrder(num);
+        if (fresh && isMounted) {
+          setPlacedOrder((prev) => ({ ...(prev || {}), ...fresh }));
+        }
+      } catch (e) {
+        // silent fallback
+      }
+    }, 3500);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [placedOrder?.orderNumber]);
 
   // Filter Products
   const filteredProducts = useMemo(() => {
@@ -382,101 +414,203 @@ export default function OrderOnlinePage({ onNavigate }) {
         </div>
       </header>
 
-      {/* Placed Order Success Modal */}
-      {placedOrder && (
-        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-[#181818] border border-white/15 rounded-3xl p-6 sm:p-8 max-w-lg w-full text-center space-y-6 shadow-2xl animate-scaleUp">
-            <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center mx-auto">
-              <CheckCircle2 className="w-8 h-8" />
-            </div>
+      {/* Placed Order Success & Live Tracking Modal */}
+      {placedOrder && (() => {
+        const normStatus = normalizeOrderStatus(placedOrder.status);
+        const isDelivery = String(placedOrder.orderType || '').toLowerCase() === 'delivery';
+        
+        const steps = isDelivery
+          ? [
+              { label: 'Order Placed', desc: 'Received at cafe counter', statusKey: 'placed', icon: CheckCircle2 },
+              { label: 'Kitchen Confirmed', desc: 'Order sent to chef', statusKey: 'accepted', icon: ChefHat },
+              { label: 'Cooking / Brewing', desc: 'In active kitchen prep', statusKey: 'brewing', icon: Flame },
+              { label: 'Packed & Ready', desc: 'Packed fresh for delivery', statusKey: 'ready', icon: PackageCheck },
+              { label: 'Out for Delivery', desc: placedOrder.riderName ? `Rider ${placedOrder.riderName} is on the way` : 'Rider dispatched to your address', statusKey: 'out_for_delivery', icon: Bike },
+              { label: 'Delivered', desc: 'Enjoy your meal! 🎉', statusKey: 'delivered', icon: Sparkles }
+            ]
+          : [
+              { label: 'Order Placed', desc: 'Received at cafe counter', statusKey: 'placed', icon: CheckCircle2 },
+              { label: 'Kitchen Confirmed', desc: 'Order sent to chef', statusKey: 'accepted', icon: ChefHat },
+              { label: 'Cooking / Brewing', desc: 'In active kitchen prep', statusKey: 'brewing', icon: Flame },
+              { label: 'Ready to Serve', desc: 'Ready at counter / table', statusKey: 'ready', icon: PackageCheck },
+              { label: 'Completed', desc: 'Order fulfilled! Enjoy 🎉', statusKey: 'completed', icon: Sparkles }
+            ];
 
-            <div>
-              <span className="text-xs uppercase tracking-widest text-[#DD5903] font-bold">Order Confirmed</span>
-              <h2 className="text-2xl sm:text-3xl font-bold font-['Arapey',serif] text-white mt-1">
-                Thank You, {placedOrder.customerName}!
-              </h2>
-              <p className="text-xs text-gray-400 mt-1">
-                Your order has been submitted to Petuk Adda Cafe kitchen.
-              </p>
-            </div>
+        const flowKeys = steps.map((s) => s.statusKey);
+        const getStepIndex = (status) => flowKeys.indexOf(normalizeOrderStatus(status));
+        const currentStep = getStepIndex(placedOrder.status);
 
-            {/* Order Card */}
-            <div className="bg-[#121212] border border-white/10 rounded-2xl p-4 text-left space-y-3">
-              <div className="flex items-center justify-between pb-3 border-b border-white/10">
-                <div>
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wider">Order Reference</p>
-                  <p className="text-base font-bold font-mono text-[#DD5903]">#{placedOrder.orderNumber}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wider">Grand Total</p>
-                  <p className="text-base font-bold text-white">{formatINR(placedOrder.grandTotal)}</p>
-                </div>
+        return (
+          <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-[#181818] border border-white/15 rounded-3xl p-6 sm:p-8 max-w-lg w-full text-center space-y-5 shadow-2xl animate-scaleUp my-8">
+              
+              <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center mx-auto">
+                <CheckCircle2 className="w-8 h-8" />
               </div>
 
-              {/* Status Stepper */}
-              <div className="py-2 space-y-2">
-                <div className="flex items-center justify-between text-xs text-emerald-400 font-bold">
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                    Kitchen Status: {placedOrder.status || 'Placed'}
+              <div>
+                <span className="text-xs uppercase tracking-widest text-[#DD5903] font-bold">Live Order Tracker</span>
+                <h2 className="text-2xl sm:text-3xl font-bold font-['Arapey',serif] text-white mt-1">
+                  Thank You, {placedOrder.customerName}!
+                </h2>
+                <p className="text-xs text-gray-400 mt-1">
+                  Your order is being tracked in real time with our kitchen.
+                </p>
+              </div>
+
+              {/* Order Reference Card */}
+              <div className="bg-[#121212] border border-white/10 rounded-2xl p-4 text-left space-y-3">
+                <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                  <div>
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wider">Order Reference</p>
+                    <p className="text-base font-bold font-mono text-[#DD5903]">#{placedOrder.orderNumber}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wider">Grand Total</p>
+                    <p className="text-base font-bold text-white">{formatINR(placedOrder.grandTotal)}</p>
+                  </div>
+                </div>
+
+                {/* Live Status Badge */}
+                <div className="flex items-center justify-between py-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                    <span className="text-xs font-bold text-emerald-400 capitalize">
+                      Live Status: {normStatus.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-gray-400 font-mono">
+                    Step {Math.min(steps.length, Math.max(1, currentStep + 1))} of {steps.length}
                   </span>
-                  <span>Est. 25-35 mins</span>
                 </div>
-                <div className="w-full bg-gray-800 rounded-full h-1.5 overflow-hidden">
-                  <div className="bg-[#DD5903] h-full rounded-full w-1/4 animate-pulse" />
-                </div>
-              </div>
 
-              <div className="text-xs text-gray-300 space-y-1 pt-1">
-                <p><strong>Mode:</strong> {placedOrder.orderType === 'delivery' ? 'Home Delivery (Bankura Town)' : 'Takeaway Pickup'}</p>
-                {placedOrder.deliveryAddress && (
-                  <p><strong>Address:</strong> {placedOrder.deliveryAddress}</p>
+                {/* Step-by-Step Live Preparation Flow */}
+                <div className="py-2">
+                  <div className="relative pl-7 space-y-4 border-l-2 border-dashed border-gray-700 ml-2">
+                    {steps.map((step, idx) => {
+                      const isDone = currentStep >= 0 && idx <= currentStep;
+                      const isCurrent = idx === currentStep;
+                      const StepIcon = step.icon || CheckCircle2;
+
+                      return (
+                        <div key={idx} className="relative">
+                          <div
+                            className={`absolute -left-[37px] top-0.5 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all shadow-sm ${
+                              isCurrent
+                                ? 'bg-gradient-to-tr from-[#DD5903] to-[#ff8c42] border-white text-white ring-4 ring-orange-500/30 scale-110'
+                                : isDone
+                                ? 'bg-emerald-500 border-emerald-400 text-white'
+                                : 'bg-[#222] border-gray-700 text-gray-500'
+                            }`}
+                          >
+                            {isDone && !isCurrent ? (
+                              <Check className="w-3.5 h-3.5" />
+                            ) : (
+                              <StepIcon className={`w-3.5 h-3.5 ${isCurrent ? 'animate-pulse' : ''}`} />
+                            )}
+                          </div>
+
+                          <div className="bg-white/[0.03] p-2 rounded-xl border border-white/5">
+                            <div className="flex items-center justify-between">
+                              <h6 className={`text-xs font-bold ${isCurrent ? 'text-[#DD5903]' : isDone ? 'text-white' : 'text-gray-500'}`}>
+                                {step.label}
+                              </h6>
+                              {isCurrent && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-orange-500/20 text-[#DD5903] font-bold animate-pulse">
+                                  Current
+                                </span>
+                              )}
+                              {isDone && !isCurrent && (
+                                <span className="text-[9px] text-emerald-400 font-bold">
+                                  Done ✓
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-gray-400 mt-0.5">{step.desc}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Delivery details / OTP if applicable */}
+                {isDelivery && placedOrder.deliveryOtp && (normStatus === 'out_for_delivery' || normStatus === 'delivered') && (
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-orange-500/10 border border-dashed border-[#DD5903]/40">
+                    <div className="flex items-center gap-2">
+                      <KeyRound className="w-4 h-4 text-[#DD5903]" />
+                      <span className="text-xs font-semibold text-gray-200">Delivery Handover OTP:</span>
+                    </div>
+                    <span className="font-mono font-bold text-base tracking-[0.25em] text-[#DD5903]">
+                      {placedOrder.deliveryOtp}
+                    </span>
+                  </div>
                 )}
-                <p><strong>Payment:</strong> {placedOrder.paymentMethod} (Confirmed)</p>
-              </div>
-            </div>
 
-            {/* Cafe Query & Help Support Card */}
-            <div className="bg-[#1e1e1e] border border-orange-500/25 rounded-2xl p-3.5 flex items-center justify-between gap-3 text-left shadow-lg">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#DD5903]/20 border border-[#DD5903]/40 text-[#DD5903] flex items-center justify-center flex-shrink-0">
-                  <Phone className="w-5 h-5" />
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">For Any Query & Help</p>
-                  <p className="text-xs font-bold text-white mt-0.5">
-                    Call: <a href="tel:+919932148058" className="text-[#DD5903] hover:underline font-mono">+91 9932148058</a>
-                    <span className="text-gray-500 mx-1.5">•</span>
-                    <a href="tel:+916292314286" className="text-gray-300 hover:underline font-mono">+91 6292314286</a>
-                  </p>
+                <div className="text-xs text-gray-300 space-y-1 pt-2 border-t border-white/10">
+                  <p><strong>Mode:</strong> {placedOrder.orderType === 'delivery' ? 'Home Delivery (Bankura Town)' : 'Takeaway Pickup'}</p>
+                  {placedOrder.deliveryAddress && (
+                    <p><strong>Address:</strong> {placedOrder.deliveryAddress}</p>
+                  )}
+                  <p><strong>Payment:</strong> {placedOrder.paymentMethod} ({placedOrder.paymentStatus || 'Confirmed'})</p>
                 </div>
               </div>
-              <a
-                href="tel:+919932148058"
-                className="px-3.5 py-2 rounded-xl bg-[#DD5903] hover:bg-[#c44e02] text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md flex-shrink-0 cursor-pointer"
-              >
-                <Phone className="w-3.5 h-3.5" />
-                <span>Call Now</span>
-              </a>
-            </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 pt-2">
-              <button
-                onClick={() => setPlacedOrder(null)}
-                className="dinenos-btn flex-1 !py-3 text-xs uppercase font-bold tracking-wider cursor-pointer"
-              >
-                Order More Items
-              </button>
-              <button
-                onClick={() => onNavigate('/')}
-                className="dinenos-btn-outline flex-1 !py-3 text-xs uppercase font-bold tracking-wider cursor-pointer"
-              >
-                Back to Homepage
-              </button>
+              {/* Full Tracker Button & Cafe Query Support */}
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTrackOrderNumber(placedOrder.orderNumber);
+                    setIsTrackOrderOpen(true);
+                  }}
+                  className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-bold text-xs shadow-lg shadow-orange-950/40 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                >
+                  <Eye className="w-4 h-4" />
+                  <span>Open Detailed Fullscreen Live Tracker</span>
+                </button>
+
+                <div className="bg-[#1e1e1e] border border-orange-500/25 rounded-2xl p-3 flex items-center justify-between gap-3 text-left shadow-lg">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-[#DD5903]/20 border border-[#DD5903]/40 text-[#DD5903] flex items-center justify-center flex-shrink-0">
+                      <Phone className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Cafe Support</p>
+                      <p className="text-xs font-bold text-white mt-0.5">
+                        <a href="tel:+919932148058" className="text-[#DD5903] hover:underline font-mono">+91 9932148058</a>
+                      </p>
+                    </div>
+                  </div>
+                  <a
+                    href="tel:+919932148058"
+                    className="px-3 py-1.5 rounded-xl bg-[#DD5903] hover:bg-[#c44e02] text-white text-xs font-bold transition-all flex items-center gap-1 shadow-md flex-shrink-0 cursor-pointer"
+                  >
+                    <Phone className="w-3.5 h-3.5" />
+                    <span>Call</span>
+                  </a>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 pt-1">
+                <button
+                  onClick={() => setPlacedOrder(null)}
+                  className="dinenos-btn flex-1 !py-3 text-xs uppercase font-bold tracking-wider cursor-pointer"
+                >
+                  Order More Dishes
+                </button>
+                <button
+                  onClick={() => onNavigate('/')}
+                  className="dinenos-btn-outline flex-1 !py-3 text-xs uppercase font-bold tracking-wider cursor-pointer"
+                >
+                  Back to Homepage
+                </button>
+              </div>
+
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Hero Restaurant Banner */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
@@ -1119,8 +1253,8 @@ export default function OrderOnlinePage({ onNavigate }) {
         onClose={() => setIsCustomerProfileOpen(false)}
         onOpenTrackOrder={(orderNum) => {
           setIsCustomerProfileOpen(false);
-          // Redirect to track modal or home track
-          if (onNavigate) onNavigate('/#track');
+          setTrackOrderNumber(orderNum || '');
+          setIsTrackOrderOpen(true);
         }}
         onReorder={(reorderItems) => {
           setIsCustomerProfileOpen(false);
@@ -1143,6 +1277,16 @@ export default function OrderOnlinePage({ onNavigate }) {
         }}
         onNavigateToMenu={() => {
           setIsCustomerProfileOpen(false);
+        }}
+      />
+
+      {/* Live Order Status Tracker Modal */}
+      <TrackOrderModal
+        isOpen={isTrackOrderOpen}
+        initialOrderNumber={trackOrderNumber}
+        onClose={() => {
+          setIsTrackOrderOpen(false);
+          setTrackOrderNumber('');
         }}
       />
 

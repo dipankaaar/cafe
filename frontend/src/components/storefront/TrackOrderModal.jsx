@@ -1,5 +1,23 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, CheckCircle2, X, AlertCircle, Loader2, Bike, MapPin, KeyRound, Phone } from 'lucide-react';
+import { 
+  Search, 
+  CheckCircle2, 
+  X, 
+  AlertCircle, 
+  Loader2, 
+  Bike, 
+  MapPin, 
+  KeyRound, 
+  Phone, 
+  ChefHat, 
+  Flame, 
+  Coffee, 
+  PackageCheck, 
+  ClipboardCheck, 
+  Clock, 
+  Sparkles,
+  UtensilsCrossed
+} from 'lucide-react';
 import { api } from '../../services/api';
 import Modal from '../common/Modal';
 import Badge from '../common/Badge';
@@ -7,10 +25,10 @@ import Button from '../common/Button';
 import { formatINR } from '../../utils/formatters';
 import { normalizeOrderStatus, getStatusBadgeVariant } from '../../utils/orderStatus';
 
-const POLL_INTERVAL_MS = 5000;
+const POLL_INTERVAL_MS = 4000;
 
-export default function TrackOrderModal({ isOpen, onClose }) {
-  const [orderQuery, setOrderQuery] = useState('');
+export default function TrackOrderModal({ isOpen, onClose, initialOrderNumber = '' }) {
+  const [orderQuery, setOrderQuery] = useState(initialOrderNumber || '');
   const [trackedOrder, setTrackedOrder] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -79,7 +97,7 @@ export default function TrackOrderModal({ isOpen, onClose }) {
       /* SSE unavailable — polling covers it */
     }
 
-    // Polling fallback every 5s; skipped once order is terminal
+    // Polling fallback every 4s; skipped once order is terminal
     pollTimer.current = setInterval(async () => {
       const current = trackedNumberRef.current;
       if (!current) return;
@@ -92,13 +110,20 @@ export default function TrackOrderModal({ isOpen, onClose }) {
     if (!sseRef.current) setLiveState('polling');
   }, [fetchOrder, stopLive]);
 
+  // Auto-track on open if initialOrderNumber is passed
   useEffect(() => {
-    if (!isOpen) {
+    if (isOpen) {
+      if (initialOrderNumber) {
+        setOrderQuery(initialOrderNumber);
+        fetchOrder(initialOrderNumber).then((data) => {
+          if (data) startLive(data.orderNumber || initialOrderNumber);
+        });
+      }
+    } else {
       stopLive();
-      return undefined;
     }
     return () => stopLive();
-  }, [isOpen, stopLive]);
+  }, [isOpen, initialOrderNumber, fetchOrder, startLive, stopLive]);
 
   useEffect(() => {
     if (trackedOrder && ['completed', 'delivered', 'cancelled', 'refunded'].includes(normalizeOrderStatus(trackedOrder.status))) {
@@ -123,22 +148,22 @@ export default function TrackOrderModal({ isOpen, onClose }) {
   const normStatus = trackedOrder ? normalizeOrderStatus(trackedOrder.status) : 'placed';
   const isDelivery = trackedOrder && String(trackedOrder.orderType || '').toLowerCase() === 'delivery';
 
-  // Canonical steps (fixes legacy-key mismatch) + delivery leg for delivery orders
+  // Canonical steps from Order Placed to Delivered / Completed with rich icons
   const steps = isDelivery
     ? [
-        { label: 'Order Placed', desc: 'Received at counter', statusKey: 'placed' },
-        { label: 'Kitchen Accepted', desc: 'Order sent to chef', statusKey: 'accepted' },
-        { label: 'Brewing / Cooking', desc: 'In active prep', statusKey: 'brewing' },
-        { label: 'Ready to Dispatch', desc: 'Packed for delivery', statusKey: 'ready' },
-        { label: 'Out for Delivery', desc: `${trackedOrder.riderName ? `Rider ${trackedOrder.riderName} is on the way` : 'Rider is on the way'}`, statusKey: 'out_for_delivery' },
-        { label: 'Delivered', desc: 'Enjoy your meal!', statusKey: 'delivered' }
+        { label: 'Order Placed', desc: 'Received at cafe counter', statusKey: 'placed', icon: ClipboardCheck },
+        { label: 'Kitchen Accepted', desc: 'Confirmed by kitchen chef', statusKey: 'accepted', icon: ChefHat },
+        { label: 'Brewing / Cooking', desc: 'Fresh food being prepared', statusKey: 'brewing', icon: Flame },
+        { label: 'Packed & Ready', desc: 'Hot & sealed for dispatch', statusKey: 'ready', icon: PackageCheck },
+        { label: 'Out for Delivery', desc: trackedOrder?.riderName ? `Rider ${trackedOrder.riderName} is on the way` : 'Rider dispatched to your address', statusKey: 'out_for_delivery', icon: Bike },
+        { label: 'Delivered', desc: 'Delivered! Enjoy your meal 🎉', statusKey: 'delivered', icon: CheckCircle2 }
       ]
     : [
-        { label: 'Order Placed', desc: 'Received at counter', statusKey: 'placed' },
-        { label: 'Kitchen Accepted', desc: 'Order sent to chef', statusKey: 'accepted' },
-        { label: 'Brewing / Cooking', desc: 'In active prep', statusKey: 'brewing' },
-        { label: 'Ready to Serve', desc: 'Ready for table/pickup', statusKey: 'ready' },
-        { label: 'Completed', desc: 'Order fulfilled', statusKey: 'completed' }
+        { label: 'Order Placed', desc: 'Received at cafe counter', statusKey: 'placed', icon: ClipboardCheck },
+        { label: 'Kitchen Accepted', desc: 'Confirmed by kitchen chef', statusKey: 'accepted', icon: ChefHat },
+        { label: 'Brewing / Cooking', desc: 'Fresh food being prepared', statusKey: 'brewing', icon: Flame },
+        { label: 'Ready to Serve', desc: 'Ready for table serving / pickup', statusKey: 'ready', icon: UtensilsCrossed },
+        { label: 'Completed', desc: 'Order fulfilled! Enjoy 🎉', statusKey: 'completed', icon: CheckCircle2 }
       ];
 
   const flowKeys = steps.map((s) => s.statusKey);
@@ -278,37 +303,57 @@ export default function TrackOrderModal({ isOpen, onClose }) {
               </div>
             ) : (
               <div className="py-2">
-                <h5 className="font-bold text-gray-900 dark:text-white uppercase tracking-wider text-[11px] mb-4">
-                  Preparation Progress
-                </h5>
-                <div className="relative pl-6 space-y-5 border-l-2 border-gray-200 dark:border-gray-800">
+                <div className="flex items-center justify-between mb-4">
+                  <h5 className="font-bold text-gray-900 dark:text-white uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-[#DD5903]" />
+                    <span>Live Kitchen & Delivery Tracking</span>
+                  </h5>
+                  <span className="text-[11px] text-gray-400 font-mono">
+                    Step {Math.min(steps.length, Math.max(1, currentStep + 1))} of {steps.length}
+                  </span>
+                </div>
+
+                <div className="relative pl-7 space-y-6 border-l-2 border-dashed border-gray-200 dark:border-gray-800 ml-3">
                   {steps.map((step, idx) => {
                     const isDone = currentStep >= 0 && idx <= currentStep;
                     const isCurrent = idx === currentStep;
+                    const StepIcon = step.icon || CheckCircle2;
 
                     return (
-                      <div key={idx} className="relative">
+                      <div key={idx} className="relative group">
                         <div
-                          className={`absolute -left-[31px] top-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                          className={`absolute -left-[43px] top-0 w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all shadow-md ${
                             isCurrent
-                              ? 'bg-[#DD5903] border-[#DD5903] text-white ring-4 ring-orange-500/20'
+                              ? 'bg-gradient-to-tr from-[#DD5903] to-[#ff8c42] border-white text-white ring-4 ring-orange-500/30 scale-110'
                               : isDone
-                              ? 'bg-emerald-500 border-emerald-500 text-white'
-                              : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-400'
+                              ? 'bg-emerald-500 border-emerald-400 text-white'
+                              : 'bg-white dark:bg-[#1f1f1f] border-gray-300 dark:border-gray-700 text-gray-400'
                           }`}
                         >
-                          {isDone ? (
-                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          {isDone && !isCurrent ? (
+                            <CheckCircle2 className="w-4 h-4" />
                           ) : (
-                            <span className="text-[10px] font-bold">{idx + 1}</span>
+                            <StepIcon className={`w-4 h-4 ${isCurrent ? 'animate-pulse' : ''}`} />
                           )}
                         </div>
 
-                        <div>
-                          <h6 className={`font-bold ${isCurrent ? 'text-[#DD5903]' : isDone ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}>
-                            {step.label}
-                          </h6>
-                          <p className="text-[11px] text-gray-500">{step.desc}</p>
+                        <div className="bg-gray-50/70 dark:bg-white/[0.03] p-2.5 rounded-xl border border-gray-100 dark:border-white/5 transition-all">
+                          <div className="flex items-center justify-between gap-2">
+                            <h6 className={`text-xs font-bold ${isCurrent ? 'text-[#DD5903]' : isDone ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}>
+                              {step.label}
+                            </h6>
+                            {isCurrent && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/20 text-[#DD5903] font-bold animate-pulse">
+                                In Progress
+                              </span>
+                            )}
+                            {isDone && !isCurrent && (
+                              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                                Done ✓
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{step.desc}</p>
                         </div>
                       </div>
                     );

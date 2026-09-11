@@ -237,6 +237,16 @@ export class OrderModel {
     return this._cols().has('payments_json');
   }
 
+  static delete(id) {
+    const res = db.prepare('DELETE FROM orders WHERE id = ? OR order_number = ?').run(id, id);
+    return res.changes > 0;
+  }
+
+  static purgeDemo() {
+    const res = db.prepare(`DELETE FROM orders WHERE customer_name IN ('Aarav Sharma', 'Priya Patel', 'Rahul Sharma', 'Ananya Iyer', 'Vikram Malhotra', 'Walk-in Guest') OR id LIKE 'ord-178885%' OR id LIKE 'ord-demo%'`).run();
+    return res.changes;
+  }
+
   static format(row) {
     const rawStatus = row.status;
     const normStatus = normalizeOrderStatus(rawStatus) || rawStatus;

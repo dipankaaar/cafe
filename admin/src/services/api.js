@@ -76,6 +76,14 @@ class ApiService {
     });
   }
 
+  updateAdminCredentials(credentials) {
+    return this.request('/auth/admin-credentials', {
+      method: 'POST',
+      body: JSON.stringify(credentials)
+    });
+  }
+
+
   // --- Menu ---
   getProducts(params = {}) {
     const query = new URLSearchParams(params).toString();
@@ -233,6 +241,19 @@ class ApiService {
   trackOrder(orderNumber) {
     return this.request(`/orders/track/${encodeURIComponent(orderNumber)}`);
   }
+
+  deleteOrder(id) {
+    return this.request(`/orders/${id}`, {
+      method: 'DELETE'
+    });
+  }
+
+  purgeDemoData() {
+    return this.request('/system/purge-demo-data', {
+      method: 'POST'
+    });
+  }
+
 
   // --- Tables & Reservations ---
   getTables(branchId = 'all') {
