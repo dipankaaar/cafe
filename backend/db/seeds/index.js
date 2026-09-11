@@ -242,33 +242,6 @@ export function runDatabaseSeeds(force = false) {
       );
     });
 
-    // 14b. Demo delivery trail (Riverside branch) — idempotent via OR IGNORE.
-    // Gives the Delivery board + branch filter real rows on first boot.
-    try {
-      const delStmt = db.prepare(`
-        INSERT OR IGNORE INTO orders (id, order_number, order_type, order_source, branch_id, customer_name, customer_phone, status, order_time, kitchen_accepted_at, kitchen_ready_at, completed_at, items_json, subtotal, discount_amount, tax_amount, service_charge, grand_total, payment_method, payment_status, notes, server_staff, delivery_address, delivery_landmark, delivery_instructions, rider_id, rider_name, rider_phone, delivery_otp, delivery_status, out_for_delivery_at, delivered_at)
-        VALUES (?, ?, 'delivery', 'ONLINE', 'br-riverside', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-      delStmt.run(
-        'ord-demo-del-1', 'DIN-9001', 'Meera Krishnan', '+91 98111 22233', 'delivered',
-        '2026-09-01T18:05:00Z', '2026-09-01T18:07:00Z', '2026-09-01T18:20:00Z', '2026-09-01T18:45:00Z',
-        JSON.stringify([{ productId: 'prod-1', name: 'Classic Latte', quantity: 2, unitPrice: 220, totalPrice: 440 }]),
-        440, 0, 22, 0, 462, 'UPI', 'Paid', 'Ring twice at the gate.', 'Delivery Desk',
-        '14 River View Apartments, 3rd Floor, Bankura', 'Near Kangsabati Bridge', 'Leave at door if no answer',
-        'rider-demo-1', 'Arjun Rider', '+91 90000 11111', '4821', 'delivered',
-        '2026-09-01T18:22:00Z', '2026-09-01T18:45:00Z'
-      );
-      delStmt.run(
-        'ord-demo-del-2', 'DIN-9002', 'Kabir Singh', '+91 98222 33344', 'out_for_delivery',
-        '2026-09-01T19:10:00Z', '2026-09-01T19:12:00Z', '2026-09-01T19:25:00Z', null,
-        JSON.stringify([{ productId: 'prod-9', name: 'Avocado Sourdough Toast', quantity: 1, unitPrice: 320, totalPrice: 320 }]),
-        320, 0, 16, 0, 336, 'Cash', 'Pending', 'COD — keep change for Rs 500.', 'Delivery Desk',
-        '7 Station Road, Bankura', 'Opposite bus depot', 'Call on arrival',
-        'rider-demo-1', 'Arjun Rider', '+91 90000 11111', '7395', 'out_for_delivery',
-        '2026-09-01T19:27:00Z', null
-      );
-    } catch (e) { console.warn('[DB] Demo delivery seed skipped:', e.message); }
-
     // 15. Audit Logs (IGNORE: append-only trail must survive restarts)
     const logStmt = db.prepare('INSERT OR IGNORE INTO audit_logs (id, timestamp, user_name, action, category, details, ip_address) VALUES (?, ?, ?, ?, ?, ?, ?)');
     initialAuditLogs.forEach((l) => {
